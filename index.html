@@ -2446,7 +2446,10 @@
       mobilePointerId: null,
       mobileTouchActive: false,
       bluetoothTimerListeners: null,
-      bluetoothTimerPollInterval: null
+      bluetoothTimerPollInterval: null,
+      bluetoothTimerLastSeenMs: 0,
+      bluetoothTimerLastNonZeroMs: 0,
+      bluetoothTimerStopArmed: false
     };
 
     const LAYOUT_MODE_KEY = "cubeyLayoutModeManual";
@@ -3891,10 +3894,46 @@
         clearInterval(state.bluetoothTimerPollInterval);
         state.bluetoothTimerPollInterval = null;
       }
+      state.bluetoothTimerLastSeenMs = 0;
+      state.bluetoothTimerLastNonZeroMs = 0;
+      state.bluetoothTimerStopArmed = false;
     }
 
-    function startBluetoothTimerPolling() {
+    function startBluetoothTimerPolling(timer = state.smartPuzzle) {
       stopBluetoothTimerPolling();
+      if (!timer?.getTime) return;
+      state.bluetoothTimerLastSeenMs = 0;
+      state.bluetoothTimerLastNonZeroMs = 0;
+      state.bluetoothTimerStopArmed = false;
+
+      state.bluetoothTimerPollInterval = setInterval(async () => {
+        const activeTimer = timer || state.smartPuzzle;
+        if (!activeTimer?.getTime) return;
+        try {
+          const ms = Number(await activeTimer.getTime());
+          if (!Number.isFinite(ms)) return;
+
+          state.bluetoothTimerLastSeenMs = ms;
+
+          if (ms > 0) {
+            state.bluetoothTimerLastNonZeroMs = ms;
+            state.bluetoothTimerStopArmed = true;
+            if (state.mode !== "running") {
+              startBluetoothTimerSolve(activeTimer, { currentTime: ms });
+            } else {
+              updateBluetoothTimerSolve({ currentTime: ms });
+            }
+            return;
+          }
+
+          if (ms === 0 && state.bluetoothTimerStopArmed && state.bluetoothTimerLastNonZeroMs > 0 && state.mode === "running") {
+            const finalMs = state.bluetoothTimerLastNonZeroMs;
+            state.bluetoothTimerStopArmed = false;
+            stopBluetoothTimerSolve({ currentTime: finalMs });
+          }
+        } catch (error) {
+        }
+      }, 60);
     }
 
     function startBluetoothTimerSolve(timer, detail) {
@@ -3932,7 +3971,6 @@
       const baseTimeMs = Math.round(Number(detail?.currentTime) || 0);
       if (!(baseTimeMs >= 0)) return;
 
-      stopBluetoothTimerPolling();
       cancelAnimationFrame(state.raf);
       state.raf = null;
 
@@ -3965,7 +4003,6 @@
 
     function resetBluetoothTimerSolve() {
       if (state.mode === "running") {
-        stopBluetoothTimerPolling();
         cancelAnimationFrame(state.raf);
         state.raf = null;
         state.mode = "idle";
@@ -4056,6 +4093,7 @@
           state.smartPuzzle = puzzle;
           attachSmartPuzzleDisconnectHandlers(puzzle);
           attachBluetoothTimerSolveHandlers(puzzle);
+          startBluetoothTimerPolling(puzzle);
           state.bluetoothStatus = `Connected to ${bluetoothDeviceName(puzzle)}`;
           renderTools();
         };
