@@ -2282,7 +2282,7 @@
 
   <script type="module">
     import { randomScrambleForEvent } from "https://cdn.cubing.net/v0/js/cubing/scramble";
-    import { connectSmartPuzzle } from "https://cdn.cubing.net/v0/js/cubing/bluetooth";
+    import { connectSmartTimer } from "https://cdn.cubing.net/v0/js/cubing/bluetooth";
 
     import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
@@ -3868,12 +3868,6 @@
       const raw = String(error?.message || error);
       if (/cancel/i.test(raw)) return "Connection cancelled";
       if (/not found/i.test(raw)) return "No supported Bluetooth timer found";
-      if (/optionalservices|origin is not allowed to access the service|gatt.*(permission|not available|not allowed)|permission.*gatt/i.test(raw)) {
-        return "Bluetooth permission error: Chrome was not granted the timer's GATT service. Forget the timer in Chrome/site permissions or OS Bluetooth, then reconnect from this page over HTTPS in Chrome or Edge.";
-      }
-      if (/secure context|https|security/i.test(raw)) {
-        return "Bluetooth needs a secure page. Open this timer over HTTPS (or localhost) in Chrome or Edge.";
-      }
       return raw;
     }
 
@@ -3908,24 +3902,13 @@
             return;
           }
 
-          if (!window.isSecureContext) {
-            state.bluetoothStatus = "Bluetooth needs HTTPS or localhost.";
-            renderTools();
-            return;
-          }
-          if (!navigator.bluetooth) {
-            state.bluetoothStatus = "Web Bluetooth is not available here. Use Chrome or Edge on a secure page.";
-            renderTools();
-            return;
-          }
-
           connectBtn.disabled = true;
           state.bluetoothStatus = "Connecting...";
           if (statusEl) statusEl.textContent = state.bluetoothStatus;
 
           let puzzle;
           try {
-            puzzle = await connectSmartPuzzle();
+            puzzle = await connectSmartTimer();
           } catch (error) {
             state.smartPuzzle = null;
             state.bluetoothStatus = bluetoothErrorMessage(error);
