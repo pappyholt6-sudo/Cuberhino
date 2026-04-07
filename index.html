@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cuberhino</title>
+  <title>CubeRhino</title>
   <style>
     :root{
       --bg:#0b0f14;
@@ -1742,7 +1742,7 @@
   <div class="topbar">
     <button class="sidebar-toggle" id="mobileSidebarToggle">☰</button>
     <button class="settings-btn" id="openSettings">⚙ Settings</button>
-    <div class="brand">Cuberhino</div>
+    <div class="brand">CubeRhino</div>
 
     <label class="layout-toggle" for="mobileModeToggle">
       <span>Mobile</span>
@@ -3868,6 +3868,12 @@
       const raw = String(error?.message || error);
       if (/cancel/i.test(raw)) return "Connection cancelled";
       if (/not found/i.test(raw)) return "No supported Bluetooth timer found";
+      if (/optionalservices|origin is not allowed to access the service|gatt.*(permission|not available|not allowed)|permission.*gatt/i.test(raw)) {
+        return "Bluetooth permission error: Chrome was not granted the timer's GATT service. Forget the timer in Chrome/site permissions or OS Bluetooth, then reconnect from this page over HTTPS in Chrome or Edge.";
+      }
+      if (/secure context|https|security/i.test(raw)) {
+        return "Bluetooth needs a secure page. Open this timer over HTTPS (or localhost) in Chrome or Edge.";
+      }
       return raw;
     }
 
@@ -3899,6 +3905,17 @@
             state.bluetoothStatus = "Disconnecting...";
             if (statusEl) statusEl.textContent = state.bluetoothStatus;
             await disconnectSmartPuzzleSafe();
+            return;
+          }
+
+          if (!window.isSecureContext) {
+            state.bluetoothStatus = "Bluetooth needs HTTPS or localhost.";
+            renderTools();
+            return;
+          }
+          if (!navigator.bluetooth) {
+            state.bluetoothStatus = "Web Bluetooth is not available here. Use Chrome or Edge on a secure page.";
+            renderTools();
             return;
           }
 
