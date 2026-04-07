@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cubechimp</title>
+  <title>Cuberhino</title>
   <style>
     :root{
       --bg:#0b0f14;
@@ -24,6 +24,39 @@
     }
 
     *{box-sizing:border-box}
+
+    html{
+      scrollbar-width:thin;
+      scrollbar-color: color-mix(in srgb, var(--accent) 78%, var(--panel)) transparent;
+    }
+
+    body, .solves, .tool-slots, .dist-list, .tool-mini-list, .mobile-times-list, .times-view, .times-list, dialog, .mobile-tools-sheet, .mobile-times-sheet, .history-view{
+      scrollbar-width:thin;
+      scrollbar-color: color-mix(in srgb, var(--accent) 78%, var(--panel)) transparent;
+    }
+
+    *::-webkit-scrollbar{
+      width:10px;
+      height:10px;
+    }
+
+    *::-webkit-scrollbar-track{
+      background:transparent;
+    }
+
+    *::-webkit-scrollbar-thumb{
+      background:color-mix(in srgb, var(--accent) 78%, var(--panel));
+      border-radius:999px;
+      border:2px solid var(--panel);
+    }
+
+    *::-webkit-scrollbar-thumb:hover{
+      background:var(--accent);
+    }
+
+    *::-webkit-scrollbar-corner{
+      background:transparent;
+    }
     html,body{margin:0;height:100%}
     body{
       font-family:var(--font-main);
@@ -557,6 +590,23 @@
     }
 
     .tool-card.dragging{ opacity:.45; }
+
+    .tool-drag-ghost{
+      position:fixed;
+      left:0;
+      top:0;
+      z-index:9999;
+      pointer-events:none;
+      margin:0;
+      opacity:.94;
+      transform:translate3d(0,0,0);
+      will-change:transform;
+    }
+
+    .tool-slot.drag-over{
+      border-color:color-mix(in srgb, var(--accent) 60%, var(--line));
+      background:color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,.01));
+    }
 
     .tool-header{
       display:flex;
@@ -1692,7 +1742,7 @@
   <div class="topbar">
     <button class="sidebar-toggle" id="mobileSidebarToggle">☰</button>
     <button class="settings-btn" id="openSettings">⚙ Settings</button>
-    <div class="brand">Cubechimp</div>
+    <div class="brand">Cuberhino</div>
 
     <label class="layout-toggle" for="mobileModeToggle">
       <span>Mobile</span>
@@ -2073,16 +2123,6 @@
           </div>
 
           <div class="row">
-            <label for="showQuickStatsTool">Show quick stats</label>
-            <input type="checkbox" id="showQuickStatsTool" />
-          </div>
-
-          <div class="row">
-            <label for="showStreaksTool">Show streaks</label>
-            <input type="checkbox" id="showStreaksTool" />
-          </div>
-
-          <div class="row">
             <label for="showRecentTool">Show recent solves</label>
             <input type="checkbox" id="showRecentTool" />
           </div>
@@ -2326,9 +2366,7 @@
         distribution: { enabled: false, slot: "slot2" },
         drawScramble: { enabled: false, slot: "slot3" },
         bluetooth: { enabled: false, slot: "slot4" },
-        quickStats: { enabled: false, slot: "slot5" },
-        streaks: { enabled: false, slot: "slot6" },
-        recent: { enabled: false, slot: "slot2" }
+        recent: { enabled: false, slot: "slot5" }
       },
       theme: {
         lightMode: false,
@@ -2367,9 +2405,9 @@
       for (const key of Object.keys(settings.tools)) {
         if (slotMap[settings.tools[key]?.slot]) settings.tools[key].slot = slotMap[settings.tools[key].slot];
       }
-      settings.tools.quickStats ||= { enabled: false, slot: "slot5" };
-      settings.tools.streaks ||= { enabled: false, slot: "slot6" };
-      settings.tools.recent ||= { enabled: false, slot: "slot2" };
+      delete settings.tools.quickStats;
+      delete settings.tools.streaks;
+      settings.tools.recent ||= { enabled: false, slot: "slot5" };
     }
 
     let firebaseApp = null;
@@ -2553,15 +2591,11 @@
     const showDistributionToolEl = document.getElementById("showDistributionTool");
     const showDrawScrambleToolEl = document.getElementById("showDrawScrambleTool");
     const showBluetoothToolToolsEl = document.getElementById("showBluetoothToolTools");
-    const showQuickStatsToolEl = document.getElementById("showQuickStatsTool");
-    const showStreaksToolEl = document.getElementById("showStreaksTool");
     const showRecentToolEl = document.getElementById("showRecentTool");
     const trendToolSlotEl = document.getElementById("trendToolSlot");
     const distributionToolSlotEl = document.getElementById("distributionToolSlot");
     const drawScrambleToolSlotEl = document.getElementById("drawScrambleToolSlot");
     const bluetoothToolSlotToolsEl = document.getElementById("bluetoothToolSlotTools");
-    const quickStatsToolSlotEl = document.getElementById("quickStatsToolSlot");
-    const streaksToolSlotEl = document.getElementById("streaksToolSlot");
     const recentToolSlotEl = document.getElementById("recentToolSlot");
 
     const lightModeEl = document.getElementById("lightMode");
@@ -2609,8 +2643,6 @@
             distribution: { ...base.settings.tools.distribution, ...(((parsed.settings && parsed.settings.tools) || {}).distribution || {}) },
             drawScramble: { ...base.settings.tools.drawScramble, ...(((parsed.settings && parsed.settings.tools) || {}).drawScramble || {}) },
             bluetooth: { ...base.settings.tools.bluetooth, ...(((parsed.settings && parsed.settings.tools) || {}).bluetooth || {}) },
-            quickStats: { ...base.settings.tools.quickStats, ...(((parsed.settings && parsed.settings.tools) || {}).quickStats || {}) },
-            streaks: { ...base.settings.tools.streaks, ...(((parsed.settings && parsed.settings.tools) || {}).streaks || {}) },
             recent: { ...base.settings.tools.recent, ...(((parsed.settings && parsed.settings.tools) || {}).recent || {}) }
           },
           theme: { ...base.settings.theme, ...((parsed.settings && parsed.settings.theme) || {}) },
@@ -2888,15 +2920,11 @@
       showDistributionToolEl.checked = settings.tools.distribution.enabled;
       showDrawScrambleToolEl.checked = settings.tools.drawScramble.enabled;
       showBluetoothToolToolsEl.checked = settings.tools.bluetooth.enabled;
-      showQuickStatsToolEl.checked = settings.tools.quickStats.enabled;
-      showStreaksToolEl.checked = settings.tools.streaks.enabled;
       showRecentToolEl.checked = settings.tools.recent.enabled;
       if (trendToolSlotEl) trendToolSlotEl.value = settings.tools.trend.slot;
       if (distributionToolSlotEl) distributionToolSlotEl.value = settings.tools.distribution.slot;
       if (drawScrambleToolSlotEl) drawScrambleToolSlotEl.value = settings.tools.drawScramble.slot;
       if (bluetoothToolSlotToolsEl) bluetoothToolSlotToolsEl.value = settings.tools.bluetooth.slot;
-      if (quickStatsToolSlotEl) quickStatsToolSlotEl.value = settings.tools.quickStats.slot;
-      if (streaksToolSlotEl) streaksToolSlotEl.value = settings.tools.streaks.slot;
       if (recentToolSlotEl) recentToolSlotEl.value = settings.tools.recent.slot;
 
       lightModeEl.checked = settings.theme.lightMode;
@@ -2958,15 +2986,11 @@
       settings.tools.distribution.enabled = showDistributionToolEl.checked;
       settings.tools.drawScramble.enabled = showDrawScrambleToolEl.checked;
       settings.tools.bluetooth.enabled = showBluetoothToolToolsEl.checked;
-      settings.tools.quickStats.enabled = showQuickStatsToolEl.checked;
-      settings.tools.streaks.enabled = showStreaksToolEl.checked;
       settings.tools.recent.enabled = showRecentToolEl.checked;
       if (trendToolSlotEl) settings.tools.trend.slot = trendToolSlotEl.value;
       if (distributionToolSlotEl) settings.tools.distribution.slot = distributionToolSlotEl.value;
       if (drawScrambleToolSlotEl) settings.tools.drawScramble.slot = drawScrambleToolSlotEl.value;
       if (bluetoothToolSlotToolsEl) settings.tools.bluetooth.slot = bluetoothToolSlotToolsEl.value;
-      if (quickStatsToolSlotEl) settings.tools.quickStats.slot = quickStatsToolSlotEl.value;
-      if (streaksToolSlotEl) settings.tools.streaks.slot = streaksToolSlotEl.value;
       if (recentToolSlotEl) settings.tools.recent.slot = recentToolSlotEl.value;
 
       settings.theme.lightMode = lightModeEl.checked;
@@ -3278,7 +3302,7 @@
         const clickable = Number.isFinite(n) && Number.isFinite(value);
         div.className = "stat" + (clickable ? " clickable" : "");
         div.innerHTML = `
-          <div class="stat-label">${label}${clickable ? ' • click' : ''}</div>
+          <div class="stat-label">${label}</div>
           <div class="stat-value">${averageDisplay(value)}</div>
         `;
         if (clickable) div.addEventListener("click", () => openAverageDetail(n, currentSolves().length - 1, "Current"));
@@ -3557,37 +3581,94 @@
 
           let activePointerId = null;
           let dragging = false;
+          let ghostEl = null;
+          let overSlotEl = null;
+          let lastX = 0;
+          let lastY = 0;
+          let offsetX = 0;
+          let offsetY = 0;
+          let rafId = 0;
+
+          const pickDropSlot = (x, y) => {
+            const hits = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)];
+            for (const el of hits) {
+              const slot = el?.closest?.(".tool-slot");
+              if (slot) return slot;
+            }
+            return null;
+          };
+
+          const setOverSlot = (slotEl) => {
+            if (overSlotEl === slotEl) return;
+            if (overSlotEl) overSlotEl.classList.remove("drag-over");
+            overSlotEl = slotEl;
+            if (overSlotEl) overSlotEl.classList.add("drag-over");
+          };
+
+          const updateGhost = () => {
+            rafId = 0;
+            if (!ghostEl) return;
+            ghostEl.style.transform = `translate3d(${lastX - offsetX}px, ${lastY - offsetY}px, 0)`;
+            setOverSlot(pickDropSlot(lastX, lastY));
+          };
+
+          const queueGhostUpdate = () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(updateGhost);
+          };
 
           const clearDragState = () => {
             dragging = false;
             activePointerId = null;
             card.classList.remove("dragging");
             state.dragToolId = null;
+            setOverSlot(null);
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = 0;
+            if (ghostEl) {
+              ghostEl.remove();
+              ghostEl = null;
+            }
           };
 
           header.onpointerdown = (e) => {
             if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+            const rect = card.getBoundingClientRect();
             activePointerId = e.pointerId;
             dragging = true;
             state.dragToolId = toolId;
             card.classList.add("dragging");
+            offsetX = rect.width / 2;
+            offsetY = Math.min(rect.height / 2, 36);
+            ghostEl = card.cloneNode(true);
+            ghostEl.classList.add("tool-drag-ghost");
+            ghostEl.classList.remove("dragging");
+            ghostEl.style.width = rect.width + "px";
+            ghostEl.style.height = rect.height + "px";
+            document.body.appendChild(ghostEl);
+            lastX = e.clientX;
+            lastY = e.clientY;
+            queueGhostUpdate();
             if (header.setPointerCapture) header.setPointerCapture(e.pointerId);
             e.preventDefault();
           };
 
           header.onpointermove = (e) => {
             if (!dragging || activePointerId !== e.pointerId) return;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            queueGhostUpdate();
             e.preventDefault();
           };
 
           header.onpointerup = (e) => {
             if (!dragging || activePointerId !== e.pointerId) return;
-            const hitEl = document.elementFromPoint(e.clientX, e.clientY);
-            const dropSlot = hitEl?.closest(".tool-slot");
+            const dropSlot = pickDropSlot(e.clientX, e.clientY);
             clearDragState();
             if (dropSlot?.dataset?.slot) {
               swapToolIntoSlot(toolId, dropSlot.dataset.slot);
             }
+            e.preventDefault();
           };
 
           header.onpointercancel = clearDragState;
@@ -3618,8 +3699,6 @@
         ["distribution", settings.tools.distribution],
         ["drawScramble", settings.tools.drawScramble],
         ["bluetooth", settings.tools.bluetooth],
-        ["quickStats", settings.tools.quickStats],
-        ["streaks", settings.tools.streaks],
         ["recent", settings.tools.recent]
       ]
         .filter(([, cfg]) => cfg && cfg.enabled)
@@ -3644,8 +3723,6 @@
         distribution: "Time Distribution",
         drawScramble: "Draw Scramble",
         bluetooth: "Bluetooth Timer",
-        quickStats: "Quick Stats",
-        streaks: "Streaks",
         recent: "Recent Solves"
       };
 
