@@ -3893,17 +3893,8 @@
       }
     }
 
-    function startBluetoothTimerPolling(timer) {
+    function startBluetoothTimerPolling() {
       stopBluetoothTimerPolling();
-      if (!timer?.getTime) return;
-      state.bluetoothTimerPollInterval = setInterval(async () => {
-        if (state.mode !== "running") return;
-        try {
-          const currentTime = Number(await timer.getTime());
-          if (!Number.isFinite(currentTime)) return;
-          setTimerDisplay(formatRunningMs(currentTime), "running");
-        } catch {}
-      }, 30);
     }
 
     function startBluetoothTimerSolve(timer, detail) {
@@ -3914,7 +3905,9 @@
       state.armReady = false;
       state.armTimeout = null;
       state.inspectionStart = null;
-      state.runStart = performance.now();
+      const startingTime = Number(detail?.currentTime);
+      const safeStartingTime = Number.isFinite(startingTime) ? startingTime : 0;
+      state.runStart = performance.now() - safeStartingTime;
       state.pendingPenalty = "OK";
       state.armingFromPostsolve = false;
       state.lastSolveDisplay = "";
@@ -3922,8 +3915,8 @@
       state.alert12Played = false;
       phaseEl.textContent = "Solving";
       if (settings.hideDuringSolve) mainAreaEl.classList.add("hide-while-timing");
-      const startingTime = Number(detail?.currentTime);
-      setTimerDisplay(formatRunningMs(Number.isFinite(startingTime) ? startingTime : 0), "running");
+      setTimerDisplay(formatRunningMs(safeStartingTime), "running");
+      tickRunning(performance.now());
       startBluetoothTimerPolling(timer || state.smartPuzzle);
       syncWakeLock();
     }
