@@ -4112,6 +4112,16 @@
         update: (event) => updateBluetoothTimerSolve(event?.detail),
         stop: (event) => stopBluetoothTimerSolve(event?.detail),
         reset: () => resetBluetoothTimerSolve(),
+        "hands-on": () => {
+          if (state.mode === "running") return;
+          phaseEl.textContent = "Ready";
+          setTimerDisplay(timerEl.textContent, "armed");
+        },
+        ready: () => {
+          if (state.mode === "running") return;
+          phaseEl.textContent = "Ready";
+          setTimerDisplay(timerEl.textContent === "0.000" ? "0.00" : timerEl.textContent, "ready");
+        },
       };
       for (const [eventName, handler] of Object.entries(handlers)) {
         try { timer.addEventListener(eventName, handler); } catch {}
