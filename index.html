@@ -2282,7 +2282,7 @@
 
   <script type="module">
     import { randomScrambleForEvent } from "https://cdn.cubing.net/v0/js/cubing/scramble";
-    import { connectSmartTimer } from "https://cdn.cubing.net/v0/js/cubing/bluetooth";
+
 
     import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
@@ -3956,7 +3956,6 @@
       if (settings.hideDuringSolve) mainAreaEl.classList.add("hide-while-timing");
       setTimerDisplay(formatRunningMs(safeStartingTime), "running");
       tickRunning(performance.now());
-      startBluetoothTimerPolling(timer || state.smartPuzzle);
       syncWakeLock();
     }
 
@@ -4021,6 +4020,90 @@
       }
     }
 
+    const GAN_TIMER_SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb";
+    const GAN_TIMER_STORED_TIME_UUID = "0000fff2-0000-1000-8000-00805f9b34fb";
+    const GAN_TIMER_STATE_UUID = "0000fff5-0000-1000-8000-00805f9b34fb";
+
+    function decodeGanTimestamp(bytes, offset = 0) {
+      const minutes = bytes[offset] ?? 0;
+      const seconds = bytes[offset + 1] ?? 0;
+      const millisLo = bytes[offset + 2] ?? 0;
+      const millisHi = bytes[offset + 3] ?? 0;
+      return ((minutes * 60 + seconds) * 1000) + millisLo + (millisHi * 256);
+    }
+
+    function bluetoothSupported() {
+      return typeof navigator !== "undefined" && !!navigator.bluetooth;
+    }
+
+    async function connectGanHaloTimerDirect() {
+      if (!window.isSecureContext) throw new Error("Bluetooth requires HTTPS or localhost.");
+      if (!bluetoothSupported()) throw new Error("Web Bluetooth is not available in this browser.");
+
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: "GAN" }],
+        optionalServices: [GAN_TIMER_SERVICE_UUID]
+      });
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(GAN_TIMER_SERVICE_UUID);
+      const storedTimeChar = await service.getCharacteristic(GAN_TIMER_STORED_TIME_UUID);
+      const stateChar = await service.getCharacteristic(GAN_TIMER_STATE_UUID);
+
+      const timer = new EventTarget();
+      timer.device = device;
+      timer.server = server;
+      timer.service = service;
+      timer.storedTimeCharacteristic = storedTimeChar;
+      timer.stateCharacteristic = stateChar;
+      timer.bluetoothDevice = device;
+      timer.name = device.name || "GAN Timer";
+      timer.getTime = async () => {
+        const value = await storedTimeChar.readValue();
+        return decodeGanTimestamp(new Uint8Array(value.buffer), 0);
+      };
+      timer.disconnect = async () => {
+        try { stateChar.stopNotifications?.(); } catch {}
+        try { server.disconnect(); } catch {}
+      };
+
+      const handleStateNotification = (event) => {
+        const value = event?.target?.value;
+        if (!value) return;
+        const bytes = new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+        if (bytes.length < 4 || bytes[0] !== 0xFE || bytes[2] !== 0x01) return;
+        const stateCode = bytes[3];
+        if (stateCode === 0x03) {
+          timer.dispatchEvent(new CustomEvent("start", { detail: { currentTime: 0 } }));
+          return;
+        }
+        if (stateCode === 0x04) {
+          const recordedTime = bytes.length >= 8 ? decodeGanTimestamp(bytes, 4) : 0;
+          timer.dispatchEvent(new CustomEvent("stop", { detail: { currentTime: recordedTime } }));
+          return;
+        }
+        if (stateCode === 0x05) {
+          const idleTime = bytes.length >= 8 ? decodeGanTimestamp(bytes, 4) : 0;
+          if (idleTime === 0) timer.dispatchEvent(new CustomEvent("reset"));
+          return;
+        }
+        if (stateCode === 0x06) {
+          timer.dispatchEvent(new CustomEvent("hands-on"));
+          return;
+        }
+        if (stateCode === 0x01) {
+          timer.dispatchEvent(new CustomEvent("ready"));
+        }
+      };
+
+      timer._ganStateNotificationHandler = handleStateNotification;
+      await stateChar.startNotifications();
+      stateChar.addEventListener("characteristicvaluechanged", handleStateNotification);
+      device.addEventListener("gattserverdisconnected", () => {
+        timer.dispatchEvent(new CustomEvent("disconnect"));
+      });
+      return timer;
+    }
+
     function attachBluetoothTimerSolveHandlers(timer) {
       if (!timer?.addEventListener) return;
       detachBluetoothTimerListeners();
@@ -4042,6 +4125,8 @@
       detachBluetoothTimerListeners();
       stopBluetoothTimerPolling();
 
+      try { puzzle?.stateCharacteristic?.removeEventListener?.("characteristicvaluechanged", puzzle?._ganStateNotificationHandler); } catch {}
+      try { puzzle?.stateCharacteristic?.stopNotifications?.(); } catch {}
       try { await puzzle?.disconnect?.(); } catch {}
       try { puzzle?.close?.(); } catch {}
       try { puzzle?.device?.gatt?.disconnect?.(); } catch {}
@@ -4075,7 +4160,7 @@
 
           let puzzle;
           try {
-            puzzle = await connectSmartTimer();
+            puzzle = await connectGanHaloTimerDirect();
           } catch (error) {
             state.smartPuzzle = null;
             state.bluetoothStatus = bluetoothErrorMessage(error);
@@ -4093,7 +4178,6 @@
           state.smartPuzzle = puzzle;
           attachSmartPuzzleDisconnectHandlers(puzzle);
           attachBluetoothTimerSolveHandlers(puzzle);
-          startBluetoothTimerPolling(puzzle);
           state.bluetoothStatus = `Connected to ${bluetoothDeviceName(puzzle)}`;
           renderTools();
         };
