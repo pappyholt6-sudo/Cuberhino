@@ -2445,7 +2445,8 @@
       armingFromPostsolve: false,
       mobilePointerId: null,
       mobileTouchActive: false,
-      bluetoothTimerListeners: null
+      bluetoothTimerListeners: null,
+      bluetoothTimerPollInterval: null
     };
 
     const LAYOUT_MODE_KEY = "cubeyLayoutModeManual";
@@ -3885,7 +3886,27 @@
       state.bluetoothTimerListeners = null;
     }
 
-    function startBluetoothTimerSolve() {
+    function stopBluetoothTimerPolling() {
+      if (state.bluetoothTimerPollInterval != null) {
+        clearInterval(state.bluetoothTimerPollInterval);
+        state.bluetoothTimerPollInterval = null;
+      }
+    }
+
+    function startBluetoothTimerPolling(timer) {
+      stopBluetoothTimerPolling();
+      if (!timer?.getTime) return;
+      state.bluetoothTimerPollInterval = setInterval(async () => {
+        if (state.mode !== "running") return;
+        try {
+          const currentTime = Number(await timer.getTime());
+          if (!Number.isFinite(currentTime)) return;
+          setTimerDisplay(formatRunningMs(currentTime), "running");
+        } catch {}
+      }, 30);
+    }
+
+    function startBluetoothTimerSolve(timer, detail) {
       cancelAnimationFrame(state.raf);
       clearTimeout(state.postSolveTimeout);
       state.postSolveTimeout = null;
@@ -3901,7 +3922,9 @@
       state.alert12Played = false;
       phaseEl.textContent = "Solving";
       if (settings.hideDuringSolve) mainAreaEl.classList.add("hide-while-timing");
-      setTimerDisplay("0.00", "running");
+      const startingTime = Number(detail?.currentTime);
+      setTimerDisplay(formatRunningMs(Number.isFinite(startingTime) ? startingTime : 0), "running");
+      startBluetoothTimerPolling(timer || state.smartPuzzle);
       syncWakeLock();
     }
 
@@ -3916,6 +3939,7 @@
       const baseTimeMs = Math.round(Number(detail?.currentTime) || 0);
       if (!(baseTimeMs >= 0)) return;
 
+      stopBluetoothTimerPolling();
       cancelAnimationFrame(state.raf);
       state.raf = null;
 
@@ -3948,6 +3972,7 @@
 
     function resetBluetoothTimerSolve() {
       if (state.mode === "running") {
+        stopBluetoothTimerPolling();
         cancelAnimationFrame(state.raf);
         state.raf = null;
         state.mode = "idle";
@@ -3970,7 +3995,7 @@
       if (!timer?.addEventListener) return;
       detachBluetoothTimerListeners();
       const handlers = {
-        start: () => startBluetoothTimerSolve(),
+        start: (event) => startBluetoothTimerSolve(timer, event?.detail),
         update: (event) => updateBluetoothTimerSolve(event?.detail),
         stop: (event) => stopBluetoothTimerSolve(event?.detail),
         reset: () => resetBluetoothTimerSolve(),
@@ -3985,6 +4010,7 @@
       const puzzle = state.smartPuzzle;
       state.smartPuzzle = null;
       detachBluetoothTimerListeners();
+      stopBluetoothTimerPolling();
 
       try { await puzzle?.disconnect?.(); } catch {}
       try { puzzle?.close?.(); } catch {}
