@@ -2444,7 +2444,8 @@
       lastSolveDisplay: "",
       armingFromPostsolve: false,
       mobilePointerId: null,
-      mobileTouchActive: false
+      mobileTouchActive: false,
+      bluetoothTimerListeners: null
     };
 
     const LAYOUT_MODE_KEY = "cubeyLayoutModeManual";
@@ -3871,9 +3872,119 @@
       return raw;
     }
 
+
+    function detachBluetoothTimerListeners() {
+      const binding = state.bluetoothTimerListeners;
+      if (!binding?.target || !binding?.handlers) {
+        state.bluetoothTimerListeners = null;
+        return;
+      }
+      for (const [eventName, handler] of Object.entries(binding.handlers)) {
+        try { binding.target.removeEventListener?.(eventName, handler); } catch {}
+      }
+      state.bluetoothTimerListeners = null;
+    }
+
+    function startBluetoothTimerSolve() {
+      cancelAnimationFrame(state.raf);
+      clearTimeout(state.postSolveTimeout);
+      state.postSolveTimeout = null;
+      state.mode = "running";
+      state.armReady = false;
+      state.armTimeout = null;
+      state.inspectionStart = null;
+      state.runStart = performance.now();
+      state.pendingPenalty = "OK";
+      state.armingFromPostsolve = false;
+      state.lastSolveDisplay = "";
+      state.alert8Played = false;
+      state.alert12Played = false;
+      phaseEl.textContent = "Solving";
+      if (settings.hideDuringSolve) mainAreaEl.classList.add("hide-while-timing");
+      setTimerDisplay("0.00", "running");
+      syncWakeLock();
+    }
+
+    function updateBluetoothTimerSolve(detail) {
+      if (state.mode !== "running") return;
+      const currentTime = Number(detail?.currentTime);
+      if (!Number.isFinite(currentTime)) return;
+      setTimerDisplay(formatRunningMs(currentTime), "running");
+    }
+
+    function stopBluetoothTimerSolve(detail) {
+      const baseTimeMs = Math.round(Number(detail?.currentTime) || 0);
+      if (!(baseTimeMs >= 0)) return;
+
+      cancelAnimationFrame(state.raf);
+      state.raf = null;
+
+      recordSolve({
+        baseTimeMs,
+        penalty: "OK",
+        inspectionUsed: false,
+        inspectionMs: 0
+      });
+
+      const heldDisplay = solveDisplay({ baseTimeMs, penalty: "OK" });
+      state.mode = "postsolve";
+      state.lastSolveDisplay = heldDisplay;
+      state.armReady = false;
+      state.armTimeout = null;
+      state.inspectionStart = null;
+      state.runStart = null;
+      state.pendingPenalty = "OK";
+      state.armingFromPostsolve = false;
+      state.alert8Played = false;
+      state.alert12Played = false;
+      phaseEl.textContent = "";
+      setTimerDisplay(heldDisplay, "ready");
+      mainAreaEl.classList.remove("hide-while-timing");
+      syncWakeLock();
+      clearTimeout(state.postSolveTimeout);
+      state.postSolveTimeout = null;
+      generateScramble();
+    }
+
+    function resetBluetoothTimerSolve() {
+      if (state.mode === "running") {
+        cancelAnimationFrame(state.raf);
+        state.raf = null;
+        state.mode = "idle";
+        state.armReady = false;
+        state.armTimeout = null;
+        state.inspectionStart = null;
+        state.runStart = null;
+        state.pendingPenalty = "OK";
+        state.armingFromPostsolve = false;
+        state.alert8Played = false;
+        state.alert12Played = false;
+        phaseEl.textContent = "Ready";
+        setTimerDisplay("0.00", "ready");
+        mainAreaEl.classList.remove("hide-while-timing");
+        syncWakeLock();
+      }
+    }
+
+    function attachBluetoothTimerSolveHandlers(timer) {
+      if (!timer?.addEventListener) return;
+      detachBluetoothTimerListeners();
+      const handlers = {
+        start: () => startBluetoothTimerSolve(),
+        update: (event) => updateBluetoothTimerSolve(event?.detail),
+        stop: (event) => stopBluetoothTimerSolve(event?.detail),
+        reset: () => resetBluetoothTimerSolve(),
+      };
+      for (const [eventName, handler] of Object.entries(handlers)) {
+        try { timer.addEventListener(eventName, handler); } catch {}
+      }
+      state.bluetoothTimerListeners = { target: timer, handlers };
+    }
+
     async function disconnectSmartPuzzleSafe() {
       const puzzle = state.smartPuzzle;
       state.smartPuzzle = null;
+      detachBluetoothTimerListeners();
 
       try { await puzzle?.disconnect?.(); } catch {}
       try { puzzle?.close?.(); } catch {}
@@ -3925,6 +4036,7 @@
 
           state.smartPuzzle = puzzle;
           attachSmartPuzzleDisconnectHandlers(puzzle);
+          attachBluetoothTimerSolveHandlers(puzzle);
           state.bluetoothStatus = `Connected to ${bluetoothDeviceName(puzzle)}`;
           renderTools();
         };
