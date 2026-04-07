@@ -3460,17 +3460,13 @@
       });
 
       const poly = points.map(p => p.join(",")).join(" ");
-      const circles = points.map(([x, y]) =>
-        `<circle cx="${x}" cy="${y}" r="2.2" fill="var(--accent)"></circle>`
-      ).join("");
 
       return `
         <svg class="trend" viewBox="0 0 300 100" preserveAspectRatio="none">
           <rect x="0" y="0" width="300" height="100" fill="transparent"></rect>
-          <line x1="10" y1="90" x2="290" y2="90" stroke="var(--line)" stroke-width="1"></line>
-          <line x1="10" y1="10" x2="10" y2="90" stroke="var(--line)" stroke-width="1"></line>
-          <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${poly}"></polyline>
-          ${circles}
+          <line x1="10" y1="90" x2="290" y2="90" stroke="var(--line)" stroke-width="1.25" stroke-linecap="round"></line>
+          <line x1="10" y1="10" x2="10" y2="90" stroke="var(--line)" stroke-width="1.25" stroke-linecap="round"></line>
+          <polyline fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${poly}"></polyline>
         </svg>
       `;
     }
@@ -4092,6 +4088,10 @@
         }
         if (stateCode === 0x01) {
           timer.dispatchEvent(new CustomEvent("ready"));
+          return;
+        }
+        if (stateCode === 0x02) {
+          timer.dispatchEvent(new CustomEvent("hands-off"));
         }
       };
 
@@ -4114,10 +4114,15 @@
         reset: () => resetBluetoothTimerSolve(),
         "hands-on": () => {
           if (state.mode === "running") return;
-          phaseEl.textContent = "Ready";
-          setTimerDisplay(timerEl.textContent, "armed");
+          phaseEl.textContent = "Hold...";
+          setTimerDisplay(timerEl.textContent === "0.000" ? "0.00" : timerEl.textContent, "armed");
         },
         ready: () => {
+          if (state.mode === "running") return;
+          phaseEl.textContent = "Ready";
+          setTimerDisplay(timerEl.textContent === "0.000" ? "0.00" : timerEl.textContent, "armed");
+        },
+        "hands-off": () => {
           if (state.mode === "running") return;
           phaseEl.textContent = "Ready";
           setTimerDisplay(timerEl.textContent === "0.000" ? "0.00" : timerEl.textContent, "ready");
