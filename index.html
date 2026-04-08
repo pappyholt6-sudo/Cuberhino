@@ -1735,6 +1735,161 @@
       }
     }
 
+
+    .mobile-sidebar-nav-grid-wide{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .social-view{
+      display:none;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:8px 2px 10px;
+    }
+
+    .social-view.active{ display:block; }
+
+    .social-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:16px;
+      margin-bottom:16px;
+    }
+
+    .social-grid-single{
+      grid-template-columns:1fr;
+    }
+
+    .social-card{
+      border:1px solid var(--line);
+      background:var(--panel);
+      border-radius:20px;
+      padding:16px;
+      box-shadow:0 12px 28px rgba(0,0,0,.14);
+    }
+
+    .social-form{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .social-form-inline{
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+    }
+
+    .social-form textarea{
+      min-height:96px;
+      resize:vertical;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:var(--panel-2);
+      color:var(--text);
+      font:inherit;
+    }
+
+    .social-note{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      border:1px solid rgba(255,255,255,.05);
+      border-radius:14px;
+      background:rgba(255,255,255,.025);
+      padding:12px 14px;
+      margin-top:12px;
+    }
+
+    .club-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .club-item,
+    .invite-item,
+    .member-item,
+    .post-item,
+    .solve-feed-item{
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      background:rgba(255,255,255,.03);
+      padding:12px 14px;
+    }
+
+    .club-item{
+      cursor:pointer;
+      transition:transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+
+    .club-item:hover{
+      transform:translateY(-1px);
+      border-color:color-mix(in srgb, var(--accent) 58%, var(--line));
+      background:rgba(255,255,255,.045);
+    }
+
+    .club-item.active{
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent) inset;
+    }
+
+    .club-item-title,
+    .member-name,
+    .post-author,
+    .solve-feed-name{
+      font-weight:700;
+      margin-bottom:4px;
+    }
+
+    .club-item-meta,
+    .member-meta,
+    .post-meta,
+    .solve-feed-meta,
+    .invite-meta{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    .club-detail-grid{
+      display:grid;
+      grid-template-columns:280px minmax(0,1fr);
+      gap:16px;
+    }
+
+    .club-side-stack,
+    .club-main-stack{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .post-compose{
+      display:grid;
+      gap:10px;
+    }
+
+    .post-compose textarea{
+      min-height:88px;
+      resize:vertical;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:var(--panel-2);
+      color:var(--text);
+      font:inherit;
+    }
+
+    @media (max-width: 1100px){
+      .social-grid,
+      .club-detail-grid,
+      .social-form-inline{
+        grid-template-columns:1fr;
+      }
+    }
+
   </style>
   <script type="module" src="https://cdn.cubing.net/v0/js/cubing/twisty"></script>
 </head>
@@ -1753,6 +1908,8 @@
       <button class="view-tab-btn active" id="timerViewBtn">Timer</button>
       <button class="view-tab-btn" id="historyViewBtn">History</button>
       <button class="view-tab-btn" id="timesViewBtn">Times</button>
+      <button class="view-tab-btn" id="clubsViewBtn">Clubs</button>
+      <button class="view-tab-btn" id="friendsViewBtn">Friends</button>
     </div>
 
     <label for="eventSelect" style="color:var(--muted);font-size:13px;">Event</label>
@@ -1771,10 +1928,12 @@
         <h2 id="sessionTitle">Solves</h2>
 
         <div class="mobile-sidebar-nav">
-          <div class="mobile-sidebar-nav-grid">
+          <div class="mobile-sidebar-nav-grid mobile-sidebar-nav-grid-wide">
             <button class="mobile-sidebar-btn" id="mobileNavTimerBtn">Timer</button>
             <button class="mobile-sidebar-btn" id="mobileNavHistoryBtn">History</button>
             <button class="mobile-sidebar-btn" id="mobileNavTimesBtn">Times</button>
+            <button class="mobile-sidebar-btn" id="mobileNavClubsBtn">Clubs</button>
+            <button class="mobile-sidebar-btn" id="mobileNavFriendsBtn">Friends</button>
             <button class="mobile-sidebar-btn" id="mobileNavSettingsBtn">Settings</button>
           </div>
           <div class="mobile-sidebar-auth">
@@ -1855,10 +2014,10 @@
           <div class="history-card">
             <div class="history-card-header">
               <div>
-                <h3 class="history-card-title">Most-used events</h3>
-                <div class="history-card-subtitle">A donut view of the cubes and events you solve most often.</div>
+                <h3 class="history-card-title">Time spent solving</h3>
+                <div class="history-card-subtitle">Total solve time by event across every session. +2 penalties are ignored, and DNF solves still count using their raw solve time.</div>
               </div>
-              <div class="history-badge" id="historyEventBadge">0 solves</div>
+              <div class="history-badge" id="historyEventBadge">0s logged</div>
             </div>
             <div id="historyEventChart"></div>
           </div>
@@ -2392,7 +2551,11 @@
       return {
         currentEvent: "333",
         settings: structuredClone(defaultSettings),
-        sessionsByEvent
+        sessionsByEvent,
+        social: {
+          clubs: [],
+          friendInviteDrafts: []
+        }
       };
     }
 
@@ -2438,6 +2601,7 @@
       wakeLockSentinel: null,
       selectedAverage: null,
       view: "timer",
+      selectedClubId: null,
       timesEventFilter: "all",
       timesSessionFilter: "all",
       timesSearch: "",
@@ -2514,9 +2678,13 @@
     const toolDockEl = document.getElementById("toolDock");
     const timerViewEl = document.getElementById("timerView");
     const historyViewEl = document.getElementById("historyView");
+    const clubsViewEl = document.getElementById("clubsView");
+    const friendsViewEl = document.getElementById("friendsView");
     const timerViewBtn = document.getElementById("timerViewBtn");
     const historyViewBtn = document.getElementById("historyViewBtn");
     const timesViewBtn = document.getElementById("timesViewBtn");
+    const clubsViewBtn = document.getElementById("clubsViewBtn");
+    const friendsViewBtn = document.getElementById("friendsViewBtn");
     const timesViewEl = document.getElementById("timesView");
     const timesEventFilterEl = document.getElementById("timesEventFilter");
     const timesSessionFilterEl = document.getElementById("timesSessionFilter");
@@ -2531,6 +2699,17 @@
     const historyDayBadgeEl = document.getElementById("historyDayBadge");
     const historyEventBadgeEl = document.getElementById("historyEventBadge");
 
+    const clubsBadgeEl = document.getElementById("clubsBadge");
+    const selectedClubBadgeEl = document.getElementById("selectedClubBadge");
+    const clubNameInputEl = document.getElementById("clubNameInput");
+    const clubDescriptionInputEl = document.getElementById("clubDescriptionInput");
+    const createClubBtn = document.getElementById("createClubBtn");
+    const clubListEl = document.getElementById("clubList");
+    const clubDetailPanelEl = document.getElementById("clubDetailPanel");
+    const friendInviteInputEl = document.getElementById("friendInviteInput");
+    const addFriendInviteBtn = document.getElementById("addFriendInviteBtn");
+    const friendInviteListEl = document.getElementById("friendInviteList");
+
     const averageDetailTitleEl = document.getElementById("averageDetailTitle");
     const averageDetailValueEl = document.getElementById("averageDetailValue");
     const averageDetailMetaEl = document.getElementById("averageDetailMeta");
@@ -2540,6 +2719,8 @@
     const mobileNavTimerBtn = document.getElementById("mobileNavTimerBtn");
     const mobileNavHistoryBtn = document.getElementById("mobileNavHistoryBtn");
     const mobileNavTimesBtn = document.getElementById("mobileNavTimesBtn");
+    const mobileNavClubsBtn = document.getElementById("mobileNavClubsBtn");
+    const mobileNavFriendsBtn = document.getElementById("mobileNavFriendsBtn");
     const mobileNavSettingsBtn = document.getElementById("mobileNavSettingsBtn");
     const mobileNavAccountBtn = document.getElementById("mobileNavAccountBtn");
     const mobileNavSignOutBtn = document.getElementById("mobileNavSignOutBtn");
@@ -2653,7 +2834,13 @@
           theme: { ...base.settings.theme, ...((parsed.settings && parsed.settings.theme) || {}) },
           font: { ...base.settings.font, ...((parsed.settings && parsed.settings.font) || {}) }
         },
-        sessionsByEvent: { ...base.sessionsByEvent, ...(parsed.sessionsByEvent || {}) }
+        sessionsByEvent: { ...base.sessionsByEvent, ...(parsed.sessionsByEvent || {}) },
+        social: {
+          ...base.social,
+          ...(parsed.social || {}),
+          clubs: Array.isArray(parsed?.social?.clubs) ? parsed.social.clubs : base.social.clubs,
+          friendInviteDrafts: Array.isArray(parsed?.social?.friendInviteDrafts) ? parsed.social.friendInviteDrafts : base.social.friendInviteDrafts
+        }
       };
 
       for (const ev of EVENTS) {
@@ -4221,6 +4408,44 @@
     }
 
 
+
+    function solveBaseMs(solve) {
+      return Number.isFinite(solve?.baseTimeMs) ? solve.baseTimeMs : 0;
+    }
+
+    function formatDurationShort(ms) {
+      const totalSeconds = Math.max(0, Math.round(ms / 1000));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+
+    function historyTimeSpentData() {
+      const totals = new Map();
+      for (const ev of EVENTS) totals.set(ev.label, 0);
+      for (const solve of getAllSolvesWithEvent()) {
+        totals.set(solve.eventLabel, (totals.get(solve.eventLabel) || 0) + solveBaseMs(solve));
+      }
+      return Array.from(totals.entries())
+        .map(([label, timeMs]) => ({ label, timeMs }))
+        .filter(item => item.timeMs > 0)
+        .sort((a, b) => b.timeMs - a.timeMs);
+    }
+
+    function getSocialData() {
+      if (!data.social) data.social = { clubs: [], friendInviteDrafts: [] };
+      if (!Array.isArray(data.social.clubs)) data.social.clubs = [];
+      if (!Array.isArray(data.social.friendInviteDrafts)) data.social.friendInviteDrafts = [];
+      return data.social;
+    }
+
+    function getSignedInLabel() {
+      return state.currentUser?.email || 'Local user';
+    }
+
     function getAllSolvesWithEvent() {
       const all = [];
       for (const ev of EVENTS) {
@@ -4282,7 +4507,12 @@
       const totalDays = daily.length;
       const busiest = daily.reduce((best, item) => !best || item.count > best.count ? item : best, null);
       const topEvent = events[0] || null;
+      const totalTimeSpent = events.reduce((sum, item) => sum + (item.timeMs || 0), 0);
       historySummaryEl.innerHTML = `
+        <div class="history-mini-card">
+          <div class="history-mini-label">Total time solving</div>
+          <div class="history-mini-value">${formatDurationShort(totalTimeSpent)}</div>
+        </div>
         <div class="history-mini-card">
           <div class="history-mini-label">Days used</div>
           <div class="history-mini-value">${totalDays}</div>
@@ -4292,13 +4522,14 @@
           <div class="history-mini-value">${busiest ? busiest.count : 0}</div>
         </div>
         <div class="history-mini-card">
-          <div class="history-mini-label">Most-used event</div>
+          <div class="history-mini-label">Most time spent</div>
           <div class="history-mini-value" style="font-size:${topEvent && topEvent.label.length > 8 ? '22px' : '28px'};">${topEvent ? topEvent.label : '—'}</div>
+          <div class="history-mini-label" style="margin-top:6px;">${topEvent ? formatDurationShort(topEvent.timeMs) : '0s'}</div>
         </div>
       `;
-      historyRangeBadgeEl.textContent = `${totalSolves} total solves`;
+      historyRangeBadgeEl.textContent = `${totalSolves} total solves • ${formatDurationShort(totalTimeSpent)}`;
       historyDayBadgeEl.textContent = `${totalDays} active day${totalDays === 1 ? '' : 's'}`;
-      historyEventBadgeEl.textContent = `${totalSolves} solve${totalSolves === 1 ? '' : 's'}`;
+      historyEventBadgeEl.textContent = formatDurationShort(totalTimeSpent);
     }
 
     function renderHistoryActivityChart() {
@@ -4363,39 +4594,49 @@
     }
 
     function renderHistoryEventChart() {
-      const dataPoints = historyEventData();
+      const dataPoints = historyTimeSpentData();
       if (!dataPoints.length) {
-        historyEventChartEl.innerHTML = `<div class="history-empty">No event data yet. Start logging solves and your most-used cubes will appear here.</div>`;
+        historyEventChartEl.innerHTML = `<div class="history-empty">No solve-time data yet. Record some solves and your time breakdown will appear here.</div>`;
         return dataPoints;
       }
 
-      const total = dataPoints.reduce((sum, item) => sum + item.count, 0);
-      const colors = ['#58a6ff', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6', '#f43f5e', '#eab308', '#8b5cf6'];
-      let startAngle = 0;
-      const arcs = dataPoints.map((item, idx) => {
-        const portion = item.count / total;
-        const endAngle = startAngle + portion * 360;
-        const path = describeArc(120, 120, 80, startAngle, endAngle);
-        const res = { ...item, color: colors[idx % colors.length], path };
-        startAngle = endAngle;
-        return res;
+      const total = dataPoints.reduce((sum, item) => sum + item.timeMs, 0);
+      const palette = ['#58a6ff', '#7ee787', '#d2a8ff', '#ffa657', '#79c0ff', '#f2cc60', '#ff7b72', '#56d364', '#a5d6ff', '#c297ff'];
+      let currentAngle = -90;
+      const segments = dataPoints.map((item, index) => {
+        const portion = total ? item.timeMs / total : 0;
+        const startAngle = currentAngle;
+        const sweep = portion * 360;
+        const endAngle = currentAngle + sweep;
+        currentAngle = endAngle;
+        const color = palette[index % palette.length];
+        return {
+          ...item,
+          color,
+          share: portion * 100,
+          path: describeArc(110, 110, 78, startAngle, endAngle)
+        };
       });
 
       historyEventChartEl.innerHTML = `
         <div class="history-donut-wrap">
-          <svg class="history-chart" viewBox="0 0 240 240" preserveAspectRatio="xMidYMid meet" aria-label="Event donut chart">
-            <circle cx="120" cy="120" r="92" fill="rgba(255,255,255,.02)"></circle>
-            ${arcs.map(arc => `<path d="${arc.path}" stroke="${arc.color}" stroke-width="32" stroke-linecap="butt" fill="none"><title>${arc.label}: ${arc.count} solves</title></path>`).join('')}
-            <circle cx="120" cy="120" r="56" fill="var(--panel)"></circle>
-            <text x="120" y="112" text-anchor="middle" fill="var(--muted)" font-size="13">Total</text>
-            <text x="120" y="136" text-anchor="middle" fill="var(--text)" font-size="24" font-weight="800">${total}</text>
+          <svg class="history-chart" viewBox="0 0 220 220" aria-label="Time spent solving by event donut chart" style="max-width:320px; margin:0 auto; display:block;">
+            <circle cx="110" cy="110" r="78" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="28"></circle>
+            ${segments.map(seg => `
+              <path d="${seg.path}" fill="none" stroke="${seg.color}" stroke-width="28" stroke-linecap="butt">
+                <title>${seg.label}: ${formatDurationShort(seg.timeMs)} (${seg.share.toFixed(0)}%)</title>
+              </path>
+            `).join('')}
+            <circle cx="110" cy="110" r="54" fill="var(--panel)"></circle>
+            <text x="110" y="100" text-anchor="middle" fill="var(--muted)" font-size="12">Total time</text>
+            <text x="110" y="122" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700">${formatDurationShort(total)}</text>
           </svg>
           <div class="history-legend">
-            ${arcs.map(arc => `
+            ${segments.map(item => `
               <div class="history-legend-item">
-                <div class="history-dot" style="background:${arc.color}"></div>
-                <div class="history-legend-text">${arc.label}</div>
-                <div class="history-legend-value">${arc.count} • ${(arc.count / total * 100).toFixed(0)}%</div>
+                <div class="history-dot" style="background:${item.color};"></div>
+                <div class="history-legend-text">${item.label}</div>
+                <div class="history-legend-value">${formatDurationShort(item.timeMs)} • ${item.share.toFixed(0)}%</div>
               </div>
             `).join('')}
           </div>
@@ -4538,6 +4779,163 @@
       });
     }
 
+
+    function renderFriendInvites() {
+      const drafts = getSocialData().friendInviteDrafts || [];
+      if (!friendInviteListEl) return;
+      if (!drafts.length) {
+        friendInviteListEl.innerHTML = `<div class="social-note">No invite drafts yet.</div>`;
+        return;
+      }
+      friendInviteListEl.innerHTML = drafts.map((email, idx) => `
+        <div class="invite-item">
+          <div class="member-name">${email}</div>
+          <div class="invite-meta">Saved locally as a draft. Making this a real friend invite requires backend user search and acceptance flow.</div>
+        </div>
+      `).join('');
+    }
+
+    function renderClubList() {
+      if (!clubListEl || !clubsBadgeEl) return;
+      const clubs = getSocialData().clubs || [];
+      clubsBadgeEl.textContent = `${clubs.length} club${clubs.length === 1 ? '' : 's'}`;
+      if (!clubs.length) {
+        clubListEl.innerHTML = `<div class="social-note">No clubs yet. Create one above.</div>`;
+        return;
+      }
+      if (!state.selectedClubId || !clubs.some(club => club.id === state.selectedClubId)) {
+        state.selectedClubId = clubs[0].id;
+      }
+      clubListEl.innerHTML = clubs.map(club => `
+        <div class="club-item ${club.id === state.selectedClubId ? 'active' : ''}" data-club-id="${club.id}">
+          <div class="club-item-title">${club.name}</div>
+          <div class="club-item-meta">${club.members?.length || 0} member${(club.members?.length || 0) === 1 ? '' : 's'} • ${club.posts?.length || 0} post${(club.posts?.length || 0) === 1 ? '' : 's'}</div>
+          <div class="club-item-meta">${club.description || 'No description yet.'}</div>
+        </div>
+      `).join('');
+      clubListEl.querySelectorAll('[data-club-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          state.selectedClubId = el.getAttribute('data-club-id');
+          renderClubsView();
+        });
+      });
+    }
+
+    function renderSelectedClub() {
+      if (!clubDetailPanelEl || !selectedClubBadgeEl) return;
+      const club = (getSocialData().clubs || []).find(item => item.id === state.selectedClubId);
+      if (!club) {
+        selectedClubBadgeEl.textContent = 'No club selected';
+        clubDetailPanelEl.innerHTML = `<div class="social-note">Create a club to get started.</div>`;
+        return;
+      }
+      selectedClubBadgeEl.textContent = club.name;
+      const members = Array.isArray(club.members) ? club.members : [];
+      const posts = Array.isArray(club.posts) ? club.posts : [];
+      const solvePreview = members.map(member => ({
+        name: member.email,
+        note: member.email === getSignedInLabel()
+          ? `Your solves could be shown here now.`
+          : `Other member solve feeds need shared backend reads.`
+      }));
+      clubDetailPanelEl.innerHTML = `
+        <div class="club-detail-grid">
+          <div class="club-side-stack">
+            <div class="member-item">
+              <div class="member-name">About</div>
+              <div class="member-meta">${club.description || 'No description yet.'}</div>
+            </div>
+            <div class="member-item">
+              <div class="member-name">Members</div>
+              <div class="club-list">
+                ${members.map(member => `
+                  <div class="member-item">
+                    <div class="member-name">${member.email}</div>
+                    <div class="member-meta">${member.role || 'member'}${member.pending ? ' • invite draft' : ''}</div>
+                  </div>
+                `).join('') || '<div class="member-meta">No members yet.</div>'}
+              </div>
+            </div>
+            <div class="member-item">
+              <div class="member-name">Recent solve feeds</div>
+              <div class="club-list">
+                ${solvePreview.map(item => `
+                  <div class="solve-feed-item">
+                    <div class="solve-feed-name">${item.name}</div>
+                    <div class="solve-feed-meta">${item.note}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+          <div class="club-main-stack">
+            <div class="member-item">
+              <div class="member-name">Invite a member</div>
+              <div class="post-compose">
+                <input id="clubInviteInput" class="select" type="email" placeholder="member@example.com" />
+                <button class="small-btn" id="clubInviteBtn">Save invite draft</button>
+                <div class="member-meta">This saves the invite to your data now. Actually delivering and accepting invites needs a backend users collection.</div>
+              </div>
+            </div>
+            <div class="member-item">
+              <div class="member-name">Club discussion</div>
+              <div class="post-compose">
+                <textarea id="clubPostInput" placeholder="Write a post for this club..."></textarea>
+                <button class="small-btn" id="clubPostBtn">Post</button>
+              </div>
+            </div>
+            <div class="club-list">
+              ${posts.length ? posts.slice().reverse().map(post => `
+                <div class="post-item">
+                  <div class="post-author">${post.author}</div>
+                  <div style="line-height:1.55; margin:6px 0 8px;">${post.text.replace(/</g, '&lt;')}</div>
+                  <div class="post-meta">${new Date(post.createdAt).toLocaleString()}</div>
+                </div>
+              `).join('') : '<div class="social-note">No posts yet.</div>'}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const inviteBtn = document.getElementById('clubInviteBtn');
+      const inviteInput = document.getElementById('clubInviteInput');
+      const postBtn = document.getElementById('clubPostBtn');
+      const postInput = document.getElementById('clubPostInput');
+      inviteBtn?.addEventListener('click', async () => {
+        const email = inviteInput?.value?.trim();
+        if (!email) return;
+        const freshClub = (getSocialData().clubs || []).find(item => item.id === state.selectedClubId);
+        if (!freshClub) return;
+        freshClub.members ||= [];
+        freshClub.members.push({ email, role: 'member', pending: true });
+        inviteInput.value = '';
+        await saveData();
+        renderClubsView();
+      });
+      postBtn?.addEventListener('click', async () => {
+        const message = postInput?.value?.trim();
+        if (!message) return;
+        const freshClub = (getSocialData().clubs || []).find(item => item.id === state.selectedClubId);
+        if (!freshClub) return;
+        freshClub.posts ||= [];
+        freshClub.posts.push({
+          id: crypto.randomUUID(),
+          author: getSignedInLabel(),
+          text: message,
+          createdAt: new Date().toISOString()
+        });
+        postInput.value = '';
+        await saveData();
+        renderClubsView();
+      });
+    }
+
+    function renderClubsView() {
+      renderClubList();
+      renderSelectedClub();
+      renderFriendInvites();
+    }
+
     function renderHistoryView() {
       const daily = renderHistoryActivityChart();
       const events = renderHistoryEventChart();
@@ -4548,18 +4946,25 @@
       state.view = view;
       const isHistory = view === 'history';
       const isTimes = view === 'times';
+      const isClubs = view === 'clubs';
+      const isFriends = view === 'friends';
       historyViewEl.classList.toggle('active', isHistory);
       timesViewEl.classList.toggle('active', isTimes);
-      timerViewEl.classList.toggle('hidden', isHistory || isTimes);
-      toolDockEl.classList.toggle('hidden', isHistory || isTimes);
+      clubsViewEl.classList.toggle('active', isClubs);
+      friendsViewEl.classList.toggle('active', isFriends);
+      timerViewEl.classList.toggle('hidden', isHistory || isTimes || isClubs || isFriends);
+      toolDockEl.classList.toggle('hidden', isHistory || isTimes || isClubs || isFriends);
       timerViewBtn.classList.toggle('active', view === 'timer');
       historyViewBtn.classList.toggle('active', isHistory);
       timesViewBtn.classList.toggle('active', isTimes);
+      clubsViewBtn.classList.toggle('active', isClubs);
+      friendsViewBtn.classList.toggle('active', isFriends);
       document.body.classList.remove('mobile-tools-open');
       document.body.classList.remove('mobile-times-open');
       if (view !== 'timer') document.body.classList.remove('sidebar-open');
       if (isHistory) renderHistoryView();
       if (isTimes) renderTimesView();
+      if (isClubs || isFriends) renderClubsView();
     }
 
     function renderMobileTimesSheet() {
@@ -4594,6 +4999,7 @@
       renderTools();
       renderHistoryView();
       renderTimesView();
+      renderClubsView();
       renderMobileTimesSheet();
       setView(state.view || 'timer');
       if (solveDetailDialog.open) refreshSolveDetail();
@@ -4964,6 +5370,8 @@
     timerViewBtn?.addEventListener("click", () => setView('timer'));
     historyViewBtn?.addEventListener("click", () => setView('history'));
     timesViewBtn?.addEventListener("click", () => setView('times'));
+    clubsViewBtn?.addEventListener("click", () => setView('clubs'));
+    friendsViewBtn?.addEventListener("click", () => setView('friends'));
     timesEventFilterEl?.addEventListener("change", () => { state.timesEventFilter = timesEventFilterEl.value; state.timesSessionFilter = "all"; renderTimesView(); });
     timesSessionFilterEl?.addEventListener("change", () => { state.timesSessionFilter = timesSessionFilterEl.value; renderTimesView(); });
     timesSearchInputEl?.addEventListener("input", () => { state.timesSearch = timesSearchInputEl.value; renderTimesView(); });
@@ -5332,6 +5740,16 @@
       closeMobilePanels();
     });
 
+    mobileNavClubsBtn?.addEventListener("click", () => {
+      setView('clubs');
+      closeMobilePanels();
+    });
+
+    mobileNavFriendsBtn?.addEventListener("click", () => {
+      setView('friends');
+      closeMobilePanels();
+    });
+
     mobileNavSettingsBtn?.addEventListener("click", () => {
       syncSettingsUI();
       activateTab("shortcutsTab");
@@ -5384,6 +5802,39 @@
       } finally {
         importFileEl.value = "";
       }
+    });
+
+    createClubBtn?.addEventListener('click', async () => {
+      const name = clubNameInputEl?.value?.trim();
+      const description = clubDescriptionInputEl?.value?.trim() || '';
+      if (!name) return;
+      const social = getSocialData();
+      social.clubs.push({
+        id: crypto.randomUUID(),
+        name,
+        description,
+        createdAt: new Date().toISOString(),
+        members: [{ email: getSignedInLabel(), role: 'owner', pending: false }],
+        posts: []
+      });
+      state.selectedClubId = social.clubs[social.clubs.length - 1].id;
+      clubNameInputEl.value = '';
+      clubDescriptionInputEl.value = '';
+      await saveData();
+      renderClubsView();
+      setView('clubs');
+    });
+
+    addFriendInviteBtn?.addEventListener('click', async () => {
+      const email = friendInviteInputEl?.value?.trim();
+      if (!email) return;
+      const social = getSocialData();
+      social.friendInviteDrafts ||= [];
+      social.friendInviteDrafts.unshift(email);
+      friendInviteInputEl.value = '';
+      await saveData();
+      renderFriendInvites();
+      setView('friends');
     });
 
     document.querySelectorAll(".tab-btn").forEach(btn => {
