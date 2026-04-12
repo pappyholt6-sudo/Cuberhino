@@ -1817,6 +1817,206 @@
       }
     }
 
+    /* ── Clubs View ── */
+    .clubs-view{
+      display:none;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:hidden;
+      animation:fadeUp .24s ease;
+      padding:8px 4px 12px;
+      flex-direction:column;
+    }
+    .clubs-view.active{ display:flex; }
+    .clubs-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-bottom:16px;
+      flex-shrink:0;
+    }
+    .clubs-layout{
+      display:grid;
+      grid-template-columns:280px 1fr;
+      flex:1;
+      min-height:0;
+      overflow:hidden;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:var(--panel);
+    }
+    .clubs-list-panel{
+      border-right:1px solid var(--line);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-width:0;
+    }
+    .clubs-list-toolbar{
+      padding:10px;
+      border-bottom:1px solid var(--line);
+      flex-shrink:0;
+    }
+    .clubs-list-scroll{
+      overflow-y:auto;
+      flex:1;
+    }
+    .club-list-item{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      cursor:pointer;
+      transition:background .12s;
+      border-left:2px solid transparent;
+    }
+    .club-list-item:hover{ background:var(--panel-2); }
+    .club-list-item.active{
+      background:color-mix(in srgb, var(--accent) 10%, var(--panel));
+      border-left-color:var(--accent);
+    }
+    .club-list-item-name{ font-weight:600; font-size:14px; margin-bottom:3px; }
+    .club-list-item-meta{ font-size:12px; color:var(--muted); }
+    .clubs-detail-panel{
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-width:0;
+    }
+    .clubs-detail-empty{
+      flex:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:14px;
+    }
+    .club-detail-header{
+      padding:16px 20px 0;
+      border-bottom:1px solid var(--line);
+      flex-shrink:0;
+    }
+    .club-detail-title-row{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:8px;
+      flex-wrap:wrap;
+    }
+    .club-detail-title{ font-size:18px; font-weight:700; flex:1; }
+    .club-detail-desc{ font-size:13px; color:var(--muted); margin-bottom:10px; }
+    .club-detail-tabs{
+      display:flex;
+      gap:0;
+    }
+    .club-detail-tab{
+      padding:7px 16px;
+      background:none;
+      border:none;
+      border-bottom:2px solid transparent;
+      color:var(--muted);
+      cursor:pointer;
+      font-size:13px;
+      transition:color .12s, border-color .12s;
+      font-family:inherit;
+    }
+    .club-detail-tab:hover{ color:var(--text); }
+    .club-detail-tab.active{ color:var(--text); border-bottom-color:var(--accent); }
+    .club-detail-tab.back-tab{ margin-left:auto; }
+    .club-detail-body{
+      flex:1;
+      overflow-y:auto;
+      padding:16px 20px;
+      display:flex;
+      flex-direction:column;
+    }
+    .club-posts-list{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      flex:1;
+      margin-bottom:12px;
+    }
+    .club-post{ display:flex; gap:10px; }
+    .club-post-avatar{
+      width:32px; height:32px;
+      border-radius:50%;
+      object-fit:cover;
+      flex-shrink:0;
+      border:1px solid var(--line);
+    }
+    .club-post-content{ flex:1; min-width:0; }
+    .club-post-meta{ font-size:12px; color:var(--muted); margin-bottom:3px; }
+    .club-post-meta strong{ color:var(--text); }
+    .club-post-text{ font-size:14px; line-height:1.5; word-break:break-word; }
+    .club-post-input-row{
+      display:flex;
+      gap:8px;
+      align-items:flex-end;
+      border-top:1px solid var(--line);
+      padding-top:12px;
+      flex-shrink:0;
+    }
+    .club-post-input{
+      flex:1;
+      background:var(--bg);
+      border:1px solid var(--line);
+      color:var(--text);
+      border-radius:10px;
+      padding:9px 12px;
+      font-size:14px;
+      resize:none;
+      min-height:38px;
+      max-height:100px;
+      font-family:inherit;
+    }
+    .club-post-input:focus{ outline:none; border-color:var(--accent); }
+    .club-members-list{ display:flex; flex-direction:column; gap:8px; }
+    .club-member-item{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:10px 12px;
+      background:var(--panel-2);
+      border-radius:10px;
+      border:1px solid var(--line);
+    }
+    .club-member-avatar{
+      width:36px; height:36px;
+      border-radius:50%;
+      object-fit:cover;
+      border:1px solid var(--line);
+      flex-shrink:0;
+    }
+    .club-member-info{ flex:1; min-width:0; }
+    .club-member-name{ font-size:14px; font-weight:600; }
+    .club-member-username{ font-size:12px; color:var(--muted); }
+    .club-member-badge{
+      font-size:11px; padding:2px 8px; border-radius:99px;
+      background:color-mix(in srgb, var(--accent) 18%, var(--panel));
+      color:var(--accent); flex-shrink:0;
+    }
+    .club-lb-list{ display:flex; flex-direction:column; gap:6px; }
+    .club-lb-item{
+      display:flex; align-items:center; gap:12px;
+      padding:10px 12px;
+      background:var(--panel-2);
+      border-radius:10px;
+      border:1px solid var(--line);
+    }
+    .club-lb-item:nth-child(1){ border-color:gold; }
+    .club-lb-item:nth-child(2){ border-color:silver; }
+    .club-lb-item:nth-child(3){ border-color:#cd7f32; }
+    .club-lb-rank{ font-size:16px; font-weight:700; width:28px; text-align:center; flex-shrink:0; color:var(--muted); }
+    .club-lb-time{ font-size:15px; font-weight:700; color:var(--good); margin-left:auto; flex-shrink:0; }
+    .club-lb-time.no-pb{ color:var(--muted); font-size:13px; font-weight:normal; }
+    .create-club-body{ display:flex; flex-direction:column; gap:14px; min-width:300px; max-width:380px; }
+    @media(max-width:700px){
+      .clubs-layout{ grid-template-columns:1fr; }
+      .clubs-list-panel{ border-right:none; border-bottom:1px solid var(--line); max-height:200px; }
+      .clubs-layout.detail-open .clubs-list-panel{ display:none; }
+    }
+
     /* ── Profile Setup Overlay ── */
     #profileSetupOverlay{
       position:fixed;
@@ -1964,6 +2164,7 @@
       <button class="view-tab-btn active" id="timerViewBtn">Timer</button>
       <button class="view-tab-btn" id="historyViewBtn">History</button>
       <button class="view-tab-btn" id="timesViewBtn">Times</button>
+      <button class="view-tab-btn" id="clubsViewBtn">Clubs</button>
     </div>
 
     <label for="eventSelect" style="color:var(--muted);font-size:13px;">Event</label>
@@ -1988,6 +2189,7 @@
             <button class="mobile-sidebar-btn" id="mobileNavTimerBtn">Timer</button>
             <button class="mobile-sidebar-btn" id="mobileNavHistoryBtn">History</button>
             <button class="mobile-sidebar-btn" id="mobileNavTimesBtn">Times</button>
+            <button class="mobile-sidebar-btn" id="mobileNavClubsBtn">Clubs</button>
             <button class="mobile-sidebar-btn" id="mobileNavSettingsBtn">Settings</button>
           </div>
           <div class="mobile-sidebar-auth">
@@ -2108,9 +2310,55 @@
           <div class="times-list" id="timesList"></div>
         </div>
       </section>
+
+      <!-- Clubs View -->
+      <section class="clubs-view" id="clubsView" aria-label="Clubs view">
+        <div class="clubs-header">
+          <div>
+            <h2 class="history-title">Clubs</h2>
+            <div class="history-subtitle">Join or create clubs to compete, chat, and train with other cubers.</div>
+          </div>
+          <button class="small-btn" id="createClubBtn">+ Create Club</button>
+        </div>
+        <div class="clubs-layout" id="clubsLayout">
+          <div class="clubs-list-panel">
+            <div class="clubs-list-toolbar">
+              <input type="text" class="profile-edit-input" id="clubSearchInput" placeholder="Search clubs…" style="width:100%;" autocomplete="off" />
+            </div>
+            <div class="clubs-list-scroll" id="clubsListScroll">
+              <div style="padding:16px;color:var(--muted);font-size:13px;">Sign in to load clubs.</div>
+            </div>
+          </div>
+          <div class="clubs-detail-panel" id="clubsDetailPanel">
+            <div class="clubs-detail-empty" id="clubsDetailEmpty">Select a club to view it</div>
+            <div id="clubsDetailContent" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;"></div>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
+  <!-- Create Club Dialog -->
+  <dialog id="createClubDialog">
+    <div class="modal">
+      <h2>Create Club</h2>
+      <div class="create-club-body">
+        <div>
+          <div class="profile-field-label">Club name</div>
+          <input type="text" class="profile-edit-input" id="newClubNameInput" placeholder="e.g. Speed Demons" maxlength="40" autocomplete="off" />
+        </div>
+        <div>
+          <div class="profile-field-label">Description <span style="color:var(--muted);font-weight:normal;">(optional)</span></div>
+          <textarea class="club-post-input" id="newClubDescInput" placeholder="What's this club about?" maxlength="200" style="width:100%;height:72px;"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="small-btn" id="cancelCreateClubBtn">Cancel</button>
+          <button class="small-btn" id="confirmCreateClubBtn">Create</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
 
   <div class="mobile-tools-sheet" id="mobileToolsSheet" aria-label="Tools panel">
     <div class="mobile-tools-sheet-header">
@@ -2543,7 +2791,16 @@
       getDoc,
       setDoc,
       runTransaction,
-      serverTimestamp
+      serverTimestamp,
+      collection,
+      query,
+      orderBy,
+      getDocs,
+      addDoc,
+      deleteDoc,
+      onSnapshot,
+      limit,
+      increment
     } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     const STORAGE_KEY = "cube_timer_full_data_v12";
@@ -3025,6 +3282,316 @@
         syncing = false;
       }
     }
+
+    // ── Utilities ────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function getBestSingle(eventId) {
+      const bundle = data.sessionsByEvent[eventId];
+      if (!bundle) return null;
+      let best = Infinity;
+      for (const session of bundle.sessions) {
+        for (const solve of session.solves) {
+          if (solve.penalty === "DNF") continue;
+          const t = (solve.baseTimeMs ?? solve.time ?? 0) + (solve.penalty === "+2" ? 2000 : 0);
+          if (t < best) best = t;
+        }
+      }
+      return best === Infinity ? null : best;
+    }
+
+    // ── Clubs ─────────────────────────────────────────────────────────
+    const clubsViewEl          = document.getElementById("clubsView");
+    const clubsViewBtn         = document.getElementById("clubsViewBtn");
+    const clubsListScroll      = document.getElementById("clubsListScroll");
+    const clubsDetailEmpty     = document.getElementById("clubsDetailEmpty");
+    const clubsDetailContent   = document.getElementById("clubsDetailContent");
+    const clubsLayout          = document.getElementById("clubsLayout");
+    const createClubBtn        = document.getElementById("createClubBtn");
+    const createClubDialog     = document.getElementById("createClubDialog");
+    const newClubNameInput     = document.getElementById("newClubNameInput");
+    const newClubDescInput     = document.getElementById("newClubDescInput");
+    const confirmCreateClubBtn = document.getElementById("confirmCreateClubBtn");
+    const cancelCreateClubBtn  = document.getElementById("cancelCreateClubBtn");
+    const clubSearchInput      = document.getElementById("clubSearchInput");
+    const mobileNavClubsBtn    = document.getElementById("mobileNavClubsBtn");
+
+    let allClubs = [];
+    let selectedClubId = null;
+    let selectedClubTab = 'discussion';
+    let clubPostsUnsubscribe = null;
+    let clubsLoaded = false;
+
+    async function loadClubs() {
+      if (!db || !firebaseReady) return;
+      clubsListScroll.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">Loading…</div>`;
+      try {
+        const snap = await getDocs(query(collection(db, "clubs"), orderBy("memberCount", "desc"), limit(50)));
+        allClubs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        clubsLoaded = true;
+        renderClubsList();
+      } catch(e) {
+        clubsListScroll.innerHTML = `<div style="padding:16px;color:var(--bad);font-size:13px;">Failed to load clubs.</div>`;
+      }
+    }
+
+    function renderClubsList() {
+      const search = clubSearchInput?.value.trim().toLowerCase() ?? '';
+      const filtered = search
+        ? allClubs.filter(c => c.name.toLowerCase().includes(search) || (c.description||'').toLowerCase().includes(search))
+        : allClubs;
+      if (!filtered.length) {
+        clubsListScroll.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${search ? 'No clubs match your search.' : 'No clubs yet. Create the first one!'}</div>`;
+        return;
+      }
+      clubsListScroll.innerHTML = filtered.map(c => `
+        <div class="club-list-item${c.id === selectedClubId ? ' active' : ''}" data-id="${c.id}">
+          <div class="club-list-item-name">${escapeHtml(c.name)}</div>
+          <div class="club-list-item-meta">${c.memberCount||0} member${(c.memberCount||0)===1?'':'s'}${c.description?' · '+escapeHtml((c.description).slice(0,38))+(c.description.length>38?'…':''):''}</div>
+        </div>`).join('');
+      clubsListScroll.querySelectorAll('.club-list-item').forEach(el => {
+        el.addEventListener('click', () => openClubDetail(el.dataset.id));
+      });
+    }
+
+    async function openClubDetail(clubId) {
+      selectedClubId = clubId;
+      selectedClubTab = 'discussion';
+      renderClubsList();
+      clubsDetailEmpty.style.display = 'none';
+      clubsDetailContent.style.display = 'flex';
+      clubsLayout.classList.add('detail-open');
+      await renderClubDetail();
+    }
+
+    function closeClubDetail() {
+      selectedClubId = null;
+      clubsDetailEmpty.style.display = '';
+      clubsDetailContent.style.display = 'none';
+      clubsLayout.classList.remove('detail-open');
+      if (clubPostsUnsubscribe) { clubPostsUnsubscribe(); clubPostsUnsubscribe = null; }
+      renderClubsList();
+    }
+
+    async function renderClubDetail() {
+      if (!selectedClubId) return;
+      clubsDetailContent.innerHTML = `<div style="padding:24px;color:var(--muted);font-size:13px;">Loading…</div>`;
+      try {
+        const clubSnap = await getDoc(doc(db, 'clubs', selectedClubId));
+        if (!clubSnap.exists()) { clubsDetailContent.innerHTML = `<div style="padding:24px;color:var(--bad);font-size:13px;">Club not found.</div>`; return; }
+        const club = { id: clubSnap.id, ...clubSnap.data() };
+        let isMember = false, isAdmin = false;
+        if (state.currentUser) {
+          const mSnap = await getDoc(doc(db, 'clubs', selectedClubId, 'members', state.currentUser.uid));
+          if (mSnap.exists()) { isMember = true; isAdmin = mSnap.data().role === 'admin'; }
+        }
+        clubsDetailContent.innerHTML = `
+          <div class="club-detail-header">
+            <div class="club-detail-title-row">
+              <div class="club-detail-title">${escapeHtml(club.name)}</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+                <span style="font-size:13px;color:var(--muted);">${club.memberCount||0} member${(club.memberCount||0)===1?'':'s'}</span>
+                ${state.currentUser && !isAdmin ? `<button class="small-btn" id="clubJoinLeaveBtn">${isMember?'Leave':'Join'}</button>` : ''}
+                ${isAdmin ? `<span style="font-size:12px;color:var(--accent);padding:4px 8px;background:color-mix(in srgb,var(--accent) 15%,var(--panel));border-radius:6px;">Admin</span>` : ''}
+              </div>
+            </div>
+            ${club.description ? `<div class="club-detail-desc">${escapeHtml(club.description)}</div>` : ''}
+            <div class="club-detail-tabs">
+              <button class="club-detail-tab${selectedClubTab==='discussion'?' active':''}" data-tab="discussion">Discussion</button>
+              <button class="club-detail-tab${selectedClubTab==='members'?' active':''}" data-tab="members">Members</button>
+              <button class="club-detail-tab${selectedClubTab==='leaderboard'?' active':''}" data-tab="leaderboard">Leaderboard</button>
+              <button class="club-detail-tab back-tab" id="backToClubsBtn">← Back</button>
+            </div>
+          </div>
+          <div class="club-detail-body" id="clubDetailBody"></div>`;
+
+        clubsDetailContent.querySelectorAll('.club-detail-tab[data-tab]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            selectedClubTab = btn.dataset.tab;
+            clubsDetailContent.querySelectorAll('.club-detail-tab[data-tab]').forEach(b => b.classList.toggle('active', b === btn));
+            renderClubDetailBody(club, isMember, isAdmin);
+          });
+        });
+        document.getElementById('backToClubsBtn')?.addEventListener('click', closeClubDetail);
+        document.getElementById('clubJoinLeaveBtn')?.addEventListener('click', async () => {
+          if (!state.currentUser) { alert('Sign in to join clubs.'); return; }
+          if (isMember) await leaveClub(club.id); else await joinClub(club.id);
+          await renderClubDetail();
+        });
+        renderClubDetailBody(club, isMember, isAdmin);
+      } catch(e) {
+        clubsDetailContent.innerHTML = `<div style="padding:24px;color:var(--bad);font-size:13px;">Error: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function renderClubDetailBody(club, isMember, isAdmin) {
+      const body = document.getElementById('clubDetailBody');
+      if (!body) return;
+      if (selectedClubTab === 'discussion') renderDiscussion(body, club.id, isMember||isAdmin);
+      else if (selectedClubTab === 'members') renderMembers(body, club.id);
+      else renderLeaderboard(body, club.id);
+    }
+
+    function renderDiscussion(container, clubId, canPost) {
+      if (clubPostsUnsubscribe) { clubPostsUnsubscribe(); clubPostsUnsubscribe = null; }
+      container.innerHTML = `
+        <div class="club-posts-list" id="clubPostsList"><div style="color:var(--muted);font-size:13px;">Loading…</div></div>
+        ${canPost ? `<div class="club-post-input-row">
+          <textarea class="club-post-input" id="clubPostInput" placeholder="Write a message… (Enter to send, Shift+Enter for newline)" maxlength="500"></textarea>
+          <button class="small-btn" id="clubPostSendBtn">Send</button>
+        </div>` : `<div style="color:var(--muted);font-size:13px;padding-top:12px;border-top:1px solid var(--line);flex-shrink:0;">${state.currentUser ? 'Join the club to participate.' : 'Sign in to participate.'}</div>`}`;
+      const postsQ = query(collection(db,'clubs',clubId,'posts'), orderBy('createdAt','asc'), limit(80));
+      clubPostsUnsubscribe = onSnapshot(postsQ, snap => {
+        const list = document.getElementById('clubPostsList');
+        if (!list) return;
+        if (snap.empty) { list.innerHTML = `<div style="color:var(--muted);font-size:13px;">No messages yet.</div>`; return; }
+        list.innerHTML = snap.docs.map(d => {
+          const p = d.data();
+          const t = p.createdAt?.toDate ? p.createdAt.toDate().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+          const av = p.avatarUrl || defaultAvatarUrl(p.username);
+          return `<div class="club-post">
+            <img class="club-post-avatar" src="${escapeHtml(av)}" alt="" onerror="this.src='${defaultAvatarUrl(p.username)}'"/>
+            <div class="club-post-content">
+              <div class="club-post-meta"><strong>${escapeHtml(p.displayName||p.username)}</strong> @${escapeHtml(p.username)} · ${t}</div>
+              <div class="club-post-text">${escapeHtml(p.content)}</div>
+            </div></div>`;
+        }).join('');
+        list.scrollTop = list.scrollHeight;
+      });
+      if (canPost) {
+        document.getElementById('clubPostSendBtn')?.addEventListener('click', () => sendPost(clubId));
+        document.getElementById('clubPostInput')?.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPost(clubId); }
+        });
+      }
+    }
+
+    async function sendPost(clubId) {
+      if (!state.currentUser) return;
+      const input = document.getElementById('clubPostInput');
+      const content = input?.value.trim();
+      if (!content) return;
+      input.value = ''; input.disabled = true;
+      try {
+        const pSnap = await getDoc(doc(db,'profiles',state.currentUser.uid));
+        if (!pSnap.exists()) return;
+        const { username, displayName, avatarUrl } = pSnap.data();
+        await addDoc(collection(db,'clubs',clubId,'posts'), {
+          uid: state.currentUser.uid, username,
+          displayName: displayName||username,
+          avatarUrl: avatarUrl||defaultAvatarUrl(username),
+          content, createdAt: serverTimestamp()
+        });
+      } catch(e) { alert('Failed to post: '+e.message); }
+      finally { if (input) input.disabled = false; input?.focus(); }
+    }
+
+    async function renderMembers(container, clubId) {
+      container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
+      try {
+        const snap = await getDocs(collection(db,'clubs',clubId,'members'));
+        const members = snap.docs.map(d => d.data()).sort((a,b) => a.role==='admin'?-1:b.role==='admin'?1:0);
+        if (!members.length) { container.innerHTML = `<div style="color:var(--muted);font-size:13px;">No members yet.</div>`; return; }
+        container.innerHTML = `<div class="club-members-list">${members.map(m => `
+          <div class="club-member-item">
+            <img class="club-member-avatar" src="${escapeHtml(m.avatarUrl||defaultAvatarUrl(m.username))}" alt="" onerror="this.src='${defaultAvatarUrl(m.username)}'"/>
+            <div class="club-member-info">
+              <div class="club-member-name">${escapeHtml(m.displayName||m.username)}</div>
+              <div class="club-member-username">@${escapeHtml(m.username)}</div>
+            </div>
+            ${m.role==='admin'?`<span class="club-member-badge">Admin</span>`:''}
+          </div>`).join('')}</div>`;
+      } catch(e) { container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load.</div>`; }
+    }
+
+    async function renderLeaderboard(container, clubId) {
+      container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
+      try {
+        const snap = await getDocs(collection(db,'clubs',clubId,'members'));
+        const members = snap.docs.map(d => d.data());
+        const withPb = members.filter(m => m.pb3x3!=null).sort((a,b) => a.pb3x3-b.pb3x3);
+        const noPb   = members.filter(m => m.pb3x3==null);
+        const ranked = [...withPb, ...noPb];
+        const medals = ['🥇','🥈','🥉'];
+        container.innerHTML = `
+          <div style="color:var(--muted);font-size:12px;margin-bottom:12px;">3×3 personal best · single</div>
+          <div class="club-lb-list">${ranked.map((m,i) => `
+            <div class="club-lb-item">
+              <div class="club-lb-rank">${medals[i]??i+1}</div>
+              <img class="club-member-avatar" src="${escapeHtml(m.avatarUrl||defaultAvatarUrl(m.username))}" alt="" onerror="this.src='${defaultAvatarUrl(m.username)}'"/>
+              <div class="club-member-info">
+                <div class="club-member-name">${escapeHtml(m.displayName||m.username)}</div>
+                <div class="club-member-username">@${escapeHtml(m.username)}</div>
+              </div>
+              <div class="club-lb-time${m.pb3x3==null?' no-pb':''}">${m.pb3x3!=null?formatMs(m.pb3x3):'No PB'}</div>
+            </div>`).join('')}
+          </div>`;
+      } catch(e) { container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load.</div>`; }
+    }
+
+    async function joinClub(clubId) {
+      if (!state.currentUser) { alert('Sign in to join clubs.'); return; }
+      const pSnap = await getDoc(doc(db,'profiles',state.currentUser.uid));
+      if (!pSnap.exists()) { alert('Set up your profile first.'); return; }
+      const { username, displayName, avatarUrl } = pSnap.data();
+      const pb3x3 = getBestSingle('333');
+      await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), {
+        uid: state.currentUser.uid, username, displayName: displayName||username,
+        avatarUrl: avatarUrl||defaultAvatarUrl(username),
+        pb3x3: pb3x3??null, role:'member', joinedAt: serverTimestamp()
+      });
+      await setDoc(doc(db,'clubs',clubId), { memberCount: increment(1) }, { merge:true });
+      const idx = allClubs.findIndex(c => c.id === clubId);
+      if (idx !== -1) allClubs[idx].memberCount = (allClubs[idx].memberCount||0)+1;
+    }
+
+    async function leaveClub(clubId) {
+      if (!state.currentUser) return;
+      await deleteDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid));
+      await setDoc(doc(db,'clubs',clubId), { memberCount: increment(-1) }, { merge:true });
+      const idx = allClubs.findIndex(c => c.id === clubId);
+      if (idx !== -1) allClubs[idx].memberCount = Math.max(0,(allClubs[idx].memberCount||1)-1);
+    }
+
+    async function createClub(name, description) {
+      if (!state.currentUser) { alert('Sign in to create clubs.'); return; }
+      const pSnap = await getDoc(doc(db,'profiles',state.currentUser.uid));
+      if (!pSnap.exists()) { alert('Set up your profile first.'); return; }
+      const { username, displayName, avatarUrl } = pSnap.data();
+      const pb3x3 = getBestSingle('333');
+      const clubRef = await addDoc(collection(db,'clubs'), {
+        name, description: description||'', createdBy: state.currentUser.uid,
+        createdByUsername: username, memberCount: 1, createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db,'clubs',clubRef.id,'members',state.currentUser.uid), {
+        uid: state.currentUser.uid, username, displayName: displayName||username,
+        avatarUrl: avatarUrl||defaultAvatarUrl(username),
+        pb3x3: pb3x3??null, role:'admin', joinedAt: serverTimestamp()
+      });
+      allClubs.unshift({ id: clubRef.id, name, description: description||'', memberCount: 1 });
+      renderClubsList();
+      await openClubDetail(clubRef.id);
+    }
+
+    createClubBtn?.addEventListener('click', () => {
+      if (!state.currentUser) { alert('Sign in to create a club.'); return; }
+      newClubNameInput.value = ''; newClubDescInput.value = '';
+      createClubDialog.showModal();
+    });
+    confirmCreateClubBtn?.addEventListener('click', async () => {
+      const name = newClubNameInput.value.trim();
+      if (!name) { alert('Club name is required.'); return; }
+      confirmCreateClubBtn.disabled = true; confirmCreateClubBtn.textContent = 'Creating…';
+      try { await createClub(name, newClubDescInput.value.trim()); createClubDialog.close(); }
+      catch(e) { alert('Failed: '+e.message); }
+      finally { confirmCreateClubBtn.disabled = false; confirmCreateClubBtn.textContent = 'Create'; }
+    });
+    cancelCreateClubBtn?.addEventListener('click', () => createClubDialog.close());
+    createClubDialog?.addEventListener('click', e => { if (e.target === createClubDialog) createClubDialog.close(); });
+    clubSearchInput?.addEventListener('input', renderClubsList);
+    // ── End Clubs ─────────────────────────────────────────────────────
 
     // ── Profile Setup ────────────────────────────────────────────────
     const profileSetupOverlay = document.getElementById("profileSetupOverlay");
@@ -4837,19 +5404,25 @@
     function setView(view) {
       state.view = view;
       const isHistory = view === 'history';
-      const isTimes = view === 'times';
+      const isTimes   = view === 'times';
+      const isClubs   = view === 'clubs';
+      const hideTimer = isHistory || isTimes || isClubs;
       historyViewEl.classList.toggle('active', isHistory);
       timesViewEl.classList.toggle('active', isTimes);
-      timerViewEl.classList.toggle('hidden', isHistory || isTimes);
-      toolDockEl.classList.toggle('hidden', isHistory || isTimes);
+      clubsViewEl.classList.toggle('active', isClubs);
+      timerViewEl.classList.toggle('hidden', hideTimer);
+      toolDockEl.classList.toggle('hidden', hideTimer);
       timerViewBtn.classList.toggle('active', view === 'timer');
       historyViewBtn.classList.toggle('active', isHistory);
       timesViewBtn.classList.toggle('active', isTimes);
+      clubsViewBtn.classList.toggle('active', isClubs);
       document.body.classList.remove('mobile-tools-open');
       document.body.classList.remove('mobile-times-open');
       if (view !== 'timer') document.body.classList.remove('sidebar-open');
       if (isHistory) renderHistoryView();
       if (isTimes) renderTimesView();
+      if (isClubs && firebaseReady && !clubsLoaded) loadClubs();
+      if (!isClubs && clubPostsUnsubscribe) { clubPostsUnsubscribe(); clubPostsUnsubscribe = null; }
     }
 
     function renderMobileTimesSheet() {
@@ -5254,6 +5827,7 @@
     timerViewBtn?.addEventListener("click", () => setView('timer'));
     historyViewBtn?.addEventListener("click", () => setView('history'));
     timesViewBtn?.addEventListener("click", () => setView('times'));
+    clubsViewBtn?.addEventListener("click", () => setView('clubs'));
     timesEventFilterEl?.addEventListener("change", () => { state.timesEventFilter = timesEventFilterEl.value; state.timesSessionFilter = "all"; renderTimesView(); });
     timesSessionFilterEl?.addEventListener("change", () => { state.timesSessionFilter = timesSessionFilterEl.value; renderTimesView(); });
     timesSearchInputEl?.addEventListener("input", () => { state.timesSearch = timesSearchInputEl.value; renderTimesView(); });
@@ -5619,6 +6193,11 @@
 
     mobileNavTimesBtn?.addEventListener("click", () => {
       setView('times');
+      closeMobilePanels();
+    });
+
+    mobileNavClubsBtn?.addEventListener("click", () => {
+      setView('clubs');
       closeMobilePanels();
     });
 
