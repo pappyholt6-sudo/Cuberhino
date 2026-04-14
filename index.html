@@ -1242,10 +1242,29 @@
 
     body.mobile-ui .topbar-left{
       gap:8px;
+      flex-shrink:1;
+      min-width:0;
+    }
+
+    body.mobile-ui .brand{
+      font-size:17px;
+      color:var(--text);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      min-width:0;
     }
 
     body.mobile-ui .topbar-center{
       padding:0 8px;
+      min-width:0;
+      overflow:hidden;
+    }
+
+    body.mobile-ui .topbar-center #eventSelect{
+      max-width:100%;
+      min-width:0;
+      width:100%;
     }
 
     body.mobile-ui .topbar-right{
@@ -1269,10 +1288,7 @@
       display:flex;
     }
 
-    body.mobile-ui .brand{
-      font-size:17px;
-      color:var(--text);
-    }
+
 
     body.mobile-ui .app{
       grid-template-columns:1fr;
