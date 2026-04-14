@@ -1288,6 +1288,31 @@
       display:flex;
     }
 
+    /* Compact sidebar header in mobile — maximize space for the times list */
+    body.mobile-ui .sidebar-header{
+      padding:6px 10px 6px;
+    }
+
+    body.mobile-ui .sidebar-header h2{
+      display:none;
+    }
+
+    body.mobile-ui .session-stats{
+      display:none;
+    }
+
+    body.mobile-ui .mobile-sidebar-auth{
+      display:none;
+    }
+
+    body.mobile-ui .session-row{
+      margin-bottom:4px;
+    }
+
+    body.mobile-ui .mobile-sidebar-nav-grid{
+      margin:4px 0 6px;
+    }
+
 
 
     body.mobile-ui .app{
@@ -2506,20 +2531,31 @@
         <h2 id="sessionTitle">Solves</h2>
 
         <div class="mobile-sidebar-nav">
-          <div class="mobile-sidebar-nav-grid">
-            <button class="mobile-sidebar-btn" id="mobileNavTimerBtn">Timer</button>
-            <button class="mobile-sidebar-btn" id="mobileNavTimesBtn">Times</button>
-            <button class="mobile-sidebar-btn" id="mobileNavAchBtn">Achievements</button>
-            <button class="mobile-sidebar-btn" id="mobileNavClubsBtn">Clubs</button>
-            <button class="mobile-sidebar-btn" id="mobileNavCompsBtn">Comps</button>
-            <button class="mobile-sidebar-btn" id="mobileNavSettingsBtn">Settings</button>
-          </div>
-          <div class="mobile-sidebar-auth">
+          <select id="mobileNavSelect" class="select" style="width:100%;margin-bottom:2px;">
+            <option value="" disabled selected>≡ Navigate…</option>
+            <option value="timer">⏱ Timer</option>
+            <option value="times">📋 Times</option>
+            <option value="achievements">🏆 Achievements</option>
+            <option value="clubs">👥 Clubs</option>
+            <option value="globalLb">🌐 Leaderboard</option>
+            <option value="comps">🏁 Comps</option>
+            <option value="settings">⚙ Settings</option>
+            <option value="account">👤 Account</option>
+            <option value="signout" id="mobileNavSignOutOption" style="display:none;">🚪 Sign Out</option>
+          </select>
+          <div class="mobile-sidebar-auth" style="display:none;">
             <div class="auth-status" id="mobileAuthStatus">Local only</div>
-            <div class="mobile-sidebar-nav-grid">
-              <button class="mobile-sidebar-btn" id="mobileNavAccountBtn">Account</button>
-              <button class="mobile-sidebar-btn" id="mobileNavSignOutBtn" style="display:none;">Sign Out</button>
-            </div>
+          </div>
+          <!-- Keep hidden buttons for backward-compat JS references -->
+          <div style="display:none;">
+            <button id="mobileNavTimerBtn"></button>
+            <button id="mobileNavTimesBtn"></button>
+            <button id="mobileNavAchBtn"></button>
+            <button id="mobileNavClubsBtn"></button>
+            <button id="mobileNavCompsBtn"></button>
+            <button id="mobileNavSettingsBtn"></button>
+            <button id="mobileNavAccountBtn"></button>
+            <button id="mobileNavSignOutBtn"></button>
           </div>
         </div>
 
@@ -4213,6 +4249,8 @@
     function clubHasUnread(club) {
       if (!clubMembershipIds.has(club.id)) return false;
       if (!club.lastPostAt) return false;
+      // Never show a dot for a message the current user sent
+      if (club.lastPostUid && state.currentUser && club.lastPostUid === state.currentUser.uid) return false;
       const lastPostMs = club.lastPostAt?.toMillis?.() ?? 0;
       const lastReadMs = state.clubLastRead[club.id] ?? 0;
       return lastPostMs > lastReadMs;
@@ -4470,15 +4508,20 @@
           league: league || state.leagueId || 'rookie',
           content, createdAt: serverTimestamp()
         });
-        // Stamp lastPostAt on the club doc so other members' clients can detect the new message
+        // Stamp lastPostAt + lastPostUid on the club doc so other members detect the new message
         try {
-          await setDoc(doc(db,'clubs',clubId), { lastPostAt: serverTimestamp() }, { merge: true });
-          // Update local cache too so the sender doesn't see a dot on their own club
+          await setDoc(doc(db,'clubs',clubId), {
+            lastPostAt: serverTimestamp(),
+            lastPostUid: state.currentUser.uid
+          }, { merge: true });
+          // Update local cache so the sender doesn't see a dot on their own club
           const club = allClubs.find(c => c.id === clubId);
           if (club) {
             club.lastPostAt = { toMillis: () => Date.now() };
-            state.clubLastRead[clubId] = Date.now();
+            club.lastPostUid = state.currentUser.uid;
           }
+          // Persist read timestamp so the dot doesn't appear on reload
+          await markClubRead(clubId);
         } catch {}
       } catch(e) { alert('Failed to post: '+e.message); }
       finally { if (input) input.disabled = false; input?.focus(); }
@@ -5570,6 +5613,8 @@
             if (mobileAuthStatusEl) mobileAuthStatusEl.textContent = `${user.email} • signed in`;
             signOutBtn.style.display = "";
             if (mobileNavSignOutBtn) mobileNavSignOutBtn.style.display = "";
+            const mobileNavSignOutOption = document.getElementById('mobileNavSignOutOption');
+            if (mobileNavSignOutOption) mobileNavSignOutOption.style.display = "";
             // Show signed-in section, hide sign-up/sign-in form
             if (accountSignedInRow) { accountSignedInRow.style.display = 'flex'; }
             if (accountSignedInLabel) accountSignedInLabel.textContent = `Signed in as ${user.email}`;
@@ -5599,6 +5644,8 @@
             signOutBtn.style.display = "none";
             editProfileBtn.style.display = "none";
             if (mobileNavSignOutBtn) mobileNavSignOutBtn.style.display = "none";
+            const mobileNavSignOutOption2 = document.getElementById('mobileNavSignOutOption');
+            if (mobileNavSignOutOption2) mobileNavSignOutOption2.style.display = "none";
             updateTopbarAvatar(null);
             hideProfileSetup();
             // Restore auth mode buttons, hide signed-in section
@@ -8128,6 +8175,22 @@
     document.getElementById('mobileNavCompsBtn')?.addEventListener("click", () => {
       setView('comps');
       closeMobilePanels();
+    });
+
+    // ── Mobile nav dropdown ───────────────────────────────────────────────────
+    document.getElementById('mobileNavSelect')?.addEventListener('change', function() {
+      const val = this.value;
+      this.value = ''; // reset so re-selecting the same option works next time
+      if (!val) return;
+      if (val === 'timer') { setView('timer'); closeMobilePanels(); }
+      else if (val === 'times') { timesSubTab = 'times'; setView('times'); closeMobilePanels(); }
+      else if (val === 'achievements') { setView('achievements'); closeMobilePanels(); }
+      else if (val === 'clubs') { setView('clubs'); closeMobilePanels(); }
+      else if (val === 'globalLb') { setView('globalLb'); closeMobilePanels(); }
+      else if (val === 'comps') { setView('comps'); closeMobilePanels(); }
+      else if (val === 'settings') { syncSettingsUI(); activateTab('timerTab'); settingsDialog.showModal(); closeMobilePanels(); }
+      else if (val === 'account') { syncSettingsUI(); activateTab('accountTab'); settingsDialog.showModal(); closeMobilePanels(); }
+      else if (val === 'signout') { mobileNavSignOutBtn?.click(); }
     });
 
     // ── Competition dialog wiring ─────────────────────────────────────────────
