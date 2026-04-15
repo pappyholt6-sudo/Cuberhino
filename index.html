@@ -3384,14 +3384,26 @@
 
     // ── League tiers ──────────────────────────────────────────────────────────
     const LEAGUES = [
-      { id: "rookie",      label: "Rookie",      minPts:     0, color: "#9ca3af", icon: "🔘", gradient: "linear-gradient(135deg,#374151,#6b7280)" },
-      { id: "bronze",      label: "Bronze",      minPts:    50, color: "#cd7f32", icon: "🟫", gradient: "linear-gradient(135deg,#92400e,#d97706)" },
-      { id: "silver",      label: "Silver",      minPts:   150, color: "#9ca3af", icon: "🥈", gradient: "linear-gradient(135deg,#6b7280,#e5e7eb)" },
-      { id: "gold",        label: "Gold",        minPts:   300, color: "#f59e0b", icon: "🟨", gradient: "linear-gradient(135deg,#b45309,#fbbf24)" },
-      { id: "platinum",    label: "Platinum",    minPts:   500, color: "#67e8f9", icon: "🔷", gradient: "linear-gradient(135deg,#0891b2,#a5f3fc)" },
-      { id: "diamond",     label: "Diamond",     minPts:   800, color: "#818cf8", icon: "💎", gradient: "linear-gradient(135deg,#4f46e5,#c4b5fd)" },
-      { id: "master",      label: "Master",      minPts:  1200, color: "#f43f5e", icon: "🔴", gradient: "linear-gradient(135deg,#be123c,#fb7185)" },
-      { id: "grandmaster", label: "Grandmaster", minPts:  2000, color: "#f97316", icon: "👑", gradient: "linear-gradient(135deg,#c2410c,#fdba74)" },
+      { id: "rookie",       label: "Rookie",       minPts:     0, color: "#9ca3af", icon: "🔘", gradient: "linear-gradient(135deg,#374151,#6b7280)" },
+      { id: "iron",         label: "Iron",         minPts:    25, color: "#78716c", icon: "⚙️", gradient: "linear-gradient(135deg,#292524,#78716c)" },
+      { id: "bronze",       label: "Bronze",       minPts:    70, color: "#cd7f32", icon: "🟫", gradient: "linear-gradient(135deg,#92400e,#d97706)" },
+      { id: "steel",        label: "Steel",        minPts:   140, color: "#94a3b8", icon: "🔩", gradient: "linear-gradient(135deg,#475569,#cbd5e1)" },
+      { id: "silver",       label: "Silver",       minPts:   240, color: "#d1d5db", icon: "🥈", gradient: "linear-gradient(135deg,#6b7280,#f3f4f6)" },
+      { id: "emerald",      label: "Emerald",      minPts:   375, color: "#10b981", icon: "💚", gradient: "linear-gradient(135deg,#065f46,#34d399)" },
+      { id: "gold",         label: "Gold",         minPts:   550, color: "#f59e0b", icon: "🟨", gradient: "linear-gradient(135deg,#b45309,#fbbf24)" },
+      { id: "sapphire",     label: "Sapphire",     minPts:   775, color: "#60a5fa", icon: "💙", gradient: "linear-gradient(135deg,#1d4ed8,#93c5fd)" },
+      { id: "platinum",     label: "Platinum",     minPts:  1050, color: "#67e8f9", icon: "🔷", gradient: "linear-gradient(135deg,#0891b2,#a5f3fc)" },
+      { id: "ruby",         label: "Ruby",         minPts:  1375, color: "#f87171", icon: "❤️", gradient: "linear-gradient(135deg,#991b1b,#f87171)" },
+      { id: "diamond",      label: "Diamond",      minPts:  1750, color: "#818cf8", icon: "💎", gradient: "linear-gradient(135deg,#4f46e5,#c4b5fd)" },
+      { id: "amethyst",     label: "Amethyst",     minPts:  2175, color: "#c084fc", icon: "💜", gradient: "linear-gradient(135deg,#7e22ce,#e879f9)" },
+      { id: "obsidian",     label: "Obsidian",     minPts:  2650, color: "#a78bfa", icon: "🌑", gradient: "linear-gradient(135deg,#1e1b4b,#7c3aed)" },
+      { id: "master",       label: "Master",       minPts:  3175, color: "#f43f5e", icon: "🔴", gradient: "linear-gradient(135deg,#be123c,#fb7185)" },
+      { id: "grandmaster",  label: "Grandmaster",  minPts:  3750, color: "#f97316", icon: "👑", gradient: "linear-gradient(135deg,#c2410c,#fdba74)" },
+      { id: "legend",       label: "Legend",       minPts:  4250, color: "#facc15", icon: "✨", gradient: "linear-gradient(135deg,#a16207,#fde68a)" },
+      { id: "champion",     label: "Champion",     minPts:  5000, color: "#f0abfc", icon: "🏆", gradient: "linear-gradient(135deg,#86198f,#f0abfc)" },
+      { id: "immortal",     label: "Immortal",     minPts:  6500, color: "#67e8f9", icon: "🌟", gradient: "linear-gradient(135deg,#0c4a6e,#38bdf8,#f0abfc)" },
+      { id: "transcendent", label: "Transcendent", minPts:  9000, color: "#fda4af", icon: "⚡", gradient: "linear-gradient(135deg,#4c0519,#fb7185,#fbbf24)" },
+      { id: "celestial",    label: "Celestial",    minPts: 13000, color: "#c7d2fe", icon: "🌌", gradient: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)" },
     ];
 
     // ── Achievement definitions ───────────────────────────────────────────────
@@ -3406,6 +3418,9 @@
       { id: "solves_2500",     label: "Obsessed",            desc: "Complete 2,500 solves",                    pts: 60,  icon: "🔮", check: d => d.totalSolves >= 2500 },
       { id: "solves_5000",     label: "Cube Addict",         desc: "Complete 5,000 solves",                    pts: 80,  icon: "🌟", check: d => d.totalSolves >= 5000 },
       { id: "solves_10000",    label: "Five Figures",        desc: "Complete 10,000 solves",                   pts: 120, icon: "👑", check: d => d.totalSolves >= 10000 },
+      { id: "solves_20000",    label: "Twenty Thousand",     desc: "Complete 20,000 solves",                   pts: 175, icon: "💫", check: d => d.totalSolves >= 20000 },
+      { id: "solves_50000",    label: "Fifty Thousand",      desc: "Complete 50,000 solves",                   pts: 250, icon: "🌟", check: d => d.totalSolves >= 50000 },
+      { id: "solves_100000",   label: "Six Figures",         desc: "Complete 100,000 solves",                  pts: 500, icon: "🚀", check: d => d.totalSolves >= 100000 },
       // ── Streak ───────────────────────────────────────────────────────────────
       { id: "streak_3",        label: "Hat Trick",           desc: "3-day solve streak",                       pts:  5,  icon: "📅", check: d => d.streak >= 3 },
       { id: "streak_7",        label: "Week Warrior",        desc: "7-day solve streak",                       pts: 15,  icon: "🗓️", check: d => d.streak >= 7 },
@@ -3440,6 +3455,8 @@
       { id: "sub15_333",       label: "Sub-15",              desc: "Solve 3x3 in under 15 seconds",            pts: 55,  icon: "🌪️", check: d => (d.pb333 ?? Infinity) < 15000 },
       { id: "sub10_333",       label: "Sub-10",              desc: "Solve 3x3 in under 10 seconds",            pts: 100, icon: "💥", check: d => (d.pb333 ?? Infinity) < 10000 },
       { id: "sub5_333",        label: "Sub-5",               desc: "Solve 3x3 in under 5 seconds",             pts: 200, icon: "🌠", check: d => (d.pb333 ?? Infinity) < 5000 },
+      { id: "sub4_333",        label: "Sub-4",               desc: "Solve 3x3 in under 4 seconds",             pts: 350, icon: "⚡", check: d => (d.pb333 ?? Infinity) < 4000 },
+      { id: "sub3_333",        label: "Sub-3",               desc: "Solve 3x3 in under 3 seconds",             pts: 600, icon: "🌌", check: d => (d.pb333 ?? Infinity) < 3000 },
       // ── Total time invested ──────────────────────────────────────────────────
       { id: "time_1h",         label: "Hour Glass",          desc: "1 hour of total solve time",               pts: 10,  icon: "⏳", check: d => d.totalSolveMs >= 3600000 },
       { id: "time_10h",        label: "Ten Hours Deep",      desc: "10 hours of total solve time",             pts: 30,  icon: "🕐", check: d => d.totalSolveMs >= 36000000 },
@@ -3452,6 +3469,10 @@
       { id: "events_all",      label: "Completionist",       desc: "Get a PB on all 16 events",                pts: 150, icon: "🏅", check: d => d.eventsWithPb >= 16 },
       // ── Social ───────────────────────────────────────────────────────────────
       { id: "joined_club",     label: "Social Butterfly",    desc: "Join a club",                              pts:  5,  icon: "🤝", check: d => d.clubsJoined >= 1 },
+      { id: "made_club",       label: "Founder",             desc: "Create a club",                            pts: 15,  icon: "🏗️", check: d => d.madeClub },
+      { id: "comp_third",      label: "Podium Finish",       desc: "Finish 3rd in a competition",             pts: 20,  icon: "🥉", check: d => d.compThird },
+      { id: "comp_second",     label: "Silver Medalist",     desc: "Finish 2nd in a competition",             pts: 35,  icon: "🥈", check: d => d.compSecond },
+      { id: "comp_win",        label: "Champion",            desc: "Win a competition",                        pts: 60,  icon: "🥇", check: d => d.compWin },
     ];
 
     const defaultSettings = {
@@ -3575,6 +3596,7 @@
       mobileTouchActive: false,
       clubLastRead: {},  // { [clubId]: timestampMs } — populated on sign-in
       earnedAchievements: [],
+      socialFlags: { madeClub: false, compWin: false, compSecond: false, compThird: false },
       leagueId: "rookie",
       leaguePoints: 0
     };
@@ -4133,9 +4155,11 @@
       // Clubs joined count (from Firebase membership, approximate via allClubs)
       const clubsJoined = clubMembershipIds ? clubMembershipIds.size : 0;
 
+      const { madeClub, compWin, compSecond, compThird } = state.socialFlags || {};
       return { totalSolves, totalSolveMs, pb333: pb333 === Infinity ? null : pb333,
                pbByEvent, maxSolvesInDay, maxEventsInDay, totalDays,
-               streak, eventsWithPb, multiEventDay, clubsJoined };
+               streak, eventsWithPb, multiEventDay, clubsJoined,
+               madeClub: !!madeClub, compWin: !!compWin, compSecond: !!compSecond, compThird: !!compThird };
     }
 
     function getLeagueTier(pts) {
@@ -4960,6 +4984,24 @@
         .map(e=>({...e,score:compScore(e.times||[])}))
         .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
       const medals = ['🥇','🥈','🥉'];
+      // Check if current user earned a placement achievement on this closed comp
+      if (!isOpen && state.currentUser && scored.length >= 1) {
+        const myRank = scored.findIndex(e => e.uid === state.currentUser.uid); // 0-indexed
+        if (myRank >= 0) {
+          const flags = state.socialFlags;
+          const newFlags = {};
+          if (myRank === 0 && !flags.compWin)    { newFlags.compWin = true; }
+          if (myRank === 1 && !flags.compSecond)  { newFlags.compSecond = true; }
+          if (myRank === 2 && !flags.compThird)   { newFlags.compThird = true; }
+          if (Object.keys(newFlags).length) {
+            Object.assign(state.socialFlags, newFlags);
+            try {
+              setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: newFlags }, { merge: true });
+            } catch {}
+            syncAchievements();
+          }
+        }
+      }
       const evLabel = EVENTS.find(e=>e.id===comp.event)?.label || comp.event;
       const endStr = comp.endAt ? new Date(comp.endAt.toMillis?.()??comp.endAt).toLocaleString() : null;
       container.innerHTML = `
@@ -5185,8 +5227,16 @@
         pbs: getAllPbs(), league: league || state.leagueId || 'rookie',
         role:'admin', joinedAt: serverTimestamp()
       });
-      allClubs.unshift({ id: clubRef.id, name, description: description||'', memberCount: 1 });
+      allClubs.unshift({ id: clubRef.id, name, description: description||'', memberCount: 1, createdBy: state.currentUser.uid });
       clubMembershipIds.add(clubRef.id);
+      // Award "Founder" achievement flag
+      if (!state.socialFlags.madeClub) {
+        state.socialFlags.madeClub = true;
+        try {
+          await setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: { madeClub: true } }, { merge: true });
+        } catch {}
+        syncAchievements();
+      }
       renderClubsList();
       await openClubDetail(clubRef.id);
     }
@@ -5625,12 +5675,14 @@
             } else {
               const profileSnap = await getDoc(doc(db, "profiles", user.uid));
               if (profileSnap.exists()) {
-                const { username, avatarUrl } = profileSnap.data();
+                const { username, avatarUrl, socialFlags } = profileSnap.data();
                 authStatusEl.textContent = `${username} • synced`;
                 if (mobileAuthStatusEl) mobileAuthStatusEl.textContent = `${username} • synced`;
                 if (accountSignedInLabel) accountSignedInLabel.textContent = `Signed in as ${username}`;
                 updateTopbarAvatar(avatarUrl || defaultAvatarUrl(username));
                 editProfileBtn.style.display = "";
+                // Load social achievement flags from profile
+                if (socialFlags) state.socialFlags = { ...state.socialFlags, ...socialFlags };
                 syncPbsToProfile(); // update global leaderboard data on sign-in
                 loadClubLastRead(); // load unread timestamps for notification dots
                 syncAchievements(); // compute + award any newly unlocked achievements
