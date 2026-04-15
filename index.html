@@ -4158,24 +4158,22 @@
       if (!firebaseReady || !db || !state.currentUser) return;
       try {
         const d = computeAchievementData();
+        // Recompute from scratch — only what the user currently qualifies for
+        const currentEarned = ACHIEVEMENTS.filter(a => a.check(d)).map(a => a.id);
         const snap = await getDoc(doc(db,"profiles",state.currentUser.uid));
         const stored = snap.exists() ? (snap.data().achievements || []) : [];
-        const newlyEarned = [];
-        for (const ach of ACHIEVEMENTS) {
-          if (!stored.includes(ach.id) && ach.check(d)) {
-            stored.push(ach.id);
-            newlyEarned.push(ach);
-          }
-        }
-        const pts = totalAchievementPoints(stored);
+        // Toast only for achievements newly earned this sync (not previously stored)
+        const newlyEarned = ACHIEVEMENTS.filter(a => currentEarned.includes(a.id) && !stored.includes(a.id));
+        const pts = totalAchievementPoints(currentEarned);
         const league = getLeagueTier(pts).id;
-        state.earnedAchievements = stored;
+        state.earnedAchievements = currentEarned;
         state.leagueId = league;
         state.leaguePoints = pts;
         const prevLeague = snap.data()?.league;
-        if (newlyEarned.length || prevLeague !== league) {
+        // Always save the fresh recomputed list (replaces stored, doesn't union)
+        if (true) {
           await setDoc(doc(db,"profiles",state.currentUser.uid),
-            { achievements: stored, league, leaguePoints: pts }, { merge: true });
+            { achievements: currentEarned, league, leaguePoints: pts }, { merge: true });
           // Also update league on any club member docs the user is in
           if (prevLeague !== league) {
             // Use cached memberships if available; otherwise query Firestore directly
@@ -7590,11 +7588,10 @@
       const gridEl     = document.getElementById("achGrid");
       if (!gridEl) return;
 
-      // Always compute from local data — it's the source of truth on this device.
-      // Merge with any Firebase-stored achievements so nothing looks un-earned cross-device.
+      // Compute purely from current solve data — achievements reflect what you have NOW,
+      // not what you had in the past. Deleting solves can un-earn achievements.
       const achData = computeAchievementData();
-      const localEarned = ACHIEVEMENTS.filter(a => a.check(achData)).map(a => a.id);
-      const earned = [...new Set([...state.earnedAchievements, ...localEarned])];
+      const earned = ACHIEVEMENTS.filter(a => a.check(achData)).map(a => a.id);
       const pts     = totalAchievementPoints(earned);
       const tier    = getLeagueTier(pts);
       const nextTier = LEAGUES[LEAGUES.indexOf(tier) + 1];
