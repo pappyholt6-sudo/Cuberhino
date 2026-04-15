@@ -4179,47 +4179,84 @@
     }
 
     async function syncAchievements() {
-      if (!firebaseReady || !db || !state.currentUser) return;
       try {
         const d = computeAchievementData();
         // Recompute from scratch — only what the user currently qualifies for
         const currentEarned = ACHIEVEMENTS.filter(a => a.check(d)).map(a => a.id);
-        const snap = await getDoc(doc(db,"profiles",state.currentUser.uid));
-        const stored = snap.exists() ? (snap.data().achievements || []) : [];
-        // Toast only for achievements newly earned this sync (not previously stored)
-        const newlyEarned = ACHIEVEMENTS.filter(a => currentEarned.includes(a.id) && !stored.includes(a.id));
+        // Toast for anything newly earned since last sync (compare against local state)
+        const previousEarned = state.earnedAchievements || [];
+        const newlyEarned = ACHIEVEMENTS.filter(a => currentEarned.includes(a.id) && !previousEarned.includes(a.id));
         const pts = totalAchievementPoints(currentEarned);
         const league = getLeagueTier(pts).id;
         state.earnedAchievements = currentEarned;
         state.leagueId = league;
         state.leaguePoints = pts;
-        const prevLeague = snap.data()?.league;
-        // Always save the fresh recomputed list (replaces stored, doesn't union)
-        if (true) {
-          await setDoc(doc(db,"profiles",state.currentUser.uid),
-            { achievements: currentEarned, league, leaguePoints: pts }, { merge: true });
-          // Also update league on any club member docs the user is in
-          if (prevLeague !== league) {
-            // Use cached memberships if available; otherwise query Firestore directly
-            let memberIds = clubMembershipIds.size > 0
-              ? clubMembershipIds
-              : await (async () => {
-                  try {
-                    const snaps = await getDocs(query(collectionGroup(db,'members'), where('uid','==',state.currentUser.uid)));
-                    const ids = new Set();
-                    snaps.forEach(d => { const cid = d.ref.parent?.parent?.id; if (cid) ids.add(cid); });
-                    return ids;
-                  } catch { return new Set(); }
-                })();
-            for (const clubId of memberIds) {
+        newlyEarned.forEach(a => showAchievementToast(a));
+        // If not signed in, stop here — local state is updated, no Firebase needed
+        if (!firebaseReady || !db || !state.currentUser) return;
+        // ── Retroactive comp placement scan (runs once per session until all flags set) ──
+        const flags = state.socialFlags;
+        if (!flags.compWin || !flags.compSecond || !flags.compThird) {
+          try {
+            // Check global competitions the user entered
+            const globalEntrySnap = await getDocs(query(
+              collectionGroup(db, 'entries'), where('uid','==',state.currentUser.uid)
+            ));
+            const compPaths = new Set();
+            globalEntrySnap.forEach(d => {
+              // parent = entries subcollection, parent.parent = competition doc
+              const compRef = d.ref.parent?.parent;
+              if (compRef) compPaths.add(compRef.path);
+            });
+            const newFlags = {};
+            for (const compPath of compPaths) {
+              if (flags.compWin && flags.compSecond && flags.compThird) break;
               try {
-                await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid),
-                  { league }, { merge: true });
-              } catch(e) { console.warn('league club update failed for', clubId, e.message); }
+                const compSnap = await getDoc(doc(db, compPath));
+                if (!compSnap.exists() || compSnap.data().status !== 'closed') continue;
+                const entriesSnap = await getDocs(collection(db, compPath, 'entries'));
+                const scored = entriesSnap.docs
+                  .map(d => ({...d.data(), score: compScore(d.data().times||[])}))
+                  .filter(e => e.score != null)
+                  .sort((a,b) => a.score - b.score);
+                const rank = scored.findIndex(e => e.uid === state.currentUser.uid);
+                if (rank === 0 && !flags.compWin)    newFlags.compWin    = true;
+                if (rank === 1 && !flags.compSecond) newFlags.compSecond = true;
+                if (rank === 2 && !flags.compThird)  newFlags.compThird  = true;
+              } catch {}
             }
+            if (Object.keys(newFlags).length) {
+              Object.assign(state.socialFlags, newFlags);
+              await setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: newFlags }, { merge: true });
+              // Re-run to pick up newly set flags
+              return syncAchievements();
+            }
+          } catch(e) { console.warn('retroactive comp scan error', e); }
+        }
+        const snap = await getDoc(doc(db,"profiles",state.currentUser.uid));
+        const prevLeague = snap.data()?.league;
+        // Save fresh recomputed list to Firebase (replaces stored, doesn't union)
+        await setDoc(doc(db,"profiles",state.currentUser.uid),
+          { achievements: currentEarned, league, leaguePoints: pts }, { merge: true });
+        // Update league on club member docs if it changed
+        if (prevLeague !== league) {
+          let memberIds = clubMembershipIds.size > 0
+            ? clubMembershipIds
+            : await (async () => {
+                try {
+                  const snaps = await getDocs(query(collectionGroup(db,'members'), where('uid','==',state.currentUser.uid)));
+                  const ids = new Set();
+                  snaps.forEach(d => { const cid = d.ref.parent?.parent?.id; if (cid) ids.add(cid); });
+                  return ids;
+                } catch { return new Set(); }
+              })();
+          for (const clubId of memberIds) {
+            try {
+              await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid),
+                { league }, { merge: true });
+            } catch(e) { console.warn('league club update failed for', clubId, e.message); }
           }
         }
-        newlyEarned.forEach(a => showAchievementToast(a));
       } catch(e) { console.warn("syncAchievements error", e); }
     }
 
@@ -4328,6 +4365,17 @@
         clubsLoaded = true;
         renderClubsList();
         updateClubsNavDot();
+        // Retroactively award "Founder" achievement if user created any club
+        if (state.currentUser && !state.socialFlags.madeClub) {
+          const didCreate = allClubs.some(c => c.createdBy === state.currentUser.uid);
+          if (didCreate) {
+            state.socialFlags.madeClub = true;
+            try {
+              await setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: { madeClub: true } }, { merge: true });
+            } catch {}
+            syncAchievements();
+          }
+        }
       } catch(e) {
         clubsListScroll.innerHTML = `<div style="padding:16px;color:var(--bad);font-size:13px;">Failed to load clubs.</div>`;
       }
