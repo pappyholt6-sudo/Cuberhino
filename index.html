@@ -3320,6 +3320,7 @@
 
   <script type="module">
     import { randomScrambleForEvent } from "https://cdn.cubing.net/v0/js/cubing/scramble";
+    import { TwistyPlayer } from "https://cdn.cubing.net/v0/js/cubing/twisty";
     import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
     import {
@@ -6908,31 +6909,31 @@
       if (!player) {
         mount.innerHTML = "";
 
-        player = document.createElement("twisty-player");
+        player = new TwistyPlayer({
+          visualization: "3D",
+          background: "none",
+          controlPanel: "none",
+          backView: "none",
+          hintFacelets: "none"
+        });
         player.id = "drawScramblePlayer";
-        player.setAttribute("background", "none");
-        player.setAttribute("control-panel", "none");
-        player.setAttribute("back-view", "none");
-        player.setAttribute("viewer-link", "none");
-        player.setAttribute("experimental-drag-input", "none");
-        player.setAttribute("visualization", "3D");
+        player.style.width = "100%";
+        player.style.height = "100%";
+        player.style.minHeight = "136px";
+        player.style.display = "block";
         mount.appendChild(player);
       }
 
       const view = getDrawScrambleViewConfig();
-      const scrambleAlg = state.currentScramble || "";
-      player.setAttribute("puzzle", view.puzzle);
-      player.setAttribute("visualization", "3D");
-      player.setAttribute("alg", "");
-      player.setAttribute("experimental-setup-alg", scrambleAlg);
-      player.setAttribute("experimental-setup-anchor", "start");
-      player.removeAttribute("hint-facelets");
-      player.removeAttribute("camera-latitude");
-      player.removeAttribute("camera-longitude");
-      player.style.width = "100%";
-      player.style.height = "100%";
-      player.style.minHeight = "136px";
-      player.style.display = "block";
+      const scrambleAlg = (state.currentScramble || "").trim();
+
+      player.puzzle = view.puzzle;
+      player.visualization = "3D";
+      player.alg = "";
+      player.experimentalSetupAlg = scrambleAlg;
+      player.experimentalSetupAnchor = "start";
+      player.hintFacelets = "none";
+      player.backView = "none";
       player.style.transform = `scale(${view.scale})`;
       player.style.transformOrigin = "center center";
     }
