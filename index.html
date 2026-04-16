@@ -4201,30 +4201,52 @@
         const profilesSnap = await getDocs(collection(db, "profiles"));
         const profiles = profilesSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
 
-        // For each profile, get PBs — first from their stored pbs field, else build from timerUsers
-        // We batch: only fetch timerUsers if profile has no pbs field yet
+        // For each profile, get PBs+Ao5s.
+        // Current user: always use fresh local data and write it back.
+        // Others: use stored pbs/ao5s; if missing pbs, compute from timerUsers.
         const withPbs = await Promise.all(profiles.map(async p => {
+          // Always use fresh local data for the signed-in user
+          if (p.uid === state.currentUser?.uid) {
+            const freshPbs  = getAllPbs();
+            const freshAo5s = getAllAo5s();
+            const league    = state.leagueId || 'rookie';
+            const updated   = { ...p, pbs: freshPbs, ao5s: freshAo5s, league };
+            try { await setDoc(doc(db,"profiles",p.uid), { pbs: freshPbs, ao5s: freshAo5s, league }, { merge: true }); } catch {}
+            return updated;
+          }
           if (p.pbs && Object.keys(p.pbs).length) return p;
-          // Try timerUsers
+          // Fallback: compute pbs AND ao5s from raw timerUsers data
           try {
             const tuSnap = await getDoc(doc(db, "timerUsers", p.uid));
             if (!tuSnap.exists()) return p;
             const d = tuSnap.data().data || {};
             const pbs = {};
+            const ao5Candidates = {}; // evId -> sorted list of times for ao5 calc
             for (const [evId, bundle] of Object.entries(d.sessionsByEvent || {})) {
+              const allTimes = [];
               for (const session of (bundle.sessions || [])) {
                 for (const solve of (session.solves || [])) {
                   if (solve.penalty === "DNF") continue;
                   const ms = (solve.baseTimeMs ?? solve.time ?? 0) + (solve.penalty === "+2" ? 2000 : 0);
                   if (pbs[evId] == null || ms < pbs[evId]) pbs[evId] = ms;
+                  allTimes.push(ms);
                 }
               }
+              // Best ao5 from this event
+              if (allTimes.length >= 5) {
+                let best = null;
+                for (let i = 0; i <= allTimes.length - 5; i++) {
+                  const w = allTimes.slice(i, i+5).sort((a,b)=>a-b);
+                  const avg = (w[1]+w[2]+w[3]) / 3;
+                  if (best == null || avg < best) best = avg;
+                }
+                if (best != null) ao5Candidates[evId] = Math.round(best);
+              }
             }
-            // Cache PBs back onto profile for next time
             if (Object.keys(pbs).length) {
-              try { await setDoc(doc(db,"profiles",p.uid), { pbs }, { merge: true }); } catch {}
+              try { await setDoc(doc(db,"profiles",p.uid), { pbs, ao5s: ao5Candidates }, { merge: true }); } catch {}
             }
-            return { ...p, pbs };
+            return { ...p, pbs, ao5s: ao5Candidates };
           } catch { return p; }
         }));
 
@@ -5941,69 +5963,143 @@
         existingRecords = clubSnap.data()?.records || {};
       } catch {}
 
-      const updates = {};
+      const mergeData = {};
       for (const ev of compEvents) {
+        // Best SINGLE time from any entry for this event
         let bestMs = null;
         let bestHolder = null;
         for (const entry of entries) {
           const times = comp.events?.length > 1
             ? (entry.timesByEvent?.[ev.id] || [])
             : (entry.times || []);
-          const s = compScore(times);
-          if (s != null && (bestMs == null || s < bestMs)) {
-            bestMs = s;
-            bestHolder = { uid: entry.uid, username: entry.username, displayName: entry.displayName };
+          for (const t of times) {
+            if (t == null || t <= 0) continue;
+            if (bestMs == null || t < bestMs) {
+              bestMs = t;
+              bestHolder = { uid: entry.uid, username: entry.username, displayName: entry.displayName };
+            }
           }
         }
         if (bestMs == null) continue;
         const existing = existingRecords[ev.id];
         if (!existing || existing.timeMs > bestMs) {
-          updates[ev.id] = {
+          mergeData[`records.${ev.id}`] = {
             eventId: ev.id, eventLabel: ev.label,
             timeMs: bestMs, holder: bestHolder,
             compId: comp.id, compName: comp.name || ''
           };
         }
       }
-      if (Object.keys(updates).length) {
-        try {
-          // Build a flat merge update: records.eventId = {...}
-          const mergeData = {};
-          for (const [evId, rec] of Object.entries(updates)) {
-            mergeData[`records.${evId}`] = rec;
-          }
-          await updateDoc(doc(db, 'clubs', comp.clubId), mergeData);
-        } catch(e) { console.warn('Club record update failed:', e.message); }
+      if (Object.keys(mergeData).length) {
+        try { await updateDoc(doc(db, 'clubs', comp.clubId), mergeData); }
+        catch(e) { console.warn('Club record update failed:', e.message); }
       }
     }
+
+    // State for Records tab event filter (per club session)
+    let recordsSelectedEvent = '333';
 
     async function renderClubRecords(container, clubId) {
       container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
       try {
-        const clubSnap = await getDoc(doc(db, 'clubs', clubId));
+        // Load club doc (records) + all closed comps in parallel
+        const [clubSnap, closedSnap] = await Promise.all([
+          getDoc(doc(db, 'clubs', clubId)),
+          getDocs(query(collection(db,'clubs',clubId,'competitions'),
+            where('status','==','closed'), orderBy('createdAt','desc'), limit(30)))
+        ]);
+
         const recordsMap = clubSnap.data()?.records || {};
-        const records = Object.values(recordsMap);
-        if (!records.length) {
+        const closedComps = closedSnap.docs.map(d=>({id:d.id,...d.data()}));
+
+        // Build list of events that have either a record or a closed comp
+        const eventsWithData = new Set([
+          ...Object.keys(recordsMap),
+          ...closedComps.flatMap(c => c.events?.length ? c.events.map(e=>e.id) : [c.event||'333'])
+        ]);
+        if (!eventsWithData.size) {
           container.innerHTML = `<div style="color:var(--muted);font-size:13px;">No club records yet. Records are set when a club competition is closed.</div>`;
           return;
         }
-        // Sort by EVENTS order
-        const evOrder = EVENTS.map(e => e.id);
-        records.sort((a,b) => evOrder.indexOf(a.eventId) - evOrder.indexOf(b.eventId));
-        container.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            ${records.map(r => `
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;">
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(r.eventLabel||r.eventId)}</div>
-                  <div style="font-size:11px;color:var(--muted);margin-top:2px;">
-                    held by <span style="color:var(--text);font-weight:600;">@${escapeHtml(r.holder?.username||'?')}</span>
-                    ${r.compName?`· from ${escapeHtml(r.compName)}`:''}
-                  </div>
-                </div>
-                <div style="font-size:17px;font-weight:700;color:var(--good);">${formatMs(r.timeMs)}</div>
+
+        // Ensure selectedEvent is valid
+        if (!eventsWithData.has(recordsSelectedEvent)) {
+          recordsSelectedEvent = [...eventsWithData][0];
+        }
+        const evOrder = EVENTS.map(e=>e.id);
+        const sortedEvIds = [...eventsWithData].sort((a,b)=>evOrder.indexOf(a)-evOrder.indexOf(b));
+        const evLabelMap = Object.fromEntries(EVENTS.map(e=>[e.id,e.label]));
+
+        // Comps that include the selected event
+        const relevantComps = closedComps.filter(c => {
+          if (c.events?.length) return c.events.some(e=>e.id===recordsSelectedEvent);
+          return (c.event||'333') === recordsSelectedEvent;
+        });
+
+        // Record for selected event
+        const rec = recordsMap[recordsSelectedEvent];
+        const recHtml = rec ? `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:color-mix(in srgb,var(--good) 10%,var(--panel));border:1px solid var(--good);border-radius:12px;margin-bottom:18px;">
+            <div style="font-size:26px;line-height:1;">🏅</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--good);margin-bottom:2px;">Club Record</div>
+              <div style="font-size:13px;font-weight:700;">@${escapeHtml(rec.holder?.username||'?')}</div>
+              <div style="font-size:11px;color:var(--muted);">${rec.compName?`from ${escapeHtml(rec.compName)}`:''}</div>
+            </div>
+            <div style="font-size:22px;font-weight:800;color:var(--good);">${formatMs(rec.timeMs)}</div>
+          </div>` : `<div style="color:var(--muted);font-size:13px;margin-bottom:18px;">No record set yet for this event.</div>`;
+
+        // Comp rankings
+        const rankingsHtml = relevantComps.length ? `
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Competition Results</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${relevantComps.map(c => `
+              <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;">
+                <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(c.name||'Unnamed')}</div>
+                <div id="compRankings_${escapeHtml(c.id)}" style="font-size:12px;color:var(--muted);">Loading…</div>
               </div>`).join('')}
-          </div>`;
+          </div>` : `<div style="color:var(--muted);font-size:13px;">No closed competitions for this event yet.</div>`;
+
+        container.innerHTML = `
+          <div style="margin-bottom:14px;">
+            <select class="select" id="recordsEventSelect" style="font-size:13px;padding:5px 8px;">
+              ${sortedEvIds.map(id=>`<option value="${id}"${id===recordsSelectedEvent?' selected':''}>${escapeHtml(evLabelMap[id]||id)}</option>`).join('')}
+            </select>
+          </div>
+          ${recHtml}
+          ${rankingsHtml}`;
+
+        container.querySelector('#recordsEventSelect')?.addEventListener('change', e => {
+          recordsSelectedEvent = e.target.value;
+          renderClubRecords(container, clubId);
+        });
+
+        // Async-load rankings for each relevant comp
+        for (const c of relevantComps) {
+          const rankEl = container.querySelector(`#compRankings_${c.id}`);
+          if (!rankEl) continue;
+          try {
+            const entriesSnap = await getDocs(collection(db,'clubs',clubId,'competitions',c.id,'entries'));
+            const entries = entriesSnap.docs.map(d=>d.data());
+            const compEvents = c.events?.length ? c.events : [{id:c.event||'333',scrambles:c.scrambles||[]}];
+            const isMulti = compEvents.length > 1;
+            const eventIds = compEvents.map(e=>e.id);
+            const scored = entries
+              .map(e=>({...e, score: isMulti ? multiEventScore(e,eventIds) : compScore(e.times||[])}))
+              .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
+            if (!scored.length) { rankEl.textContent='No entries.'; continue; }
+            const medals = ['🥇','🥈','🥉'];
+            rankEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px;">
+              ${scored.map((e,i)=>`
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:20px;text-align:center;font-size:13px;">${medals[i]||i+1}</span>
+                  <span style="flex:1;font-weight:600;color:var(--text);">@${escapeHtml(e.username||'?')}</span>
+                  <span style="font-weight:700;color:var(--good);">${formatMs(Math.round(e.score))}</span>
+                </div>`).join('')}
+            </div>`;
+          } catch { rankEl.textContent = 'Failed to load.'; }
+        }
+
       } catch(e) {
         container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load records: ${escapeHtml(e.message)}</div>`;
       }
