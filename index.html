@@ -2820,6 +2820,10 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
           <select class="select" id="globalLbEventSelect" style="font-size:13px;padding:5px 8px;"></select>
+          <div class="clubs-filter-toggle">
+            <button class="clubs-filter-btn active" id="globalLbRankSingle">Single</button>
+            <button class="clubs-filter-btn" id="globalLbRankAo5">Ao5</button>
+          </div>
           <span style="font-size:12px;color:var(--muted);" id="globalLbMeta"></span>
           <button class="small-btn" id="globalLbRefresh" style="margin-left:auto;">↻ Refresh</button>
         </div>
@@ -3445,6 +3449,7 @@
       getDocs,
       addDoc,
       deleteDoc,
+      updateDoc,
       onSnapshot,
       limit,
       increment
@@ -4131,24 +4136,39 @@
       renderGlobalLbForEvent();
     });
     globalLbRefreshBtn.addEventListener("click", () => { globalLbLoaded = false; loadGlobalLb(); });
+    document.getElementById('globalLbRankSingle')?.addEventListener('click', () => { globalLbRankBy = 'single'; renderGlobalLbForEvent(); });
+    document.getElementById('globalLbRankAo5')?.addEventListener('click', () => { globalLbRankBy = 'ao5'; renderGlobalLbForEvent(); });
+
+    let globalLbRankBy = 'single'; // 'single' | 'ao5'
 
     function renderGlobalLbForEvent() {
       const medals = ['🥇','🥈','🥉'];
       const eventLabel = EVENTS.find(e => e.id === globalLbEvent)?.label ?? globalLbEvent;
-      const getPb = p => p.pbs?.[globalLbEvent] ?? null;
-      const withPb = globalLbProfiles.filter(p => getPb(p) != null).sort((a,b) => getPb(a)-getPb(b));
-      const noPb   = globalLbProfiles.filter(p => getPb(p) == null);
-      const ranked = [...withPb, ...noPb];
+      const getPb  = p => p.pbs?.[globalLbEvent]  ?? null;
+      const getAo5 = p => p.ao5s?.[globalLbEvent] ?? null;
+      const getVal = p => globalLbRankBy === 'ao5' ? getAo5(p) : getPb(p);
+      const withVal = globalLbProfiles.filter(p => getVal(p) != null).sort((a,b) => getVal(a)-getVal(b));
+      const noVal   = globalLbProfiles.filter(p => getVal(p) == null);
+      const ranked  = [...withVal, ...noVal];
 
-      globalLbMeta.textContent = `${globalLbProfiles.length} user${globalLbProfiles.length!==1?'s':''} · ${withPb.length} with ${eventLabel} PB`;
+      // Sync toggle button states
+      document.getElementById('globalLbRankSingle')?.classList.toggle('active', globalLbRankBy === 'single');
+      document.getElementById('globalLbRankAo5')?.classList.toggle('active', globalLbRankBy === 'ao5');
+
+      globalLbMeta.textContent = `${globalLbProfiles.length} user${globalLbProfiles.length!==1?'s':''} · ${withVal.length} with ${eventLabel} ${globalLbRankBy === 'ao5' ? 'Ao5' : 'PB'}`;
 
       if (!ranked.length) {
         globalLbList.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">No users found. Sign up to appear here!</div>`;
         return;
       }
       globalLbList.innerHTML = ranked.map((p,i) => {
-        const pb = getPb(p);
+        const val  = getVal(p);
+        const pb   = getPb(p);
+        const ao5  = getAo5(p);
         const badge = leagueBadgeHtml(p.league || "rookie", "sm");
+        const subLabel = globalLbRankBy === 'ao5'
+          ? (ao5 != null && pb != null ? `Single: ${formatMs(pb)}` : '')
+          : (pb  != null && ao5 != null ? `Ao5: ${formatMs(ao5)}`  : '');
         return `<div class="club-lb-item clickable-user" data-uid="${escapeHtml(p.uid||'')}">
           <div class="club-lb-rank">${medals[i]??i+1}</div>
           <img class="club-member-avatar" src="${escapeHtml(p.avatarUrl||defaultAvatarUrl(p.username||'?'))}" alt="" onerror="this.src='${defaultAvatarUrl(p.username||'?')}'"/>
@@ -4157,8 +4177,8 @@
             <div class="club-member-username">@${escapeHtml(p.username)}</div>
           </div>
           <div class="club-lb-meta">
-            <div class="club-lb-time no-pb">${pb!=null ? `<span style="color:var(--good);font-weight:700;">${formatMs(pb)}</span>` : '<span style="color:var(--muted);font-size:12px;">No PB</span>'}</div>
-            <div class="club-lb-event-label">${escapeHtml(eventLabel)}</div>
+            <div class="club-lb-time${val==null?' no-pb':''}">${val!=null ? `<span style="color:var(--good);font-weight:700;">${formatMs(val)}</span>` : `<span style="color:var(--muted);font-size:12px;">No ${globalLbRankBy==='ao5'?'Ao5':'PB'}</span>`}</div>
+            <div class="club-lb-event-label">${escapeHtml(subLabel||eventLabel)}</div>
           </div>
         </div>`;
       }).join("");
@@ -4221,13 +4241,14 @@
     async function syncPbsToProfile() {
       if (!firebaseReady || !db || !state.currentUser) return;
       try {
-        const pbs = getAllPbs();
-        const ao5s = getAllAo5s();
-        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s }, { merge: true });
-        // Also keep club member docs up to date
+        const pbs   = getAllPbs();
+        const ao5s  = getAllAo5s();
+        const league = state.leagueId || 'rookie';
+        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s, league }, { merge: true });
+        // Also keep club member docs up to date (including league so badges stay current)
         for (const clubId of clubMembershipIds) {
           try {
-            await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), { pbs, ao5s }, { merge: true });
+            await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), { pbs, ao5s, league }, { merge: true });
           } catch {}
         }
       } catch {}
@@ -5338,7 +5359,10 @@
                   ${endStr?`<span style="font-size:12px;color:var(--muted);">Ends ${escapeHtml(endStr)}</span>`:''}
                 </div>
               </div>
-              ${isCreator&&isOpen?`<button class="small-btn" id="closeCompBtn" style="color:var(--bad);border-color:var(--bad);flex-shrink:0;">Close Comp</button>`:''}
+              ${isCreator?`<div style="display:flex;gap:6px;flex-shrink:0;">
+                ${isOpen?`<button class="small-btn" id="closeCompBtn" style="color:var(--warn);border-color:var(--warn);">Close</button>`:''}
+                <button class="small-btn" id="deleteCompBtn" style="color:var(--bad);border-color:var(--bad);">🗑 Delete</button>
+              </div>`:''}
             </div>
           </div>
           <div>
@@ -5426,6 +5450,28 @@
           renderCompDetailFull(container, comp, closedEntries);
         } catch(e) { alert('Failed: '+e.message); }
       });
+      container.querySelector('#deleteCompBtn')?.addEventListener('click', async () => {
+        if (!confirm(`Delete "${comp.name||'this competition'}"? This cannot be undone.`)) return;
+        try {
+          const p = comp._path || 'competitions';
+          // Delete all entries first, then the comp doc
+          const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
+          await Promise.all(entriesSnap.docs.map(d => deleteDoc(d.ref)));
+          await deleteDoc(doc(db, ...p.split('/'), comp.id));
+          // Remove from local cache
+          const idx = allOpenComps.findIndex(c=>c.id===comp.id);
+          if (idx!==-1) allOpenComps.splice(idx,1);
+          renderCompsList();
+          // Clear detail panel
+          selectedCompId = null;
+          const detailEmpty = document.getElementById('compDetailEmpty');
+          const detailContent = document.getElementById('compDetailContent');
+          document.getElementById('compsLayout')?.classList.remove('detail-open');
+          if (detailEmpty)  { detailEmpty.style.display=''; detailEmpty.textContent='Competition deleted.'; }
+          if (detailContent){ detailContent.style.display='none'; detailContent.innerHTML=''; }
+        } catch(e) { alert('Failed to delete: '+e.message); }
+      });
+
       container.querySelectorAll('.comp-lb-item[data-uid]').forEach(el =>
         el.addEventListener('click', () => openUserProfile(el.dataset.uid)));
     }
@@ -5879,12 +5925,23 @@
 
     // ── Club Records ──────────────────────────────────────────────────────────
     // When a club comp is closed, scan all entries and update the club's
-    // records collection (clubs/{clubId}/records/{eventId}) with any new bests.
+    // Records are stored as a map field on the club doc itself:
+    // clubs/{clubId} → { records: { eventId: { timeMs, holder, compId, compName, eventLabel } } }
+    // This avoids needing extra Firestore sub-collection rules.
     async function updateClubRecordsFromComp(comp, entries) {
       if (!comp.clubId) return;
       const compEvents = comp.events?.length
         ? comp.events
         : [{ id: comp.event||'333', label: EVENTS.find(e=>e.id===comp.event)?.label||comp.event||'3x3x3' }];
+
+      // Fetch current records from club doc
+      let existingRecords = {};
+      try {
+        const clubSnap = await getDoc(doc(db, 'clubs', comp.clubId));
+        existingRecords = clubSnap.data()?.records || {};
+      } catch {}
+
+      const updates = {};
       for (const ev of compEvents) {
         let bestMs = null;
         let bestHolder = null;
@@ -5895,22 +5952,27 @@
           const s = compScore(times);
           if (s != null && (bestMs == null || s < bestMs)) {
             bestMs = s;
-            bestHolder = { uid: entry.uid, username: entry.username, displayName: entry.displayName, avatarUrl: entry.avatarUrl };
+            bestHolder = { uid: entry.uid, username: entry.username, displayName: entry.displayName };
           }
         }
         if (bestMs == null) continue;
+        const existing = existingRecords[ev.id];
+        if (!existing || existing.timeMs > bestMs) {
+          updates[ev.id] = {
+            eventId: ev.id, eventLabel: ev.label,
+            timeMs: bestMs, holder: bestHolder,
+            compId: comp.id, compName: comp.name || ''
+          };
+        }
+      }
+      if (Object.keys(updates).length) {
         try {
-          const recRef = doc(db, 'clubs', comp.clubId, 'records', ev.id);
-          const existing = await getDoc(recRef);
-          if (!existing.exists() || existing.data().timeMs > bestMs) {
-            await setDoc(recRef, {
-              eventId: ev.id, eventLabel: ev.label,
-              timeMs: bestMs,
-              holder: bestHolder,
-              compId: comp.id, compName: comp.name || '',
-              setAt: serverTimestamp()
-            });
+          // Build a flat merge update: records.eventId = {...}
+          const mergeData = {};
+          for (const [evId, rec] of Object.entries(updates)) {
+            mergeData[`records.${evId}`] = rec;
           }
+          await updateDoc(doc(db, 'clubs', comp.clubId), mergeData);
         } catch(e) { console.warn('Club record update failed:', e.message); }
       }
     }
@@ -5918,14 +5980,16 @@
     async function renderClubRecords(container, clubId) {
       container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
       try {
-        const snap = await getDocs(collection(db, 'clubs', clubId, 'records'));
-        if (snap.empty) {
+        const clubSnap = await getDoc(doc(db, 'clubs', clubId));
+        const recordsMap = clubSnap.data()?.records || {};
+        const records = Object.values(recordsMap);
+        if (!records.length) {
           container.innerHTML = `<div style="color:var(--muted);font-size:13px;">No club records yet. Records are set when a club competition is closed.</div>`;
           return;
         }
         // Sort by EVENTS order
         const evOrder = EVENTS.map(e => e.id);
-        const records = snap.docs.map(d => d.data()).sort((a,b) => evOrder.indexOf(a.eventId) - evOrder.indexOf(b.eventId));
+        records.sort((a,b) => evOrder.indexOf(a.eventId) - evOrder.indexOf(b.eventId));
         container.innerHTML = `
           <div style="display:flex;flex-direction:column;gap:8px;">
             ${records.map(r => `
@@ -5941,19 +6005,7 @@
               </div>`).join('')}
           </div>`;
       } catch(e) {
-        if (isPermissionError(e)) {
-          container.innerHTML = `<div style="font-size:12px;line-height:1.6;">
-            <div style="color:var(--bad);font-weight:600;margin-bottom:6px;">⚠ Firestore rules needed for records</div>
-            <div style="color:var(--muted);margin-bottom:8px;">Add this inside your <code>match /clubs/{clubId}</code> block in Firebase console → Firestore → Rules:</div>
-            <pre style="background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:10px;overflow-x:auto;white-space:pre;">match /records/{eventId} {
-  allow read: if request.auth != null;
-  allow write: if get(/databases/$(database)/documents/clubs/$(clubId)).data.members[request.auth.uid] == 'admin'
-               || get(/databases/$(database)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
-}</pre>
-          </div>`;
-        } else {
-          container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load records: ${escapeHtml(e.message)}</div>`;
-        }
+        container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load records: ${escapeHtml(e.message)}</div>`;
       }
     }
 
@@ -6513,14 +6565,13 @@
                 editProfileBtn.style.display = "";
                 // Load social achievement flags from profile
                 if (socialFlags) state.socialFlags = { ...state.socialFlags, ...socialFlags };
+                // Seed earnedAchievements from profile BEFORE syncAchievements so toasts
+                // only fire for achievements earned in THIS session, not every reload.
+                const profileAchs = profileSnap.data().achievements || [];
+                if (profileAchs.length) state.earnedAchievements = profileAchs;
                 syncPbsToProfile(); // update global leaderboard data on sign-in
                 loadClubLastRead(); // load unread timestamps for notification dots
                 syncAchievements(); // compute + award any newly unlocked achievements
-                // Load previously-earned achievements from profile so panel renders immediately
-                const profileAchs = profileSnap.data().achievements || [];
-                if (profileAchs.length && !state.earnedAchievements.length) {
-                  state.earnedAchievements = profileAchs;
-                }
               }
             }
           } else {
@@ -8955,6 +9006,8 @@
         if (solveDetailDialog.open) solveDetailDialog.close();
       }
       renderAll();
+      syncPbsToProfile(); // refresh PBs/ao5s on leaderboard after deletion
+      syncAchievements();
     }
 
     function openSolveDetail(id) {
@@ -9404,53 +9457,64 @@
       return new Date().toISOString();
     }
 
-    function csvRowToSolve(fields) {
-      const [, timeRaw, comment, scramble, dateStr] = fields;
-      const trimmed = (timeRaw || "").trim();
-      let baseTimeMs = 0, penalty = "OK";
-      if (trimmed.toUpperCase() === "DNF") {
-        penalty = "DNF";
-        baseTimeMs = 0;
-      } else if (trimmed.endsWith("+")) {
-        penalty = "+2";
-        const raw = parseFloat(trimmed) * 1000;
-        baseTimeMs = Math.round(raw) - 2000;
+    function parseTimeMs(raw) {
+      // Handles: "9.56", "1:09.56", "1:9.56", "DNF", "9.56+" (+2 penalty)
+      const trimmed = (raw || "").trim();
+      const upper = trimmed.toUpperCase();
+      if (upper === "DNF") return { penalty: "DNF", baseTimeMs: 0 };
+      const isPlus2 = trimmed.endsWith("+");
+      const clean = isPlus2 ? trimmed.slice(0, -1) : trimmed;
+      let ms;
+      if (clean.includes(":")) {
+        // "M:SS.cc" format
+        const colonIdx = clean.indexOf(":");
+        const mins = parseInt(clean.slice(0, colonIdx), 10) || 0;
+        const secs = parseFloat(clean.slice(colonIdx + 1)) || 0;
+        ms = Math.round((mins * 60 + secs) * 1000);
       } else {
-        baseTimeMs = Math.round(parseFloat(trimmed) * 1000) || 0;
+        ms = Math.round(parseFloat(clean) * 1000) || 0;
       }
+      if (isPlus2) return { penalty: "+2", baseTimeMs: Math.max(0, ms - 2000) };
+      return { penalty: "", baseTimeMs: ms };
+    }
+
+    function csvRowToSolve(fields) {
+      // csTimer column order: No., Time, Comment, Scramble, Date
+      const timeRaw  = fields[1] || "";
+      const comment  = fields[2] || "";
+      const scramble = fields[3] || "";
+      const dateStr  = fields[4] || "";
+      const { penalty, baseTimeMs } = parseTimeMs(timeRaw);
       return {
         id: crypto.randomUUID(),
         baseTimeMs,
         penalty,
-        scramble: scramble || "",
-        note:     comment  || "",
+        scramble,
+        note: comment,
         createdAt: parseCstimerDate(dateStr)
       };
     }
 
     function importCSVIntoSession(text, eventId, sessionId) {
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      // Find the first data line — skip any session-name header rows and the
-      // column header row ("No.,Time,..."). A data row has a numeric or "DNF"
-      // in column 1 (index 1 after splitting).
-      let start = 0;
-      for (let i = 0; i < Math.min(lines.length, 5); i++) {
-        const lower = lines[i].toLowerCase();
-        // Skip lines that look like column headers or session labels
-        if (lower.includes("no.") || lower.startsWith("session") || lower.startsWith('"session')) {
-          start = i + 1;
-        }
-      }
+      // Strip UTF-8 BOM if present
+      const cleaned = text.replace(/^\uFEFF/, "");
+      const lines = cleaned.split(/\r?\n/);
       const bundle  = data.sessionsByEvent[eventId];
       const session = bundle?.sessions.find(s => s.id === sessionId);
       if (!session) return 0;
       let count = 0;
-      for (let i = start; i < lines.length; i++) {
-        const fields = parseCSVLine(lines[i]);
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const fields = parseCSVLine(line);
         if (fields.length < 2) continue;
-        // Skip any remaining header-like rows (time field is non-numeric and not DNF)
-        const t = (fields[1] || "").trim().toUpperCase();
-        if (t === "TIME" || t === "") continue;
+        const timeField = (fields[1] || "").trim().toUpperCase();
+        // Skip header rows and blank time fields
+        if (!timeField || timeField === "TIME") continue;
+        // Skip lines where No. field is non-numeric (session name lines, extra headers)
+        const noField = (fields[0] || "").trim();
+        if (noField && isNaN(parseInt(noField, 10))) continue;
+        // Must be a valid time: numeric, "M:SS.cc", or "DNF"
+        if (timeField !== "DNF" && !/^\d/.test(timeField)) continue;
         session.solves.push(csvRowToSolve(fields));
         count++;
       }
