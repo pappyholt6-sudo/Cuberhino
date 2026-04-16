@@ -2261,6 +2261,89 @@
     .comp-event-entry-tab{ background:none; border:none; outline:none; cursor:pointer; font-size:12px; font-weight:600; color:var(--muted); padding:6px 12px; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .12s,border-color .12s; font-family:inherit; }
     .comp-event-entry-tab:hover{ color:var(--text); }
     .comp-event-entry-tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+
+    /* ── Comp Timer Overlay ── */
+    #compTimerOverlay{
+      position:fixed;inset:0;z-index:10000;
+      background:var(--bg);
+      display:none;flex-direction:column;align-items:center;justify-content:center;
+      gap:0;
+      padding:24px 20px 20px;
+      touch-action:manipulation;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    #compTimerOverlay.active{ display:flex; }
+    .ct-header{
+      position:absolute;top:0;left:0;right:0;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 16px;
+      border-bottom:1px solid var(--line);
+    }
+    .ct-event-label{ font-size:13px;color:var(--muted);font-weight:700; }
+    .ct-solve-counter{ font-size:13px;color:var(--muted); }
+    .ct-close-btn{
+      border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+      border-radius:10px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;
+    }
+    .ct-scramble{
+      font-size:clamp(15px,2vw,22px);font-weight:700;line-height:1.4;
+      text-align:center;max-width:900px;
+      margin-top:64px;margin-bottom:24px;
+      word-break:break-word;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    .ct-timer{
+      font-size:clamp(64px,10vw,120px);font-weight:800;
+      letter-spacing:-.04em;line-height:1;
+      transition:color .08s;
+      margin-bottom:16px;
+    }
+    .ct-timer.ct-idle{ color:var(--text); }
+    .ct-timer.ct-armed{ color:var(--warn); }
+    .ct-timer.ct-ready{ color:var(--good); }
+    .ct-timer.ct-running{ color:var(--text); }
+    .ct-timer.ct-postsolve{ color:var(--text); }
+    .ct-hint{
+      font-size:14px;color:var(--muted);margin-bottom:20px;text-align:center;
+    }
+    .ct-penalty-row{
+      display:flex;gap:10px;margin-bottom:20px;
+    }
+    .ct-penalty-btn{
+      border:1px solid var(--line);background:var(--panel);color:var(--text);
+      border-radius:10px;padding:10px 22px;font-size:15px;font-weight:700;
+      cursor:pointer;font-family:inherit;transition:border-color .15s,background .15s,color .15s;
+    }
+    .ct-penalty-btn.active-ok{ border-color:var(--good);color:var(--good);background:color-mix(in srgb,var(--good) 12%,var(--panel)); }
+    .ct-penalty-btn.active-p2{ border-color:var(--warn);color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--panel)); }
+    .ct-penalty-btn.active-dnf{ border-color:var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--panel)); }
+    .ct-next-btn{
+      border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 15%,var(--panel));
+      color:var(--accent);border-radius:10px;padding:10px 28px;font-size:15px;font-weight:700;
+      cursor:pointer;font-family:inherit;
+    }
+    .ct-times-row{
+      display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;
+    }
+    .ct-time-chip{
+      background:var(--panel);border:1px solid var(--line);border-radius:8px;
+      padding:5px 12px;font-size:13px;font-weight:700;
+    }
+    .ct-time-chip.ct-current{ border-color:var(--accent);color:var(--accent); }
+    .ct-submit-btn{
+      border:1px solid var(--good);background:color-mix(in srgb,var(--good) 15%,var(--panel));
+      color:var(--good);border-radius:12px;padding:12px 36px;font-size:16px;font-weight:700;
+      cursor:pointer;font-family:inherit;margin-top:8px;
+    }
+    .ct-event-progress{
+      display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap;justify-content:center;
+    }
+    .ct-event-dot{
+      width:8px;height:8px;border-radius:50%;border:1px solid var(--line);background:transparent;
+    }
+    .ct-event-dot.done{ background:var(--good);border-color:var(--good); }
+    .ct-event-dot.current{ background:var(--accent);border-color:var(--accent); }
     .comp-num-solves-row{ display:flex; gap:8px; }
     .comp-num-btn{ padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--text); cursor:pointer; font-size:14px; transition:all .15s; }
     .comp-num-btn.active{ border-color:var(--accent); background:color-mix(in srgb,var(--accent) 15%,var(--panel)); color:var(--accent); }
@@ -2441,56 +2524,6 @@
       display:flex;flex-direction:column;gap:10px;pointer-events:none;
     }
 
-    /* ── Achievements side panel (shown on load) ── */
-    #achSidePanel{
-      position:fixed;right:0;top:0;bottom:0;
-      width:min(340px,92vw);
-      background:var(--panel);
-      border-left:1px solid var(--line);
-      z-index:9990;
-      display:flex;flex-direction:column;
-      transform:translateX(100%);
-      transition:transform .28s ease;
-      box-shadow:-8px 0 32px rgba(0,0,0,.28);
-    }
-    #achSidePanel.open{ transform:translateX(0); }
-    .ach-panel-header{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:16px;border-bottom:1px solid var(--line);flex-shrink:0;
-    }
-    .ach-panel-title{ font-size:16px;font-weight:700; }
-    .ach-panel-close{
-      border:1px solid var(--line);background:var(--panel-2);color:var(--text);
-      border-radius:10px;padding:5px 10px;cursor:pointer;font-size:13px;font-family:inherit;
-    }
-    .ach-panel-body{ flex:1 1 auto;overflow-y:auto;padding:12px; }
-    .ach-panel-item{
-      display:flex;align-items:center;gap:10px;
-      padding:9px 10px;border-radius:10px;border:1px solid var(--line);
-      background:rgba(255,255,255,.02);margin-bottom:6px;
-      transition:opacity .15s,border-color .15s;
-    }
-    .ach-panel-item.earned{ border-color:color-mix(in srgb,var(--accent) 40%,var(--line)); }
-    .ach-panel-item:not(.earned){ opacity:.4; }
-    .ach-panel-icon{ font-size:22px;line-height:1;flex-shrink:0; }
-    .ach-panel-info{ flex:1;min-width:0; }
-    .ach-panel-name{ font-size:13px;font-weight:700; }
-    .ach-panel-desc{ font-size:11px;color:var(--muted);line-height:1.35; }
-    .ach-panel-pts{ font-size:11px;color:var(--accent);font-weight:700;flex-shrink:0; }
-    .ach-panel-toggle{
-      position:fixed;right:0;top:50%;transform:translateY(-50%);
-      background:var(--panel);border:1px solid var(--line);border-right:none;
-      border-radius:10px 0 0 10px;padding:10px 8px;cursor:pointer;
-      z-index:9989;font-size:18px;line-height:1;
-      transition:background .15s,transform .15s,opacity .15s;
-    }
-    #achSidePanel.open ~ #achPanelToggle,
-    #achPanelToggle.panel-open{
-      transform:translateY(-50%) translateX(-340px);
-    }
-    @media(max-width:400px){
-      #achSidePanel.open ~ #achPanelToggle,#achPanelToggle.panel-open{ transform:translateY(-50%) translateX(-92vw); }
-    }
     .ach-toast{
       display:flex;align-items:center;gap:12px;
       background:var(--panel);border:1px solid var(--accent);
@@ -2832,7 +2865,10 @@
         </div>
         <div class="comps-layout" id="compsLayout">
           <div class="comps-list-panel">
-            <div style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Open Competitions</div>
+            <div style="padding:8px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;">
+              <input type="search" id="compSearchInput" placeholder="Search competitions…" autocomplete="off"
+                style="flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;" />
+            </div>
             <div class="comps-list-scroll" id="compsListScroll">
               <div style="padding:16px;color:var(--muted);font-size:13px;">Sign in to view competitions.</div>
             </div>
@@ -4299,10 +4335,6 @@
         state.leagueId = league;
         state.leaguePoints = pts;
         newlyEarned.forEach(a => showAchievementToast(a));
-        // Refresh the side panel with latest earned state
-        if (typeof renderAchPanel === 'function') renderAchPanel();
-        // Auto-open the panel on first load if signed in
-        if (state.currentUser && typeof maybeShowAchPanelOnLoad === 'function') maybeShowAchPanelOnLoad();
         // If not signed in, stop here — local state is updated, no Firebase needed
         if (!firebaseReady || !db || !state.currentUser) return;
         // ── Retroactive comp placement scan (runs once per session until all flags set) ──
@@ -4371,60 +4403,6 @@
       } catch(e) { console.warn("syncAchievements error", e); }
     }
 
-    // ── Achievements side panel ───────────────────────────────────────
-    const achSidePanel    = document.getElementById('achSidePanel');
-    const achPanelBody    = document.getElementById('achPanelBody');
-    const achPanelToggle  = document.getElementById('achPanelToggle');
-    let achPanelOpen = false;
-    let achPanelShownOnLoad = false;
-
-    function renderAchPanel() {
-      if (!achPanelBody) return;
-      const earned = state.earnedAchievements || [];
-      if (!state.currentUser) {
-        achPanelBody.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:4px;">Sign in to see your achievements.</div>`;
-        return;
-      }
-      achPanelBody.innerHTML = ACHIEVEMENTS.map(a => {
-        const isEarned = earned.includes(a.id);
-        return `<div class="ach-panel-item${isEarned?' earned':''}">
-          <div class="ach-panel-icon">${a.icon}</div>
-          <div class="ach-panel-info">
-            <div class="ach-panel-name">${a.label}</div>
-            <div class="ach-panel-desc">${a.desc}</div>
-          </div>
-          <div class="ach-panel-pts">+${a.pts}</div>
-        </div>`;
-      }).join('');
-    }
-
-    function openAchPanel() {
-      achPanelOpen = true;
-      renderAchPanel();
-      achSidePanel?.classList.add('open');
-      achPanelToggle?.classList.add('panel-open');
-    }
-
-    function closeAchPanel() {
-      achPanelOpen = false;
-      achSidePanel?.classList.remove('open');
-      achPanelToggle?.classList.remove('panel-open');
-      // Remember they closed it so it doesn't re-open next visit
-      try { localStorage.setItem('achPanelDismissed','1'); } catch {}
-    }
-
-    document.getElementById('achPanelCloseBtn')?.addEventListener('click', closeAchPanel);
-    achPanelToggle?.addEventListener('click', () => {
-      if (achPanelOpen) closeAchPanel(); else openAchPanel();
-    });
-
-    function maybeShowAchPanelOnLoad() {
-      if (achPanelShownOnLoad) return;
-      achPanelShownOnLoad = true;
-      // Only auto-open if user hasn't manually dismissed before
-      try { if (localStorage.getItem('achPanelDismissed') === '1') return; } catch {}
-      openAchPanel();
-    }
 
     function showAchievementToast(ach) {
       const container = document.getElementById("achievementToastContainer");
@@ -4891,11 +4869,16 @@
         const snap = await getDocs(collection(db,'clubs',clubId,'members'));
         const members = await Promise.all(snap.docs.map(async d => {
           const member = d.data();
-          // Always refresh the current user's own PBs
+          // Always refresh the current user's own PBs and Ao5s
           if (member.uid === state.currentUser?.uid) {
-            const freshPbs = getAllPbs();
-            const hydrated = { ...member, pbs: { ...(member.pb3x3 ? {'333': member.pb3x3} : {}), ...freshPbs } };
-            try { await setDoc(doc(db,'clubs',clubId,'members',member.uid), { pbs: hydrated.pbs }, { merge:true }); } catch {}
+            const freshPbs  = getAllPbs();
+            const freshAo5s = getAllAo5s();
+            const hydrated  = {
+              ...member,
+              pbs:  { ...(member.pb3x3 ? {'333': member.pb3x3} : {}), ...freshPbs },
+              ao5s: { ...(member.ao5s || {}), ...freshAo5s }
+            };
+            try { await setDoc(doc(db,'clubs',clubId,'members',member.uid), { pbs: hydrated.pbs, ao5s: hydrated.ao5s }, { merge:true }); } catch {}
             return hydrated;
           }
           // For other members, use whatever is stored — fall back to pb3x3 for old entries
@@ -5180,8 +5163,19 @@
       const listEl = document.getElementById('compsListScroll');
       if (!listEl) return;
       if (!state.currentUser) { listEl.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">Sign in to view competitions.</div>`; return; }
-      if (!allOpenComps.length) { listEl.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">No open competitions. Create one!</div>`; return; }
-      listEl.innerHTML = allOpenComps.map(c => {
+      const query = (document.getElementById('compSearchInput')?.value || '').trim().toLowerCase();
+      const filtered = query
+        ? allOpenComps.filter(c =>
+            (c.name||'').toLowerCase().includes(query) ||
+            (c.createdByUsername||'').toLowerCase().includes(query) ||
+            (c.events?.map(e=>e.label).join(' ') || EVENTS.find(e=>e.id===c.event)?.label || '').toLowerCase().includes(query)
+          )
+        : allOpenComps;
+      if (!filtered.length) {
+        listEl.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${query ? 'No competitions match your search.' : 'No open competitions. Create one!'}</div>`;
+        return;
+      }
+      listEl.innerHTML = filtered.map(c => {
         const isH2H = c.type === 'h2h';
         const isChallenge = isH2H && c.h2hOpponentUid === state.currentUser?.uid;
         const evLabel = c.events?.length > 1
@@ -5298,7 +5292,8 @@
                   <input class="comp-time-input" data-ev="${compEvents[0]?.id||''}" data-idx="${i}" placeholder="0:00.00" value="${myEntry?.times?.[i]?formatMs(myEntry.times[i]):''}" />
                 </div>`).join('')}
            </div>`}
-          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+            <button class="small-btn" id="useTimerBtn" style="border-color:var(--accent);color:var(--accent);">⏱ Use Timer</button>
             <button class="small-btn" id="submitEntryBtn">${myEntry?'Update':'Submit'}</button>
             <div id="entryStatus" style="font-size:12px;"></div>
           </div>
@@ -5363,6 +5358,10 @@
           container.querySelectorAll('.comp-event-entry-tab').forEach(b => b.classList.toggle('active', b === btn));
           container.querySelectorAll('.comp-entry-event-panel').forEach(p => p.style.display = p.dataset.evPanel === btn.dataset.ev ? 'block' : 'none');
         });
+      });
+
+      container.querySelector('#useTimerBtn')?.addEventListener('click', () => {
+        openCompTimer(comp, compEvents, isMulti, container);
       });
 
       container.querySelector('#submitEntryBtn')?.addEventListener('click', async () => {
@@ -5453,6 +5452,395 @@
       await setDoc(doc(db, ...path.split('/'), compId, 'entries', state.currentUser.uid), entryData);
     }
 
+    // ── Competition Timer Overlay ─────────────────────────────────────────────
+    // Full-screen spacebar timer for entering comp times without manual typing.
+    // Supports single-event and multi-event comps.
+    // Lifecycle: idle → arming (space held) → ready (held ≥300ms) → running (space released) → postsolve → idle
+    const compTimerState = {
+      active: false,
+      phase: 'idle',      // idle | arming | ready | running | postsolve
+      eventIdx: 0,        // which event we're on (multi-event)
+      solveIdx: 0,        // which solve within the current event
+      startMs: 0,
+      displayMs: 0,
+      armStart: 0,
+      rafId: null,
+      penalty: 'ok',      // ok | +2 | dnf
+      // collected data:
+      // timesByEvent[evId] = [ms, ...]   (multi-event)
+      // times = [ms, ...]                (single-event)
+      timesByEvent: {},
+      times: [],
+      comp: null,
+      compEvents: null,
+      isMulti: false,
+      container: null,
+    };
+
+    function openCompTimer(comp, compEvents, isMulti, container) {
+      const cts = compTimerState;
+      cts.active = true;
+      cts.phase = 'idle';
+      cts.eventIdx = 0;
+      cts.solveIdx = 0;
+      cts.startMs = 0;
+      cts.displayMs = 0;
+      cts.armStart = 0;
+      cts.penalty = 'ok';
+      cts.timesByEvent = {};
+      cts.times = [];
+      cts.comp = comp;
+      cts.compEvents = compEvents;
+      cts.isMulti = isMulti;
+      cts.container = container;
+
+      // Pre-fill with existing entry values if user is updating
+      const myEntry = state.currentUser ? (comp._entries||[]).find(e=>e.uid===state.currentUser.uid) : null;
+      if (myEntry) {
+        if (isMulti && myEntry.timesByEvent) {
+          cts.timesByEvent = JSON.parse(JSON.stringify(myEntry.timesByEvent));
+        } else if (!isMulti && myEntry.times) {
+          cts.times = [...myEntry.times];
+        }
+      }
+
+      const overlay = document.getElementById('compTimerOverlay');
+      overlay.classList.add('active');
+      ctUpdateDisplay();
+      ctRenderTimesRow();
+    }
+
+    function closeCompTimer() {
+      const cts = compTimerState;
+      cts.active = false;
+      cts.phase = 'idle';
+      if (cts.rafId) { cancelAnimationFrame(cts.rafId); cts.rafId = null; }
+      document.getElementById('compTimerOverlay').classList.remove('active');
+    }
+
+    function ctCurrentEvent() {
+      const cts = compTimerState;
+      return cts.compEvents?.[cts.eventIdx] || null;
+    }
+
+    function ctTotalSolves() {
+      const cts = compTimerState;
+      return cts.compEvents?.[cts.eventIdx]?.scrambles?.length || cts.comp?.numSolves || 5;
+    }
+
+    function ctGetTimes() {
+      const cts = compTimerState;
+      if (cts.isMulti) {
+        const evId = ctCurrentEvent()?.id;
+        if (!evId) return [];
+        if (!cts.timesByEvent[evId]) cts.timesByEvent[evId] = [];
+        return cts.timesByEvent[evId];
+      }
+      return cts.times;
+    }
+
+    function ctSetTime(idx, ms) {
+      const cts = compTimerState;
+      if (cts.isMulti) {
+        const evId = ctCurrentEvent()?.id;
+        if (!evId) return;
+        if (!cts.timesByEvent[evId]) cts.timesByEvent[evId] = [];
+        cts.timesByEvent[evId][idx] = ms;
+      } else {
+        cts.times[idx] = ms;
+      }
+    }
+
+    function ctAllEventsComplete() {
+      const cts = compTimerState;
+      if (!cts.isMulti) return false; // single-event uses different check
+      for (const ev of cts.compEvents) {
+        const needed = ev.scrambles?.length || cts.comp?.numSolves || 5;
+        const have = (cts.timesByEvent[ev.id]||[]).filter(t=>t!=null).length;
+        if (have < needed) return false;
+      }
+      return true;
+    }
+
+    function ctFormatTime(ms) {
+      if (ms == null) return '—';
+      const total = Math.round(ms);
+      const min = Math.floor(total/60000);
+      const sec = Math.floor((total%60000)/1000);
+      const cs  = Math.floor((total%1000)/10);
+      return min>0 ? `${min}:${String(sec).padStart(2,'0')}.${String(cs).padStart(2,'0')}`
+                   : `${sec}.${String(cs).padStart(2,'0')}`;
+    }
+
+    function ctUpdateDisplay() {
+      const cts = compTimerState;
+      const ev = ctCurrentEvent();
+      const numSolves = ctTotalSolves();
+      const timerEl   = document.getElementById('ctTimer');
+      const hintEl    = document.getElementById('ctHint');
+      const scrambleEl= document.getElementById('ctScramble');
+      const penaltyRow= document.getElementById('ctPenaltyRow');
+      const submitBtn = document.getElementById('ctSubmitBtn');
+      const eventLbl  = document.getElementById('ctEventLabel');
+      const solveCount= document.getElementById('ctSolveCounter');
+      const evProgress= document.getElementById('ctEventProgress');
+      if (!timerEl) return;
+
+      // Event label & progress dots
+      if (cts.isMulti && cts.compEvents) {
+        eventLbl.textContent = ev?.label || '';
+        evProgress.innerHTML = cts.compEvents.map((e,i) => {
+          const needed = e.scrambles?.length || cts.comp?.numSolves || 5;
+          const have   = (cts.timesByEvent[e.id]||[]).filter(t=>t!=null).length;
+          const cls    = have >= needed ? 'done' : (i===cts.eventIdx ? 'current' : '');
+          return `<span class="ct-event-dot ${cls}" title="${e.label}"></span>`;
+        }).join('') + `<span style="font-size:12px;color:var(--muted);margin-left:4px;">${cts.compEvents.map(e=>e.label).join(' + ')}</span>`;
+      } else {
+        eventLbl.textContent = ev?.label || '';
+        evProgress.innerHTML = '';
+      }
+
+      const solvesThisEvent = ctGetTimes().filter(t=>t!=null).length;
+      solveCount.textContent = `Solve ${cts.solveIdx+1} / ${numSolves}`;
+
+      // Scramble for current solve
+      const scrambles = ev?.scrambles || [];
+      scrambleEl.textContent = scrambles[cts.solveIdx] || '(no scramble)';
+
+      // Timer display
+      const classMap = { idle:'ct-idle', arming:'ct-armed', ready:'ct-ready', running:'ct-running', postsolve:'ct-postsolve' };
+      timerEl.className = 'ct-timer ' + (classMap[cts.phase]||'ct-idle');
+
+      if (cts.phase === 'idle') {
+        timerEl.textContent = '0:00.00';
+        hintEl.textContent = 'Hold Space (or hold screen) to start';
+        penaltyRow.style.display = 'none';
+        submitBtn.style.display = 'none';
+      } else if (cts.phase === 'arming') {
+        timerEl.textContent = '0:00.00';
+        hintEl.textContent = 'Hold…';
+        penaltyRow.style.display = 'none';
+        submitBtn.style.display = 'none';
+      } else if (cts.phase === 'ready') {
+        timerEl.textContent = '0:00.00';
+        hintEl.textContent = 'Release to start!';
+        penaltyRow.style.display = 'none';
+        submitBtn.style.display = 'none';
+      } else if (cts.phase === 'running') {
+        timerEl.textContent = ctFormatTime(cts.displayMs);
+        hintEl.textContent = 'Press Space (or tap) to stop';
+        penaltyRow.style.display = 'none';
+        submitBtn.style.display = 'none';
+      } else if (cts.phase === 'postsolve') {
+        // Show stopped time (with penalty applied for display)
+        let displayTime = cts.displayMs;
+        if (cts.penalty === '+2') displayTime += 2000;
+        timerEl.textContent = (cts.penalty === 'dnf' ? 'DNF' : ctFormatTime(displayTime)) + (cts.penalty==='+2'?' +2':'');
+        hintEl.textContent = '';
+        penaltyRow.style.display = 'flex';
+
+        // Highlight active penalty button
+        document.getElementById('ctOkBtn')?.classList.toggle('active-ok', cts.penalty==='ok');
+        document.getElementById('ctP2Btn')?.classList.toggle('active-p2', cts.penalty==='+2');
+        document.getElementById('ctDnfBtn')?.classList.toggle('active-dnf', cts.penalty==='dnf');
+
+        // Show Next or Submit
+        const isLastSolveThisEvent = cts.solveIdx >= numSolves - 1;
+        const isLastEvent = !cts.isMulti || cts.eventIdx >= cts.compEvents.length - 1;
+        const isAllDone = isLastSolveThisEvent && isLastEvent;
+        const nextBtn = document.getElementById('ctNextBtn');
+        if (isAllDone) {
+          nextBtn.style.display = 'none';
+          submitBtn.style.display = 'block';
+        } else {
+          nextBtn.style.display = 'block';
+          nextBtn.textContent = isLastSolveThisEvent ? `Next Event →` : `Next Solve →`;
+          submitBtn.style.display = 'none';
+        }
+      }
+    }
+
+    function ctRenderTimesRow() {
+      const cts = compTimerState;
+      const row = document.getElementById('ctTimesRow');
+      if (!row) return;
+      const times = ctGetTimes();
+      const numSolves = ctTotalSolves();
+      row.innerHTML = Array.from({length: numSolves}, (_,i) => {
+        const t = times[i];
+        const isCurrent = i === cts.solveIdx && cts.phase !== 'idle';
+        const label = t == null ? '—' : (t < 0 ? 'DNF' : ctFormatTime(t + (t>0 && false ? 0:0)));
+        return `<span class="ct-time-chip${isCurrent?' ct-current':''}">S${i+1}: ${t==null?'—':(t===-1?'DNF':ctFormatTime(t))}</span>`;
+      }).join('');
+    }
+
+    function ctStartArming() {
+      const cts = compTimerState;
+      if (cts.phase !== 'idle' && cts.phase !== 'postsolve') return;
+      if (cts.phase === 'postsolve') return; // must press Next first
+      cts.phase = 'arming';
+      cts.armStart = performance.now();
+      ctUpdateDisplay();
+      // After 300ms of holding, go to ready
+      cts._armTimeout = setTimeout(() => {
+        if (cts.phase === 'arming') {
+          cts.phase = 'ready';
+          ctUpdateDisplay();
+        }
+      }, 300);
+    }
+
+    function ctCancelArming() {
+      const cts = compTimerState;
+      if (cts.phase !== 'arming' && cts.phase !== 'ready') return;
+      clearTimeout(cts._armTimeout);
+      if (cts.phase === 'ready') {
+        // Release while ready → start!
+        ctStartTimer();
+      } else {
+        cts.phase = 'idle';
+        ctUpdateDisplay();
+      }
+    }
+
+    function ctStartTimer() {
+      const cts = compTimerState;
+      cts.phase = 'running';
+      cts.startMs = performance.now();
+      cts.displayMs = 0;
+      ctUpdateDisplay();
+      function tick() {
+        if (cts.phase !== 'running') return;
+        cts.displayMs = performance.now() - cts.startMs;
+        const timerEl = document.getElementById('ctTimer');
+        if (timerEl) timerEl.textContent = ctFormatTime(cts.displayMs);
+        cts.rafId = requestAnimationFrame(tick);
+      }
+      cts.rafId = requestAnimationFrame(tick);
+    }
+
+    function ctStopTimer() {
+      const cts = compTimerState;
+      if (cts.phase !== 'running') return;
+      cancelAnimationFrame(cts.rafId);
+      cts.rafId = null;
+      cts.displayMs = performance.now() - cts.startMs;
+      cts.phase = 'postsolve';
+      cts.penalty = 'ok';
+      ctUpdateDisplay();
+      ctRenderTimesRow();
+    }
+
+    function ctApplyPenalty(p) {
+      const cts = compTimerState;
+      if (cts.phase !== 'postsolve') return;
+      cts.penalty = p;
+      ctUpdateDisplay();
+    }
+
+    function ctSaveCurrentSolve() {
+      const cts = compTimerState;
+      let ms;
+      if (cts.penalty === 'dnf') {
+        ms = -1; // store -1 as DNF
+      } else if (cts.penalty === '+2') {
+        ms = Math.round(cts.displayMs) + 2000;
+      } else {
+        ms = Math.round(cts.displayMs);
+      }
+      ctSetTime(cts.solveIdx, ms);
+    }
+
+    function ctAdvance() {
+      const cts = compTimerState;
+      if (cts.phase !== 'postsolve') return;
+      ctSaveCurrentSolve();
+      const numSolves = ctTotalSolves();
+      const isLastSolveThisEvent = cts.solveIdx >= numSolves - 1;
+      const isLastEvent = !cts.isMulti || cts.eventIdx >= cts.compEvents.length - 1;
+
+      if (isLastSolveThisEvent && !isLastEvent) {
+        // Move to next event
+        cts.eventIdx++;
+        cts.solveIdx = 0;
+        cts.phase = 'idle';
+      } else if (!isLastSolveThisEvent) {
+        // Next solve in same event
+        cts.solveIdx++;
+        cts.phase = 'idle';
+      }
+      ctUpdateDisplay();
+      ctRenderTimesRow();
+    }
+
+    async function ctSubmitAll() {
+      const cts = compTimerState;
+      if (cts.phase === 'postsolve') ctSaveCurrentSolve();
+
+      const comp = cts.comp;
+      const container = cts.container;
+      const compPath = comp._path || 'competitions';
+
+      // Convert -1 (DNF) values: submitCompEntry stores raw ms; renderCompDetailFull handles negatives
+      // Actually compScore treats null as DNF in some places; we store null for DNF for compatibility
+      function normalizeTimes(arr) {
+        return arr.map(t => t === -1 ? null : t);
+      }
+
+      const submitBtn = document.getElementById('ctSubmitBtn');
+      if (submitBtn) { submitBtn.disabled=true; submitBtn.textContent='Saving…'; }
+
+      try {
+        if (cts.isMulti) {
+          const tbe = {};
+          for (const [evId, arr] of Object.entries(cts.timesByEvent)) {
+            tbe[evId] = normalizeTimes(arr);
+          }
+          await submitCompEntry(comp.id, tbe, compPath, true);
+        } else {
+          await submitCompEntry(comp.id, normalizeTimes(cts.times), compPath, false);
+        }
+        closeCompTimer();
+        // Re-fetch and re-render
+        const entriesSnap = await getDocs(collection(db, ...compPath.split('/'), comp.id, 'entries'));
+        renderCompDetailFull(container, comp, entriesSnap.docs.map(d=>d.data()));
+      } catch(e) {
+        if (submitBtn) { submitBtn.disabled=false; submitBtn.textContent='Submit Times'; }
+        alert('Error saving: ' + e.message);
+      }
+    }
+
+    // Wire comp timer overlay buttons
+    document.getElementById('ctCloseBtn')?.addEventListener('click', closeCompTimer);
+    document.getElementById('ctOkBtn')?.addEventListener('click', () => ctApplyPenalty('ok'));
+    document.getElementById('ctP2Btn')?.addEventListener('click', () => ctApplyPenalty('+2'));
+    document.getElementById('ctDnfBtn')?.addEventListener('click', () => ctApplyPenalty('dnf'));
+    document.getElementById('ctNextBtn')?.addEventListener('click', ctAdvance);
+    document.getElementById('ctSubmitBtn')?.addEventListener('click', ctSubmitAll);
+
+    // Touch support: tap/hold on the overlay body (not on buttons)
+    (function wireTouchTimer() {
+      const overlay = document.getElementById('compTimerOverlay');
+      if (!overlay) return;
+      let touchStarted = false;
+      overlay.addEventListener('touchstart', e => {
+        // Ignore touches on buttons
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+        touchStarted = true;
+        ctStartArming();
+      }, { passive: true });
+      overlay.addEventListener('touchend', e => {
+        if (!touchStarted) return;
+        touchStarted = false;
+        const cts = compTimerState;
+        if (cts.phase === 'running') {
+          ctStopTimer();
+        } else {
+          ctCancelArming();
+        }
+      }, { passive: true });
+    })();
+
     async function createCompetition(opts) {
       if (!state.currentUser) throw new Error('Sign in to create competitions.');
       const pSnap = await getDoc(doc(db,'profiles',state.currentUser.uid));
@@ -5532,7 +5920,7 @@
       try {
         const snap = await getDocs(collection(db, 'clubs', clubId, 'records'));
         if (snap.empty) {
-          container.innerHTML = `<div style="color:var(--muted);font-size:13px;">No club records yet. Close a competition to set them!</div>`;
+          container.innerHTML = `<div style="color:var(--muted);font-size:13px;">No club records yet. Records are set when a club competition is closed.</div>`;
           return;
         }
         // Sort by EVENTS order
@@ -5553,7 +5941,19 @@
               </div>`).join('')}
           </div>`;
       } catch(e) {
-        container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load records.</div>`;
+        if (isPermissionError(e)) {
+          container.innerHTML = `<div style="font-size:12px;line-height:1.6;">
+            <div style="color:var(--bad);font-weight:600;margin-bottom:6px;">⚠ Firestore rules needed for records</div>
+            <div style="color:var(--muted);margin-bottom:8px;">Add this inside your <code>match /clubs/{clubId}</code> block in Firebase console → Firestore → Rules:</div>
+            <pre style="background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:10px;overflow-x:auto;white-space:pre;">match /records/{eventId} {
+  allow read: if request.auth != null;
+  allow write: if get(/databases/$(database)/documents/clubs/$(clubId)).data.members[request.auth.uid] == 'admin'
+               || get(/databases/$(database)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
+}</pre>
+          </div>`;
+        } else {
+          container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load records: ${escapeHtml(e.message)}</div>`;
+        }
       }
     }
 
@@ -6121,8 +6521,6 @@
                 if (profileAchs.length && !state.earnedAchievements.length) {
                   state.earnedAchievements = profileAchs;
                 }
-                if (typeof renderAchPanel === 'function') renderAchPanel();
-                if (typeof maybeShowAchPanelOnLoad === 'function') maybeShowAchPanelOnLoad();
               }
             }
           } else {
@@ -8682,6 +9080,7 @@
     });
 
     // ── Competition dialog wiring ─────────────────────────────────────────────
+    document.getElementById('compSearchInput')?.addEventListener('input', () => renderCompsList());
     document.getElementById('createCompBtn')?.addEventListener('click', () => openCreateCompDialog(null));
     document.getElementById('cancelCreateCompBtn')?.addEventListener('click', () => document.getElementById('createCompDialog')?.close());
     document.getElementById('createCompDialog')?.addEventListener('click', e => { if (e.target===document.getElementById('createCompDialog')) document.getElementById('createCompDialog').close(); });
@@ -9209,6 +9608,20 @@
     });
 
     document.addEventListener("keydown", async (e) => {
+      // ── Comp timer intercept ──────────────────────────────────────────────
+      if (compTimerState.active) {
+        if (isSpace(e) && !e.repeat) {
+          e.preventDefault();
+          const cts = compTimerState;
+          if (cts.phase === 'running') {
+            ctStopTimer();
+          } else if (cts.phase === 'idle') {
+            ctStartArming();
+          }
+        }
+        return; // don't fall through to main timer
+      }
+      // ─────────────────────────────────────────────────────────────────────
       if (settingsDialog.open || solveDetailDialog.open || averageDetailDialog.open) return;
       if (isTypingTarget(e.target)) return;
       if (settings.manualEntry) return; // manual entry mode: all timer keypresses disabled
@@ -9261,6 +9674,15 @@
     });
 
     document.addEventListener("keyup", (e) => {
+      // ── Comp timer intercept ──────────────────────────────────────────────
+      if (compTimerState.active) {
+        if (isSpace(e)) {
+          e.preventDefault();
+          ctCancelArming(); // handles arming→idle or arming→ready→start transitions
+        }
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────────────
       if (settingsDialog.open || solveDetailDialog.open || averageDetailDialog.open) return;
       if (isTypingTarget(e.target)) return;
       if (settings.manualEntry) return;
@@ -9647,17 +10069,27 @@
   <!-- Achievement toast container -->
   <div id="achievementToastContainer"></div>
 
-  <!-- Achievements side panel -->
-  <div id="achSidePanel" aria-label="Achievements panel">
-    <div class="ach-panel-header">
-      <div class="ach-panel-title">🏆 Achievements</div>
-      <button class="ach-panel-close" id="achPanelCloseBtn">Close</button>
+  <!-- Competition timer overlay -->
+  <div id="compTimerOverlay" role="dialog" aria-label="Competition timer">
+    <div class="ct-header">
+      <span class="ct-event-label" id="ctEventLabel"></span>
+      <span class="ct-solve-counter" id="ctSolveCounter"></span>
+      <button class="ct-close-btn" id="ctCloseBtn">✕ Close</button>
     </div>
-    <div class="ach-panel-body" id="achPanelBody">
-      <div style="color:var(--muted);font-size:13px;">Sign in to see your achievements.</div>
+    <div class="ct-event-progress" id="ctEventProgress"></div>
+    <div class="ct-scramble" id="ctScramble"></div>
+    <div class="ct-timer ct-idle" id="ctTimer">0:00.00</div>
+    <div class="ct-hint" id="ctHint">Hold Space to start</div>
+    <div class="ct-times-row" id="ctTimesRow"></div>
+    <div class="ct-penalty-row" id="ctPenaltyRow" style="display:none;">
+      <button class="ct-penalty-btn" id="ctOkBtn">OK</button>
+      <button class="ct-penalty-btn" id="ctP2Btn">+2</button>
+      <button class="ct-penalty-btn" id="ctDnfBtn">DNF</button>
+      <button class="ct-next-btn" id="ctNextBtn">Next →</button>
     </div>
+    <button class="ct-submit-btn" id="ctSubmitBtn" style="display:none;">Submit Times</button>
   </div>
-  <button id="achPanelToggle" class="ach-panel-toggle" title="Achievements">🏆</button>
+
 
 </body>
 </html>
