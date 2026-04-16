@@ -531,6 +531,10 @@
     body.manual-entry-mode .timer{ display:none; }
     body.manual-entry-mode .manual-time-input{ display:block; }
     body.manual-entry-mode .phase{ display:none !important; }
+    body.manual-entry-mode .scramble-wrap{ visibility:hidden; }
+    body.manual-entry-mode .stats{ visibility:hidden; }
+    body.manual-entry-mode .delta-indicator{ display:none !important; }
+    body.manual-entry-mode .timer-ripple{ display:none; }
     .manual-entry-hint{
       font-size:12px;
       color:var(--muted);
@@ -1058,8 +1062,7 @@
     @media (max-width: 1100px){
       body{overflow:auto}
       .app{
-        display:flex;
-        flex-direction:column;
+        grid-template-columns:1fr;
         height:auto;
         min-height:calc(100vh - 64px);
       }
@@ -1067,17 +1070,12 @@
         display:none;
       }
       .sidebar{
-        flex:0 0 auto;
         min-height:380px;
         max-height:520px;
         border-right:none;
         border-bottom:1px solid var(--line);
       }
-      .main{
-        flex:1 1 auto;
-        grid-column:unset;
-        min-height:80vh;
-      }
+      .main{ min-height:80vh; }
       .scramble-wrap{
         position:static;
         margin-bottom:20px;
@@ -1322,18 +1320,15 @@
 
 
     body.mobile-ui .app{
-      display:flex;
-      flex-direction:column;
+      grid-template-columns:1fr;
       height:calc(100dvh - 56px);
       min-height:calc(100dvh - 56px);
       overflow:hidden;
     }
 
     body.mobile-ui .main{
-      flex:1 1 auto;
-      grid-column:unset;
       min-height:0;
-      height:auto;
+      height:100%;
       overflow:hidden;
       padding:12px 12px 88px;
     }
@@ -1874,24 +1869,18 @@
 
 
     body.mobile-ui .app{
-      display:flex;
-      flex-direction:column;
+      grid-template-columns:1fr;
       height:calc(100dvh - 56px);
       min-height:calc(100dvh - 56px);
       overflow:hidden;
     }
     body.mobile-ui .sidebar{
-      flex:0 0 auto;
-      min-height:0;
+      min-height:380px;
       max-height:none;
       border-right:none;
       border-bottom:1px solid var(--line);
     }
-    body.mobile-ui .main{
-      flex:1 1 auto;
-      grid-column:unset;
-      min-height:0;
-    }
+    body.mobile-ui .main{ min-height:80dvh; }
     body.mobile-ui .tool-slots{
       grid-template-columns:repeat(6, minmax(180px,1fr));
       min-height:auto;
@@ -1901,23 +1890,17 @@
 
     @media (hover: none) and (pointer: coarse){
       .app{
-        display:flex;
-        flex-direction:column;
+        grid-template-columns:1fr;
         height:auto;
         min-height:calc(100dvh - 64px);
       }
       .sidebar{
-        flex:0 0 auto;
         min-height:380px;
         max-height:none;
         border-right:none;
         border-bottom:1px solid var(--line);
       }
-      .main{
-        flex:1 1 auto;
-        grid-column:unset;
-        min-height:80dvh;
-      }
+      .main{ min-height:80dvh; }
       .topbar{
         height:auto;
         padding:10px 12px;
@@ -2270,6 +2253,14 @@
     .comp-badge-closed{ background:color-mix(in srgb,var(--muted) 15%,var(--panel)); color:var(--muted); }
     .comp-badge-h2h{ background:color-mix(in srgb,orange 15%,var(--panel)); color:orange; }
     .create-comp-body{ display:flex; flex-direction:column; gap:14px; min-width:300px; max-width:400px; }
+    .comp-events-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(136px,1fr)); gap:5px; max-height:200px; overflow-y:auto; padding:2px; }
+    .comp-event-check{ display:flex; align-items:center; gap:7px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; cursor:pointer; font-size:12px; background:rgba(255,255,255,.02); transition:border-color .15s,background .15s; user-select:none; }
+    .comp-event-check.selected{ border-color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,var(--panel)); }
+    .comp-event-check input{ accent-color:var(--accent); }
+    .comp-event-entry-tabs{ display:flex; gap:0; border-bottom:1px solid var(--line); margin-bottom:12px; flex-wrap:wrap; }
+    .comp-event-entry-tab{ background:none; border:none; outline:none; cursor:pointer; font-size:12px; font-weight:600; color:var(--muted); padding:6px 12px; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .12s,border-color .12s; font-family:inherit; }
+    .comp-event-entry-tab:hover{ color:var(--text); }
+    .comp-event-entry-tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
     .comp-num-solves-row{ display:flex; gap:8px; }
     .comp-num-btn{ padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--text); cursor:pointer; font-size:14px; transition:all .15s; }
     .comp-num-btn.active{ border-color:var(--accent); background:color-mix(in srgb,var(--accent) 15%,var(--panel)); color:var(--accent); }
@@ -2448,6 +2439,57 @@
     #achievementToastContainer{
       position:fixed;bottom:24px;right:24px;z-index:9999;
       display:flex;flex-direction:column;gap:10px;pointer-events:none;
+    }
+
+    /* ── Achievements side panel (shown on load) ── */
+    #achSidePanel{
+      position:fixed;right:0;top:0;bottom:0;
+      width:min(340px,92vw);
+      background:var(--panel);
+      border-left:1px solid var(--line);
+      z-index:9990;
+      display:flex;flex-direction:column;
+      transform:translateX(100%);
+      transition:transform .28s ease;
+      box-shadow:-8px 0 32px rgba(0,0,0,.28);
+    }
+    #achSidePanel.open{ transform:translateX(0); }
+    .ach-panel-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px;border-bottom:1px solid var(--line);flex-shrink:0;
+    }
+    .ach-panel-title{ font-size:16px;font-weight:700; }
+    .ach-panel-close{
+      border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+      border-radius:10px;padding:5px 10px;cursor:pointer;font-size:13px;font-family:inherit;
+    }
+    .ach-panel-body{ flex:1 1 auto;overflow-y:auto;padding:12px; }
+    .ach-panel-item{
+      display:flex;align-items:center;gap:10px;
+      padding:9px 10px;border-radius:10px;border:1px solid var(--line);
+      background:rgba(255,255,255,.02);margin-bottom:6px;
+      transition:opacity .15s,border-color .15s;
+    }
+    .ach-panel-item.earned{ border-color:color-mix(in srgb,var(--accent) 40%,var(--line)); }
+    .ach-panel-item:not(.earned){ opacity:.4; }
+    .ach-panel-icon{ font-size:22px;line-height:1;flex-shrink:0; }
+    .ach-panel-info{ flex:1;min-width:0; }
+    .ach-panel-name{ font-size:13px;font-weight:700; }
+    .ach-panel-desc{ font-size:11px;color:var(--muted);line-height:1.35; }
+    .ach-panel-pts{ font-size:11px;color:var(--accent);font-weight:700;flex-shrink:0; }
+    .ach-panel-toggle{
+      position:fixed;right:0;top:50%;transform:translateY(-50%);
+      background:var(--panel);border:1px solid var(--line);border-right:none;
+      border-radius:10px 0 0 10px;padding:10px 8px;cursor:pointer;
+      z-index:9989;font-size:18px;line-height:1;
+      transition:background .15s,transform .15s,opacity .15s;
+    }
+    #achSidePanel.open ~ #achPanelToggle,
+    #achPanelToggle.panel-open{
+      transform:translateY(-50%) translateX(-340px);
+    }
+    @media(max-width:400px){
+      #achSidePanel.open ~ #achPanelToggle,#achPanelToggle.panel-open{ transform:translateY(-50%) translateX(-92vw); }
     }
     .ach-toast{
       display:flex;align-items:center;gap:12px;
@@ -2836,8 +2878,8 @@
           <input type="text" class="profile-edit-input" id="newCompNameInput" placeholder="e.g. Saturday Showdown" maxlength="50" autocomplete="off" />
         </div>
         <div>
-          <div class="profile-field-label">Event</div>
-          <select class="select" id="newCompEventSelect" style="width:100%;"></select>
+          <div class="profile-field-label">Events <span style="color:var(--muted);font-weight:normal;">(pick one or more)</span></div>
+          <div class="comp-events-grid" id="newCompEventsGrid"></div>
         </div>
         <div>
           <div class="profile-field-label">Number of solves</div>
@@ -3399,8 +3441,7 @@
       { id: "sq1", label: "Square-1", puzzle: "square1" },
       { id: "333bf", label: "3x3x3 Blindfolded", puzzle: "3x3x3" },
       { id: "444bf", label: "4x4x4 Blindfolded", puzzle: "4x4x4" },
-      { id: "555bf", label: "5x5x5 Blindfolded", puzzle: "5x5x5" },
-      { id: "333mbf", label: "3x3x3 Multi-Blind", puzzle: "3x3x3" }
+      { id: "555bf", label: "5x5x5 Blindfolded", puzzle: "5x5x5" }
     ];
 
     // ── League tiers ──────────────────────────────────────────────────────────
@@ -3466,7 +3507,7 @@
       { id: "multi_event_day", label: "Cube Sampler",        desc: "Solve 3 different events in one day",      pts: 20,  icon: "🎲", check: d => d.maxEventsInDay >= 3 },
       { id: "events_day_5",    label: "Event Hopper",        desc: "Solve 5 different events in one day",      pts: 30,  icon: "🎪", check: d => d.maxEventsInDay >= 5 },
       { id: "events_day_8",    label: "Event Collector",     desc: "Solve 8 different events in one day",      pts: 60,  icon: "🎨", check: d => d.maxEventsInDay >= 8 },
-      { id: "events_day_all",  label: "Daily Completionist", desc: "Solve all 16 events in one day",           pts: 200, icon: "🌈", check: d => d.maxEventsInDay >= 16 },
+      { id: "events_day_all",  label: "Daily Completionist", desc: "Solve all 15 events in one day",           pts: 200, icon: "🌈", check: d => d.maxEventsInDay >= 15 },
       // ── Speed milestones (3x3 single) ────────────────────────────────────────
       { id: "sub_wca_333",     label: "WCA-Ready",           desc: "3x3 single under 3:00",                    pts:  5,  icon: "🎓", check: d => (d.pb333 ?? Infinity) < 180000 },
       { id: "sub60_333",       label: "Sub-60",              desc: "Solve 3x3 in under 60 seconds",            pts: 10,  icon: "⏩", check: d => (d.pb333 ?? Infinity) < 60000 },
@@ -3487,7 +3528,7 @@
       { id: "events_3",        label: "Versatile",           desc: "Get a PB on 3 different events",           pts: 15,  icon: "🎭", check: d => d.eventsWithPb >= 3 },
       { id: "events_6",        label: "All-Rounder",         desc: "Get a PB on 6 different events",           pts: 35,  icon: "🌐", check: d => d.eventsWithPb >= 6 },
       { id: "events_10",       label: "Decade of Events",    desc: "Get a PB on 10 different events",          pts: 75,  icon: "🧩", check: d => d.eventsWithPb >= 10 },
-      { id: "events_all",      label: "Completionist",       desc: "Get a PB on all 16 events",                pts: 150, icon: "🏅", check: d => d.eventsWithPb >= 16 },
+      { id: "events_all",      label: "Completionist",       desc: "Get a PB on all 15 events",                pts: 150, icon: "🏅", check: d => d.eventsWithPb >= 15 },
       // ── Social ───────────────────────────────────────────────────────────────
       { id: "joined_club",     label: "Social Butterfly",    desc: "Join a club",                              pts:  5,  icon: "🤝", check: d => d.clubsJoined >= 1 },
       { id: "made_club",       label: "Founder",             desc: "Create a club",                            pts: 15,  icon: "🏗️", check: d => d.madeClub },
@@ -3999,6 +4040,35 @@
       return pbs;
     }
 
+    // Compute best ao5 across all sessions for a given event
+    function getBestAo5(eventId) {
+      const bundle = data.sessionsByEvent[eventId];
+      if (!bundle) return null;
+      let bestAo5 = null;
+      for (const session of bundle.sessions) {
+        const solves = session.solves.filter(s => s.penalty !== "DNF");
+        if (solves.length < 5) continue;
+        for (let i = 0; i <= solves.length - 5; i++) {
+          const window = solves.slice(i, i + 5).map(s =>
+            (s.baseTimeMs ?? s.time ?? 0) + (s.penalty === "+2" ? 2000 : 0));
+          const sorted = [...window].sort((a,b) => a-b);
+          const trimmed = sorted.slice(1,-1);
+          const ao5 = trimmed.reduce((a,b)=>a+b,0) / trimmed.length;
+          if (bestAo5 == null || ao5 < bestAo5) bestAo5 = ao5;
+        }
+      }
+      return bestAo5 != null ? Math.round(bestAo5) : null;
+    }
+
+    function getAllAo5s() {
+      const ao5s = {};
+      for (const ev of EVENTS) {
+        const ao5 = getBestAo5(ev.id);
+        if (ao5 != null) ao5s[ev.id] = ao5;
+      }
+      return ao5s;
+    }
+
     // ── Global Leaderboard ────────────────────────────────────────────
     const globalLbViewEl     = document.getElementById("globalLbView");
     const globalLbViewBtn    = document.getElementById("globalLbViewBtn");
@@ -4116,7 +4186,14 @@
       if (!firebaseReady || !db || !state.currentUser) return;
       try {
         const pbs = getAllPbs();
-        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs }, { merge: true });
+        const ao5s = getAllAo5s();
+        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s }, { merge: true });
+        // Also keep club member docs up to date
+        for (const clubId of clubMembershipIds) {
+          try {
+            await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), { pbs, ao5s }, { merge: true });
+          } catch {}
+        }
       } catch {}
     }
 
@@ -4222,6 +4299,10 @@
         state.leagueId = league;
         state.leaguePoints = pts;
         newlyEarned.forEach(a => showAchievementToast(a));
+        // Refresh the side panel with latest earned state
+        if (typeof renderAchPanel === 'function') renderAchPanel();
+        // Auto-open the panel on first load if signed in
+        if (state.currentUser && typeof maybeShowAchPanelOnLoad === 'function') maybeShowAchPanelOnLoad();
         // If not signed in, stop here — local state is updated, no Firebase needed
         if (!firebaseReady || !db || !state.currentUser) return;
         // ── Retroactive comp placement scan (runs once per session until all flags set) ──
@@ -4288,6 +4369,61 @@
           }
         }
       } catch(e) { console.warn("syncAchievements error", e); }
+    }
+
+    // ── Achievements side panel ───────────────────────────────────────
+    const achSidePanel    = document.getElementById('achSidePanel');
+    const achPanelBody    = document.getElementById('achPanelBody');
+    const achPanelToggle  = document.getElementById('achPanelToggle');
+    let achPanelOpen = false;
+    let achPanelShownOnLoad = false;
+
+    function renderAchPanel() {
+      if (!achPanelBody) return;
+      const earned = state.earnedAchievements || [];
+      if (!state.currentUser) {
+        achPanelBody.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:4px;">Sign in to see your achievements.</div>`;
+        return;
+      }
+      achPanelBody.innerHTML = ACHIEVEMENTS.map(a => {
+        const isEarned = earned.includes(a.id);
+        return `<div class="ach-panel-item${isEarned?' earned':''}">
+          <div class="ach-panel-icon">${a.icon}</div>
+          <div class="ach-panel-info">
+            <div class="ach-panel-name">${a.label}</div>
+            <div class="ach-panel-desc">${a.desc}</div>
+          </div>
+          <div class="ach-panel-pts">+${a.pts}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function openAchPanel() {
+      achPanelOpen = true;
+      renderAchPanel();
+      achSidePanel?.classList.add('open');
+      achPanelToggle?.classList.add('panel-open');
+    }
+
+    function closeAchPanel() {
+      achPanelOpen = false;
+      achSidePanel?.classList.remove('open');
+      achPanelToggle?.classList.remove('panel-open');
+      // Remember they closed it so it doesn't re-open next visit
+      try { localStorage.setItem('achPanelDismissed','1'); } catch {}
+    }
+
+    document.getElementById('achPanelCloseBtn')?.addEventListener('click', closeAchPanel);
+    achPanelToggle?.addEventListener('click', () => {
+      if (achPanelOpen) closeAchPanel(); else openAchPanel();
+    });
+
+    function maybeShowAchPanelOnLoad() {
+      if (achPanelShownOnLoad) return;
+      achPanelShownOnLoad = true;
+      // Only auto-open if user hasn't manually dismissed before
+      try { if (localStorage.getItem('achPanelDismissed') === '1') return; } catch {}
+      openAchPanel();
     }
 
     function showAchievementToast(ach) {
@@ -4515,6 +4651,7 @@
               <button class="club-detail-tab${selectedClubTab==='members'?' active':''}" data-tab="members">Members</button>
               <button class="club-detail-tab${selectedClubTab==='leaderboard'?' active':''}" data-tab="leaderboard">Leaderboard</button>
               <button class="club-detail-tab${selectedClubTab==='comps'?' active':''}" data-tab="comps">Comps</button>
+              <button class="club-detail-tab${selectedClubTab==='records'?' active':''}" data-tab="records">Records</button>
               <button class="club-detail-tab back-tab" id="backToClubsBtn">← Back</button>
             </div>
           </div>
@@ -4547,6 +4684,7 @@
       if (selectedClubTab === 'discussion') renderDiscussion(body, club.id, isMember||isAdmin);
       else if (selectedClubTab === 'members') renderMembers(body, club.id, isAdmin);
       else if (selectedClubTab === 'comps') renderClubComps(body, club.id, isAdmin);
+      else if (selectedClubTab === 'records') renderClubRecords(body, club.id);
       else renderLeaderboard(body, club.id);
     }
 
@@ -4745,6 +4883,7 @@
     }
 
     let lbSelectedEvent = '333';
+    let lbRankBy = 'ao5'; // 'single' | 'ao5'
 
     async function renderLeaderboard(container, clubId) {
       container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
@@ -4770,20 +4909,30 @@
 
     function renderLeaderboardForEvent(container, clubId, members, eventId) {
       const medals = ['🥇','🥈','🥉'];
-      const getPb = m => m.pbs?.[eventId] ?? (eventId === '333' ? (m.pb3x3 ?? null) : null);
-      const withPb = members.filter(m => getPb(m) != null).sort((a,b) => getPb(a)-getPb(b));
-      const noPb   = members.filter(m => getPb(m) == null);
-      const ranked = [...withPb, ...noPb];
+      const getPb  = m => m.pbs?.[eventId]  ?? (eventId === '333' ? (m.pb3x3 ?? null) : null);
+      const getAo5 = m => m.ao5s?.[eventId] ?? null;
+      const getVal = m => lbRankBy === 'ao5' ? getAo5(m) : getPb(m);
+      const withVal = members.filter(m => getVal(m) != null).sort((a,b) => getVal(a)-getVal(b));
+      const noVal   = members.filter(m => getVal(m) == null);
+      const ranked = [...withVal, ...noVal];
       const eventLabel = EVENTS.find(e => e.id === eventId)?.label ?? eventId;
       container.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
           <select class="select" id="lbEventSelect" style="font-size:13px;padding:5px 8px;">
             ${EVENTS.map(e => `<option value="${e.id}"${e.id===eventId?' selected':''}>${e.label}</option>`).join('')}
           </select>
-          <span style="font-size:12px;color:var(--muted);">personal best · single</span>
+          <div class="clubs-filter-toggle" style="margin-left:auto;">
+            <button class="clubs-filter-btn${lbRankBy==='single'?' active':''}" id="lbRankSingle">Single</button>
+            <button class="clubs-filter-btn${lbRankBy==='ao5'?' active':''}" id="lbRankAo5">Ao5</button>
+          </div>
         </div>
         <div class="club-lb-list">${ranked.length ? ranked.map((m,i) => {
+          const val = getVal(m);
           const pb = getPb(m);
+          const ao5 = getAo5(m);
+          const subLabel = lbRankBy === 'ao5'
+            ? (ao5 != null ? `Single: ${formatMs(pb??0)}` : 'No Ao5')
+            : (pb != null ? (ao5 != null ? `Ao5: ${formatMs(ao5)}` : '') : '');
           return `<div class="club-lb-item clickable-user" data-uid="${escapeHtml(m.uid||'')}">
             <div class="club-lb-rank">${medals[i]??i+1}</div>
             <img class="club-member-avatar" src="${escapeHtml(m.avatarUrl||defaultAvatarUrl(m.username))}" alt="" onerror="this.src='${defaultAvatarUrl(m.username)}'"/>
@@ -4792,13 +4941,22 @@
               <div class="club-member-username">@${escapeHtml(m.username)}</div>
             </div>
             <div class="club-lb-meta">
-              <div class="club-lb-time no-pb">${pb!=null ? `<span style="color:var(--good);font-weight:700;">${formatMs(pb)}</span>` : m._noSync ? '⏳ Not synced yet' : 'No PB'}</div>
-              <div class="club-lb-event-label">${escapeHtml(eventLabel)}</div>
+              <div class="club-lb-time${val==null?' no-pb':''}">${val!=null ? `<span style="color:var(--good);font-weight:700;">${formatMs(val)}</span>` : m._noSync ? '⏳ Not synced' : lbRankBy==='ao5'?'No Ao5':'No PB'}</div>
+              <div class="club-lb-event-label">${escapeHtml(subLabel)}</div>
             </div>
           </div>`;
         }).join('') : `<div style="color:var(--muted);font-size:13px;">No members yet.</div>`}</div>`;
+      container.getElementById?.('lbEventSelect');
       document.getElementById('lbEventSelect')?.addEventListener('change', e => {
         lbSelectedEvent = e.target.value;
+        renderLeaderboardForEvent(container, clubId, members, lbSelectedEvent);
+      });
+      document.getElementById('lbRankSingle')?.addEventListener('click', () => {
+        lbRankBy = 'single';
+        renderLeaderboardForEvent(container, clubId, members, lbSelectedEvent);
+      });
+      document.getElementById('lbRankAo5')?.addEventListener('click', () => {
+        lbRankBy = 'ao5';
         renderLeaderboardForEvent(container, clubId, members, lbSelectedEvent);
       });
       container.querySelectorAll('.club-lb-item[data-uid]').forEach(el => {
@@ -4933,6 +5091,19 @@
       return score != null ? formatMs(Math.round(score)) : '—';
     }
 
+    // Multi-event: compute combined score across all events (sum of per-event scores)
+    function multiEventScore(entry, eventIds) {
+      if (!eventIds?.length) return null;
+      let total = 0;
+      for (const evId of eventIds) {
+        const times = entry.timesByEvent?.[evId] || (eventIds.length === 1 ? entry.times : null);
+        const s = compScore(times);
+        if (s == null) return null; // incomplete entry — unranked
+        total += s;
+      }
+      return total;
+    }
+
     function parseTimeInput(str) {
       if (!str) return null;
       str = str.trim();
@@ -5013,7 +5184,9 @@
       listEl.innerHTML = allOpenComps.map(c => {
         const isH2H = c.type === 'h2h';
         const isChallenge = isH2H && c.h2hOpponentUid === state.currentUser?.uid;
-        const evLabel = EVENTS.find(e=>e.id===c.event)?.label || c.event;
+        const evLabel = c.events?.length > 1
+          ? c.events.map(e=>e.label).join(', ')
+          : (EVENTS.find(e=>e.id===c.event)?.label || c.event);
         return `<div class="comp-list-item${c.id===selectedCompId?' active':''}" data-comp-id="${escapeHtml(c.id)}">
           <div class="comp-list-item-name">${isH2H?'⚔ ':''}${escapeHtml(c.name||'Unnamed')}</div>
           <div class="comp-list-item-meta">${escapeHtml(evLabel)} · ${c.numSolves} solve${c.numSolves!==1?'s':''} · @${escapeHtml(c.createdByUsername||'?')}${isChallenge?' · <b style="color:orange;">Challenge for you!</b>':''}</div>
@@ -5058,8 +5231,14 @@
       const isH2H = comp.type === 'h2h';
       const canEnter = isOpen && state.currentUser &&
         (!isH2H || comp.createdBy===state.currentUser.uid || comp.h2hOpponentUid===state.currentUser.uid);
+      // Normalise event list — new comps store comp.events[], old ones store comp.event + comp.scrambles
+      const compEvents = comp.events?.length
+        ? comp.events
+        : [{ id: comp.event||'333', label: EVENTS.find(e=>e.id===comp.event)?.label||comp.event||'3x3x3', scrambles: comp.scrambles||[] }];
+      const isMulti = compEvents.length > 1;
+      const eventIds = compEvents.map(e=>e.id);
       const scored = entries
-        .map(e=>({...e,score:compScore(e.times||[])}))
+        .map(e=>({...e, score: isMulti ? multiEventScore(e, eventIds) : compScore(e.times||[])}))
         .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
       const medals = ['🥇','🥈','🥉'];
       // Check if current user earned a placement achievement on this closed comp
@@ -5080,15 +5259,84 @@
           }
         }
       }
-      const evLabel = EVENTS.find(e=>e.id===comp.event)?.label || comp.event;
+      const evLabels = compEvents.map(e=>e.label).join(', ');
       const endStr = comp.endAt ? new Date(comp.endAt.toMillis?.()??comp.endAt).toLocaleString() : null;
+
+      // Build scrambles HTML — grouped by event for multi-event comps
+      const scramblesHtml = compEvents.map(ev => `
+        ${isMulti ? `<div style="font-size:12px;font-weight:700;color:var(--accent);margin:8px 0 4px;">${escapeHtml(ev.label)}</div>` : ''}
+        <div class="comp-scramble-list">
+          ${(ev.scrambles||[]).map((s,i)=>`
+            <div class="comp-scramble-item">
+              <div class="comp-scramble-num">Scramble ${i+1}</div>
+              ${escapeHtml(s)}
+            </div>`).join('')}
+        </div>`).join('');
+
+      // Build entry form HTML — tabbed by event for multi-event comps
+      const entryFormHtml = canEnter ? `
+        <div class="comp-entry-form">
+          <div class="comp-entry-title">${myEntry?'✏ Update your times':'📝 Submit your times'}</div>
+          ${isMulti ? `
+            <div class="comp-event-entry-tabs" id="compEntryTabs">
+              ${compEvents.map((ev,i)=>`<button class="comp-event-entry-tab${i===0?' active':''}" data-ev="${ev.id}">${escapeHtml(ev.label)}</button>`).join('')}
+            </div>
+            ${compEvents.map((ev,i)=>`
+              <div class="comp-entry-event-panel" data-ev-panel="${ev.id}" style="display:${i===0?'block':'none'};">
+                <div class="comp-time-inputs">
+                  ${Array.from({length:comp.numSolves},(_,j)=>`
+                    <div class="comp-time-input-wrap">
+                      <div class="comp-time-label">Solve ${j+1}</div>
+                      <input class="comp-time-input" data-ev="${ev.id}" data-idx="${j}" placeholder="0:00.00" value="${myEntry?.timesByEvent?.[ev.id]?.[j]?formatMs(myEntry.timesByEvent[ev.id][j]):''}" />
+                    </div>`).join('')}
+                </div>
+              </div>`).join('')}` :
+          `<div class="comp-time-inputs">
+              ${(compEvents[0]?.scrambles||[]).map((_,i)=>`
+                <div class="comp-time-input-wrap">
+                  <div class="comp-time-label">Solve ${i+1}</div>
+                  <input class="comp-time-input" data-ev="${compEvents[0]?.id||''}" data-idx="${i}" placeholder="0:00.00" value="${myEntry?.times?.[i]?formatMs(myEntry.times[i]):''}" />
+                </div>`).join('')}
+           </div>`}
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+            <button class="small-btn" id="submitEntryBtn">${myEntry?'Update':'Submit'}</button>
+            <div id="entryStatus" style="font-size:12px;"></div>
+          </div>
+        </div>` : '';
+
+      // Build leaderboard HTML
+      const lbHtml = scored.length ? `
+        <div class="comp-lb-list">
+          ${scored.map((e,i)=>{
+            let scoreDisplay, timesDisplay;
+            if (isMulti) {
+              scoreDisplay = formatMs(Math.round(e.score));
+              timesDisplay = compEvents.map(ev => {
+                const evTimes = (e.timesByEvent?.[ev.id]||[]).filter(t=>t!=null);
+                return evTimes.length ? `${ev.label.split('x')[0]}x: ${compScoreLabel(evTimes)}` : `${ev.label}: —`;
+              }).join(' · ');
+            } else {
+              scoreDisplay = compScoreLabel(e.times);
+              timesDisplay = (e.times||[]).filter(t=>t!=null).map(t=>formatMs(t)).join(' · ');
+            }
+            return `<div class="comp-lb-item clickable-user" data-uid="${escapeHtml(e.uid||'')}">
+              <div class="comp-lb-rank">${medals[i]||i+1}</div>
+              <div style="flex:1;min-width:0;">
+                <div class="comp-lb-name">${leagueBadgeHtml(e.league||'rookie','sm')} ${escapeHtml(e.displayName||e.username)}</div>
+                <div class="comp-lb-times">${timesDisplay}</div>
+              </div>
+              <div class="comp-lb-score">${scoreDisplay}</div>
+            </div>`;
+          }).join('')}
+        </div>` : `<div style="color:var(--muted);font-size:13px;">No entries yet.</div>`;
+
       container.innerHTML = `
         <div class="comp-detail-content">
           <div class="comp-detail-header">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
               <div>
                 <div class="comp-detail-title">${isH2H?'⚔ ':''}${escapeHtml(comp.name||'Unnamed')}</div>
-                <div class="comp-detail-meta">${escapeHtml(evLabel)} · ${comp.numSolves} solve${comp.numSolves!==1?'s':''} · by @${escapeHtml(comp.createdByUsername||'?')}</div>
+                <div class="comp-detail-meta">${escapeHtml(evLabels)} · ${comp.numSolves} solve${comp.numSolves!==1?'s':''} · by @${escapeHtml(comp.createdByUsername||'?')}</div>
                 <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
                   <span class="comp-badge ${isOpen?'comp-badge-open':'comp-badge-closed'}">${isOpen?'● Open':'● Closed'}</span>
                   ${isH2H?`<span class="comp-badge comp-badge-h2h">⚔ vs @${escapeHtml(isCreator?comp.h2hOpponentUsername||'?':comp.createdByUsername||'?')}</span>`:''}
@@ -5100,65 +5348,65 @@
           </div>
           <div>
             <div class="comp-section-label">Scrambles</div>
-            <div class="comp-scramble-list">
-              ${(comp.scrambles||[]).map((s,i)=>`
-                <div class="comp-scramble-item">
-                  <div class="comp-scramble-num">Scramble ${i+1}</div>
-                  ${escapeHtml(s)}
-                </div>`).join('')}
-            </div>
+            ${scramblesHtml}
           </div>
-          ${canEnter?`
-            <div class="comp-entry-form">
-              <div class="comp-entry-title">${myEntry?'✏ Update your times':'📝 Submit your times'}</div>
-              <div class="comp-time-inputs">
-                ${(comp.scrambles||[]).map((_,i)=>`
-                  <div class="comp-time-input-wrap">
-                    <div class="comp-time-label">Solve ${i+1}</div>
-                    <input class="comp-time-input" data-idx="${i}" placeholder="0:00.00" value="${myEntry?.times?.[i]?formatMs(myEntry.times[i]):''}" />
-                  </div>`).join('')}
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <button class="small-btn" id="submitEntryBtn">${myEntry?'Update':'Submit'}</button>
-                <div id="entryStatus" style="font-size:12px;"></div>
-              </div>
-            </div>`:''}
+          ${entryFormHtml}
           <div>
-            <div class="comp-section-label">Leaderboard (${scored.length} entr${scored.length===1?'y':'ies'})</div>
-            ${scored.length?`
-              <div class="comp-lb-list">
-                ${scored.map((e,i)=>`
-                  <div class="comp-lb-item clickable-user" data-uid="${escapeHtml(e.uid||'')}">
-                    <div class="comp-lb-rank">${medals[i]||i+1}</div>
-                    <div style="flex:1;min-width:0;">
-                      <div class="comp-lb-name">${leagueBadgeHtml(e.league||'rookie','sm')} ${escapeHtml(e.displayName||e.username)}</div>
-                      <div class="comp-lb-times">${(e.times||[]).filter(t=>t!=null).map(t=>formatMs(t)).join(' · ')}</div>
-                    </div>
-                    <div class="comp-lb-score">${compScoreLabel(e.times)}</div>
-                  </div>`).join('')}
-              </div>`:`<div style="color:var(--muted);font-size:13px;">No entries yet.</div>`}
+            <div class="comp-section-label">Leaderboard${isMulti?' (combined ao5)':''} (${scored.length} entr${scored.length===1?'y':'ies'})</div>
+            ${lbHtml}
           </div>
         </div>`;
+
+      // Wire event entry tabs
+      container.querySelectorAll('.comp-event-entry-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('.comp-event-entry-tab').forEach(b => b.classList.toggle('active', b === btn));
+          container.querySelectorAll('.comp-entry-event-panel').forEach(p => p.style.display = p.dataset.evPanel === btn.dataset.ev ? 'block' : 'none');
+        });
+      });
+
       container.querySelector('#submitEntryBtn')?.addEventListener('click', async () => {
         const btn = container.querySelector('#submitEntryBtn');
         const status = container.querySelector('#entryStatus');
-        const inputs = container.querySelectorAll('.comp-time-input');
-        const times = []; let ok = true;
-        inputs.forEach(inp => {
-          const ms = parseTimeInput(inp.value);
-          if (inp.value.trim() && (ms==null||ms<=0)) { inp.style.borderColor='var(--bad)'; ok=false; }
-          else { inp.style.borderColor=''; times.push(ms); }
-        });
-        if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
-        btn.disabled=true; btn.textContent='Saving…'; status.textContent='';
-        try {
-          const p = comp._path || 'competitions';
-          await submitCompEntry(comp.id, times, p);
-          const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
-          renderCompDetailFull(container, comp, entriesSnap.docs.map(d=>d.data()));
-        } catch(e) {
-          status.textContent='✗ '+e.message+(isPermissionError(e)?' — Firestore rules needed.':''); status.style.color='var(--bad)';
-          btn.disabled=false; btn.textContent=myEntry?'Update':'Submit';
+        let ok = true;
+        if (isMulti) {
+          const timesByEvent = {};
+          container.querySelectorAll('.comp-time-input').forEach(inp => {
+            if (!timesByEvent[inp.dataset.ev]) timesByEvent[inp.dataset.ev] = [];
+            const ms = parseTimeInput(inp.value);
+            if (inp.value.trim() && (ms==null||ms<=0)) { inp.style.borderColor='var(--bad)'; ok=false; }
+            else { inp.style.borderColor=''; timesByEvent[inp.dataset.ev].push(ms); }
+          });
+          if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
+          btn.disabled=true; btn.textContent='Saving…'; status.textContent='';
+          try {
+            const p = comp._path || 'competitions';
+            await submitCompEntry(comp.id, timesByEvent, p, true);
+            const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
+            renderCompDetailFull(container, comp, entriesSnap.docs.map(d=>d.data()));
+          } catch(e) {
+            status.textContent='✗ '+e.message+(isPermissionError(e)?' — Firestore rules needed.':''); status.style.color='var(--bad)';
+            btn.disabled=false; btn.textContent=myEntry?'Update':'Submit';
+          }
+        } else {
+          const inputs = container.querySelectorAll('.comp-time-input');
+          const times = [];
+          inputs.forEach(inp => {
+            const ms = parseTimeInput(inp.value);
+            if (inp.value.trim() && (ms==null||ms<=0)) { inp.style.borderColor='var(--bad)'; ok=false; }
+            else { inp.style.borderColor=''; times.push(ms); }
+          });
+          if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
+          btn.disabled=true; btn.textContent='Saving…'; status.textContent='';
+          try {
+            const p = comp._path || 'competitions';
+            await submitCompEntry(comp.id, times, p, false);
+            const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
+            renderCompDetailFull(container, comp, entriesSnap.docs.map(d=>d.data()));
+          } catch(e) {
+            status.textContent='✗ '+e.message+(isPermissionError(e)?' — Firestore rules needed.':''); status.style.color='var(--bad)';
+            btn.disabled=false; btn.textContent=myEntry?'Update':'Submit';
+          }
         }
       });
       container.querySelector('#closeCompBtn')?.addEventListener('click', async () => {
@@ -5171,24 +5419,38 @@
           if (idx!==-1) allOpenComps.splice(idx,1);
           renderCompsList();
           const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
-          renderCompDetailFull(container, comp, entriesSnap.docs.map(d=>d.data()));
+          const closedEntries = entriesSnap.docs.map(d=>d.data());
+          // Save club records if this is a club comp
+          if (comp.clubId) {
+            await updateClubRecordsFromComp(comp, closedEntries);
+          }
+          renderCompDetailFull(container, comp, closedEntries);
         } catch(e) { alert('Failed: '+e.message); }
       });
       container.querySelectorAll('.comp-lb-item[data-uid]').forEach(el =>
         el.addEventListener('click', () => openUserProfile(el.dataset.uid)));
     }
 
-    async function submitCompEntry(compId, times, compPath) {
+    async function submitCompEntry(compId, timesOrByEvent, compPath, isMultiEvent) {
       if (!state.currentUser) throw new Error('Sign in to submit.');
       const pSnap = await getDoc(doc(db,'profiles',state.currentUser.uid));
       if (!pSnap.exists()) throw new Error('Set up your profile first.');
       const {username,displayName,avatarUrl,league} = pSnap.data();
       const path = compPath || 'competitions';
-      await setDoc(doc(db, ...path.split('/'), compId, 'entries', state.currentUser.uid), {
+      const entryData = {
         uid:state.currentUser.uid, username, displayName:displayName||username,
         avatarUrl:avatarUrl||defaultAvatarUrl(username),
-        league:league||state.leagueId||'rookie', times, submittedAt:serverTimestamp()
-      });
+        league:league||state.leagueId||'rookie', submittedAt:serverTimestamp()
+      };
+      if (isMultiEvent) {
+        entryData.timesByEvent = timesOrByEvent; // { eventId: [ms, ...] }
+        // Also set times = first event's times for backward compat
+        const firstKey = Object.keys(timesOrByEvent)[0];
+        if (firstKey) entryData.times = timesOrByEvent[firstKey];
+      } else {
+        entryData.times = timesOrByEvent;
+      }
+      await setDoc(doc(db, ...path.split('/'), compId, 'entries', state.currentUser.uid), entryData);
     }
 
     async function createCompetition(opts) {
@@ -5198,9 +5460,18 @@
       const {username} = pSnap.data();
       const statusEl = document.getElementById('compCreateStatus');
       if (statusEl) { statusEl.textContent = 'Generating scrambles…'; statusEl.style.color='var(--muted)'; }
-      const scrambles = await generateCompScrambles(opts.event, opts.numSolves);
+      // Support both new multi-event (opts.events array) and old single event (opts.event)
+      const eventList = opts.events || (opts.event ? [EVENTS.find(e=>e.id===opts.event)||{id:opts.event,label:opts.event}] : []);
+      const eventsWithScrambles = [];
+      for (const ev of eventList) {
+        const scrambles = await generateCompScrambles(ev.id, opts.numSolves);
+        eventsWithScrambles.push({ id: ev.id, label: ev.label, scrambles });
+      }
+      // backward-compat fields derived from first event
+      const firstEv = eventsWithScrambles[0];
       const compData = {
-        name:opts.name, event:opts.event, scrambles, numSolves:opts.numSolves,
+        name:opts.name, events:eventsWithScrambles, event:firstEv?.id||'333',
+        scrambles:firstEv?.scrambles||[], numSolves:opts.numSolves,
         type:opts.type||'open', clubId:opts.clubId||null, status:'open',
         createdBy:state.currentUser.uid, createdByUsername:username,
         createdAt:serverTimestamp(), endAt:opts.endAt||null,
@@ -5216,6 +5487,74 @@
         ? `clubs/${opts.clubId}/competitions`
         : 'competitions';
       return {id:ref.id, _path, _clubId: opts.clubId||null, ...compData};
+    }
+
+    // ── Club Records ──────────────────────────────────────────────────────────
+    // When a club comp is closed, scan all entries and update the club's
+    // records collection (clubs/{clubId}/records/{eventId}) with any new bests.
+    async function updateClubRecordsFromComp(comp, entries) {
+      if (!comp.clubId) return;
+      const compEvents = comp.events?.length
+        ? comp.events
+        : [{ id: comp.event||'333', label: EVENTS.find(e=>e.id===comp.event)?.label||comp.event||'3x3x3' }];
+      for (const ev of compEvents) {
+        let bestMs = null;
+        let bestHolder = null;
+        for (const entry of entries) {
+          const times = comp.events?.length > 1
+            ? (entry.timesByEvent?.[ev.id] || [])
+            : (entry.times || []);
+          const s = compScore(times);
+          if (s != null && (bestMs == null || s < bestMs)) {
+            bestMs = s;
+            bestHolder = { uid: entry.uid, username: entry.username, displayName: entry.displayName, avatarUrl: entry.avatarUrl };
+          }
+        }
+        if (bestMs == null) continue;
+        try {
+          const recRef = doc(db, 'clubs', comp.clubId, 'records', ev.id);
+          const existing = await getDoc(recRef);
+          if (!existing.exists() || existing.data().timeMs > bestMs) {
+            await setDoc(recRef, {
+              eventId: ev.id, eventLabel: ev.label,
+              timeMs: bestMs,
+              holder: bestHolder,
+              compId: comp.id, compName: comp.name || '',
+              setAt: serverTimestamp()
+            });
+          }
+        } catch(e) { console.warn('Club record update failed:', e.message); }
+      }
+    }
+
+    async function renderClubRecords(container, clubId) {
+      container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
+      try {
+        const snap = await getDocs(collection(db, 'clubs', clubId, 'records'));
+        if (snap.empty) {
+          container.innerHTML = `<div style="color:var(--muted);font-size:13px;">No club records yet. Close a competition to set them!</div>`;
+          return;
+        }
+        // Sort by EVENTS order
+        const evOrder = EVENTS.map(e => e.id);
+        const records = snap.docs.map(d => d.data()).sort((a,b) => evOrder.indexOf(a.eventId) - evOrder.indexOf(b.eventId));
+        container.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${records.map(r => `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(r.eventLabel||r.eventId)}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+                    held by <span style="color:var(--text);font-weight:600;">@${escapeHtml(r.holder?.username||'?')}</span>
+                    ${r.compName?`· from ${escapeHtml(r.compName)}`:''}
+                  </div>
+                </div>
+                <div style="font-size:17px;font-weight:700;color:var(--good);">${formatMs(r.timeMs)}</div>
+              </div>`).join('')}
+          </div>`;
+      } catch(e) {
+        container.innerHTML = `<div style="color:var(--bad);font-size:13px;">Failed to load records.</div>`;
+      }
     }
 
     async function renderClubComps(container, clubId, isAdmin) {
@@ -5241,7 +5580,7 @@
                   <div class="comp-list-item-name">${escapeHtml(c.name||'Unnamed')}</div>
                   <span class="comp-badge ${c.status==='open'?'comp-badge-open':'comp-badge-closed'}">${c.status==='open'?'● Open':'● Closed'}</span>
                 </div>
-                <div class="comp-list-item-meta">${escapeHtml(EVENTS.find(e=>e.id===c.event)?.label||c.event)} · ${c.numSolves} solve${c.numSolves!==1?'s':''}</div>
+                <div class="comp-list-item-meta">${escapeHtml(c.events?.length>1?c.events.map(e=>e.label).join(', '):(EVENTS.find(e=>e.id===c.event)?.label||c.event))} · ${c.numSolves} solve${c.numSolves!==1?'s':''}</div>
               </div>`).join('')}
           </div>`;
         container.querySelectorAll('[data-comp-id]').forEach(el =>
@@ -5263,8 +5602,21 @@
       document.getElementById('newCompEndInput').value = '';
       const statusEl = document.getElementById('compCreateStatus');
       if (statusEl) { statusEl.textContent=''; statusEl.style.color=''; }
-      const evSelect = document.getElementById('newCompEventSelect');
-      if (evSelect) evSelect.innerHTML = EVENTS.map(e=>`<option value="${e.id}">${escapeHtml(e.label)}</option>`).join('');
+      const evGrid = document.getElementById('newCompEventsGrid');
+      if (evGrid) {
+        evGrid.innerHTML = EVENTS.map(e=>`
+          <label class="comp-event-check${e.id==='333'?' selected':''}" data-ev="${e.id}">
+            <input type="checkbox" style="display:none;"${e.id==='333'?' checked':''}/>
+            ${escapeHtml(e.label)}
+          </label>`).join('');
+        evGrid.querySelectorAll('.comp-event-check').forEach(lbl => {
+          lbl.addEventListener('click', () => {
+            const cb = lbl.querySelector('input');
+            cb.checked = !cb.checked;
+            lbl.classList.toggle('selected', cb.checked);
+          });
+        });
+      }
       document.querySelectorAll('#compNumSolvesRow .comp-num-btn').forEach(btn =>
         btn.classList.toggle('active', parseInt(btn.dataset.n)===5));
       const scopeRow = document.getElementById('compScopeRow');
@@ -5764,6 +6116,13 @@
                 syncPbsToProfile(); // update global leaderboard data on sign-in
                 loadClubLastRead(); // load unread timestamps for notification dots
                 syncAchievements(); // compute + award any newly unlocked achievements
+                // Load previously-earned achievements from profile so panel renders immediately
+                const profileAchs = profileSnap.data().achievements || [];
+                if (profileAchs.length && !state.earnedAchievements.length) {
+                  state.earnedAchievements = profileAchs;
+                }
+                if (typeof renderAchPanel === 'function') renderAchPanel();
+                if (typeof maybeShowAchPanelOnLoad === 'function') maybeShowAchPanelOnLoad();
               }
             }
           } else {
@@ -8109,6 +8468,7 @@
           }
           manualTimeInputEl.value = "";
           await recordSolve({ baseTimeMs: ms, penalty: "", inspectionUsed: false, inspectionMs: 0 });
+          await generateScramble();
           manualTimeInputEl.focus();
         } else if (e.key === "Escape") {
           manualTimeInputEl.value = "";
@@ -8347,17 +8707,20 @@
     document.getElementById('confirmCreateCompBtn')?.addEventListener('click', async () => {
       const btn = document.getElementById('confirmCreateCompBtn');
       const name = document.getElementById('newCompNameInput')?.value.trim();
-      const event = document.getElementById('newCompEventSelect')?.value;
       const endVal = document.getElementById('newCompEndInput')?.value;
       const statusEl = document.getElementById('compCreateStatus');
+      // Collect selected events
+      const selectedEvents = [...document.querySelectorAll('#newCompEventsGrid .comp-event-check.selected')]
+        .map(lbl => EVENTS.find(e => e.id === lbl.dataset.ev)).filter(Boolean);
       if (!name) { if(statusEl){statusEl.textContent='Name required';statusEl.style.color='var(--bad)';} return; }
+      if (!selectedEvents.length) { if(statusEl){statusEl.textContent='Select at least one event';statusEl.style.color='var(--bad)';} return; }
       btn.disabled = true; btn.textContent = 'Creating…';
       if(statusEl){statusEl.textContent='';statusEl.style.color='';}
       try {
         const isClubComp = !!createCompForClubId;
         const type = isClubComp && createCompScope === 'open' ? 'open' : (isClubComp ? 'club' : 'open');
         const comp = await createCompetition({
-          name, event, numSolves: newCompNumSolves, type,
+          name, events: selectedEvents, numSolves: newCompNumSolves, type,
           clubId: type === 'club' ? createCompForClubId : null,
           endAt: endVal ? new Date(endVal) : null
         });
@@ -9283,6 +9646,18 @@
 
   <!-- Achievement toast container -->
   <div id="achievementToastContainer"></div>
+
+  <!-- Achievements side panel -->
+  <div id="achSidePanel" aria-label="Achievements panel">
+    <div class="ach-panel-header">
+      <div class="ach-panel-title">🏆 Achievements</div>
+      <button class="ach-panel-close" id="achPanelCloseBtn">Close</button>
+    </div>
+    <div class="ach-panel-body" id="achPanelBody">
+      <div style="color:var(--muted);font-size:13px;">Sign in to see your achievements.</div>
+    </div>
+  </div>
+  <button id="achPanelToggle" class="ach-panel-toggle" title="Achievements">🏆</button>
 
 </body>
 </html>
