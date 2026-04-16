@@ -3452,7 +3452,8 @@
       updateDoc,
       onSnapshot,
       limit,
-      increment
+      increment,
+      deleteField
     } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
     const STORAGE_KEY = "cube_timer_full_data_v12";
@@ -5480,6 +5481,10 @@
           const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
           await Promise.all(entriesSnap.docs.map(d => deleteDoc(d.ref)));
           await deleteDoc(doc(db, ...p.split('/'), comp.id));
+          // If this was a closed club comp, recompute any club records it held
+          if (comp.clubId && comp.status === 'closed') {
+            recomputeClubRecordsAfterDelete(comp.clubId, comp.id);
+          }
           // Remove from local cache
           const idx = allOpenComps.findIndex(c=>c.id===comp.id);
           if (idx!==-1) allOpenComps.splice(idx,1);
@@ -5996,8 +6001,65 @@
       }
     }
 
-    // State for Records tab event filter (per club session)
+    // After deleting a closed club comp, recompute any club records that were set by it.
+    async function recomputeClubRecordsAfterDelete(clubId, deletedCompId) {
+      try {
+        const clubSnap = await getDoc(doc(db, 'clubs', clubId));
+        const existingRecords = clubSnap.data()?.records || {};
+
+        // Which events had their record set by the deleted comp?
+        const affectedEvIds = Object.entries(existingRecords)
+          .filter(([, rec]) => rec.compId === deletedCompId)
+          .map(([evId]) => evId);
+        if (!affectedEvIds.length) return;
+
+        // Fetch all remaining closed comps for this club
+        const closedSnap = await getDocs(query(
+          collection(db, 'clubs', clubId, 'competitions'),
+          where('status', '==', 'closed')
+        ));
+        const closedComps = closedSnap.docs.map(d => ({id: d.id, ...d.data()}));
+
+        const updates = {};
+        for (const evId of affectedEvIds) {
+          let bestMs = null, bestHolder = null, bestCompId = null, bestCompName = null, bestEvLabel = null;
+          for (const comp of closedComps) {
+            const compEvents = comp.events?.length
+              ? comp.events
+              : [{id: comp.event||'333', label: EVENTS.find(e=>e.id===(comp.event||'333'))?.label||'3x3x3'}];
+            const ev = compEvents.find(e => e.id === evId);
+            if (!ev) continue;
+            const entriesSnap = await getDocs(collection(db, 'clubs', clubId, 'competitions', comp.id, 'entries'));
+            for (const d of entriesSnap.docs) {
+              const entry = d.data();
+              const times = comp.events?.length > 1
+                ? (entry.timesByEvent?.[evId] || [])
+                : (entry.times || []);
+              for (const t of times) {
+                if (!t || t <= 0) continue;
+                if (bestMs == null || t < bestMs) {
+                  bestMs = t;
+                  bestHolder = {uid: entry.uid, username: entry.username, displayName: entry.displayName};
+                  bestCompId = comp.id;
+                  bestCompName = comp.name || '';
+                  bestEvLabel = ev.label;
+                }
+              }
+            }
+          }
+          updates[`records.${evId}`] = bestMs != null
+            ? {eventId: evId, eventLabel: bestEvLabel, timeMs: bestMs, holder: bestHolder, compId: bestCompId, compName: bestCompName}
+            : deleteField();
+        }
+        if (Object.keys(updates).length) {
+          await updateDoc(doc(db, 'clubs', clubId), updates);
+        }
+      } catch(e) { console.warn('Club record recompute failed:', e.message); }
+    }
+
+    // State for Records tab event filter and view mode (per club session)
     let recordsSelectedEvent = '333';
+    let recordsViewMode = 'single'; // 'single' | 'average'
 
     async function renderClubRecords(container, clubId) {
       container.innerHTML = `<div style="color:var(--muted);font-size:13px;">Loading…</div>`;
@@ -6036,45 +6098,90 @@
           return (c.event||'333') === recordsSelectedEvent;
         });
 
-        // Record for selected event
-        const rec = recordsMap[recordsSelectedEvent];
-        const recHtml = rec ? `
-          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:color-mix(in srgb,var(--good) 10%,var(--panel));border:1px solid var(--good);border-radius:12px;margin-bottom:18px;">
-            <div style="font-size:26px;line-height:1;">🏅</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--good);margin-bottom:2px;">Club Record</div>
-              <div style="font-size:13px;font-weight:700;">@${escapeHtml(rec.holder?.username||'?')}</div>
-              <div style="font-size:11px;color:var(--muted);">${rec.compName?`from ${escapeHtml(rec.compName)}`:''}</div>
-            </div>
-            <div style="font-size:22px;font-weight:800;color:var(--good);">${formatMs(rec.timeMs)}</div>
-          </div>` : `<div style="color:var(--muted);font-size:13px;margin-bottom:18px;">No record set yet for this event.</div>`;
+        const isAvgMode = recordsViewMode === 'average';
+        const myUid = state.currentUser?.uid || null;
 
-        // Comp rankings
-        const rankingsHtml = relevantComps.length ? `
-          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Competition Results</div>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            ${relevantComps.map(c => `
-              <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;">
-                <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(c.name||'Unnamed')}</div>
-                <div id="compRankings_${escapeHtml(c.id)}" style="font-size:12px;color:var(--muted);">Loading…</div>
-              </div>`).join('')}
-          </div>` : `<div style="color:var(--muted);font-size:13px;">No closed competitions for this event yet.</div>`;
-
-        container.innerHTML = `
-          <div style="margin-bottom:14px;">
+        // ── Toggle HTML ───────────────────────────────────────────────────────
+        const toggleHtml = `
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
             <select class="select" id="recordsEventSelect" style="font-size:13px;padding:5px 8px;">
               ${sortedEvIds.map(id=>`<option value="${id}"${id===recordsSelectedEvent?' selected':''}>${escapeHtml(evLabelMap[id]||id)}</option>`).join('')}
             </select>
-          </div>
-          ${recHtml}
-          ${rankingsHtml}`;
+            <div style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-shrink:0;">
+              <button id="recordsModeSingle" style="padding:5px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${!isAvgMode?'var(--accent)':'var(--panel-2)'};color:${!isAvgMode?'#fff':'var(--muted)'};transition:background .15s;">Single</button>
+              <button id="recordsModeAverage" style="padding:5px 12px;font-size:12px;font-weight:700;border:none;border-left:1px solid var(--line);cursor:pointer;background:${isAvgMode?'var(--accent)':'var(--panel-2)'};color:${isAvgMode?'#fff':'var(--muted)'};transition:background .15s;">Average</button>
+            </div>
+          </div>`;
 
+        // ── Club Record banner ────────────────────────────────────────────────
+        let recHtml;
+        if (!isAvgMode) {
+          // Single mode: use stored record
+          const rec = recordsMap[recordsSelectedEvent];
+          recHtml = rec ? `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:color-mix(in srgb,var(--good) 10%,var(--panel));border:1px solid var(--good);border-radius:12px;margin-bottom:18px;">
+              <div style="font-size:26px;line-height:1;">🏅</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--good);margin-bottom:2px;">Club Record — Single</div>
+                <div style="font-size:13px;font-weight:700;">@${escapeHtml(rec.holder?.username||'?')}</div>
+                <div style="font-size:11px;color:var(--muted);">${rec.compName?`from ${escapeHtml(rec.compName)}`:''}</div>
+              </div>
+              <div style="font-size:22px;font-weight:800;color:var(--good);">${formatMs(rec.timeMs)}</div>
+            </div>` : `<div style="color:var(--muted);font-size:13px;margin-bottom:18px;">No record set yet for this event.</div>`;
+        } else {
+          // Average mode: placeholder — will be filled async after entries load
+          recHtml = `<div id="clubAvgRecord" style="margin-bottom:18px;"><div style="color:var(--muted);font-size:13px;">Computing club average record…</div></div>`;
+        }
+
+        // ── Competition results section ───────────────────────────────────────
+        let rankingsHtml;
+        if (!isAvgMode) {
+          // Single: show all members
+          rankingsHtml = relevantComps.length ? `
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Competition Results</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              ${relevantComps.map(c => `
+                <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;">
+                  <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(c.name||'Unnamed')}</div>
+                  <div id="compRankings_${escapeHtml(c.id)}" style="font-size:12px;color:var(--muted);">Loading…</div>
+                </div>`).join('')}
+            </div>` : `<div style="color:var(--muted);font-size:13px;">No closed competitions for this event yet.</div>`;
+        } else {
+          // Average: only show signed-in user
+          if (!myUid) {
+            rankingsHtml = `<div style="color:var(--muted);font-size:13px;">Sign in to see your averages.</div>`;
+          } else {
+            rankingsHtml = relevantComps.length ? `
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Your Results</div>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                ${relevantComps.map(c => `
+                  <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;">
+                    <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(c.name||'Unnamed')}</div>
+                    <div id="compRankings_${escapeHtml(c.id)}" style="font-size:12px;color:var(--muted);">Loading…</div>
+                  </div>`).join('')}
+              </div>` : `<div style="color:var(--muted);font-size:13px;">No closed competitions for this event yet.</div>`;
+          }
+        }
+
+        container.innerHTML = `${toggleHtml}${recHtml}${rankingsHtml}`;
+
+        // Wire up controls
         container.querySelector('#recordsEventSelect')?.addEventListener('change', e => {
           recordsSelectedEvent = e.target.value;
           renderClubRecords(container, clubId);
         });
+        container.querySelector('#recordsModeSingle')?.addEventListener('click', () => {
+          if (recordsViewMode !== 'single') { recordsViewMode = 'single'; renderClubRecords(container, clubId); }
+        });
+        container.querySelector('#recordsModeAverage')?.addEventListener('click', () => {
+          if (recordsViewMode !== 'average') { recordsViewMode = 'average'; renderClubRecords(container, clubId); }
+        });
 
-        // Async-load rankings for each relevant comp
+        // ── Async-load rankings ───────────────────────────────────────────────
+        let bestAvgMs = null;
+        let bestAvgHolder = null;
+        let bestAvgCompName = null;
+
         for (const c of relevantComps) {
           const rankEl = container.querySelector(`#compRankings_${c.id}`);
           if (!rankEl) continue;
@@ -6084,20 +6191,74 @@
             const compEvents = c.events?.length ? c.events : [{id:c.event||'333',scrambles:c.scrambles||[]}];
             const isMulti = compEvents.length > 1;
             const eventIds = compEvents.map(e=>e.id);
-            const scored = entries
-              .map(e=>({...e, score: isMulti ? multiEventScore(e,eventIds) : compScore(e.times||[])}))
-              .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
-            if (!scored.length) { rankEl.textContent='No entries.'; continue; }
-            const medals = ['🥇','🥈','🥉'];
-            rankEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px;">
-              ${scored.map((e,i)=>`
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="width:20px;text-align:center;font-size:13px;">${medals[i]||i+1}</span>
-                  <span style="flex:1;font-weight:600;color:var(--text);">@${escapeHtml(e.username||'?')}</span>
-                  <span style="font-weight:700;color:var(--good);">${formatMs(Math.round(e.score))}</span>
-                </div>`).join('')}
-            </div>`;
+
+            if (!isAvgMode) {
+              // Single mode — full leaderboard
+              const scored = entries
+                .map(e => {
+                  const times = isMulti ? null : (e.times||[]);
+                  const best = times ? Math.min(...times.filter(t=>t>0)) : null;
+                  return {...e, score: isMulti ? multiEventScore(e,eventIds) : compScore(times), best};
+                })
+                .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
+              if (!scored.length) { rankEl.textContent='No entries.'; continue; }
+              const medals = ['🥇','🥈','🥉'];
+              rankEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px;">
+                ${scored.map((e,i)=>`
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:20px;text-align:center;font-size:13px;">${medals[i]||i+1}</span>
+                    <span style="flex:1;font-weight:600;color:var(--text);">@${escapeHtml(e.username||'?')}</span>
+                    <span style="font-weight:700;color:var(--good);">${formatMs(Math.round(e.score))}</span>
+                  </div>`).join('')}
+              </div>`;
+            } else {
+              // Average mode — scan all entries for club record banner, show only current user
+              for (const entry of entries) {
+                const entryScore = isMulti ? multiEventScore(entry, eventIds) : compScore(entry.times||[]);
+                if (entryScore != null && (bestAvgMs == null || entryScore < bestAvgMs)) {
+                  bestAvgMs = entryScore;
+                  bestAvgHolder = { uid: entry.uid, username: entry.username };
+                  bestAvgCompName = c.name || '';
+                }
+              }
+
+              // Render only the current user's result
+              if (!myUid) { rankEl.textContent = 'Sign in to see your averages.'; continue; }
+              const myEntry = entries.find(e => e.uid === myUid);
+              if (!myEntry) { rankEl.textContent = 'You did not enter this competition.'; continue; }
+              const myScore = isMulti ? multiEventScore(myEntry, eventIds) : compScore(myEntry.times||[]);
+              if (myScore == null) { rankEl.textContent = 'No complete result.'; continue; }
+
+              const numSolves = isMulti ? null : (myEntry.times||[]).filter(t=>t>0).length;
+              const label = numSolves >= 5 ? 'Ao5' : numSolves === 3 ? 'Mo3' : numSolves === 1 ? 'Single' : `Mean of ${numSolves}`;
+              rankEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:600;color:var(--text);">@${escapeHtml(myEntry.username||'?')}</span>
+                <span style="font-size:11px;color:var(--muted);">(${escapeHtml(label)})</span>
+                <span style="font-weight:700;color:var(--good);margin-left:auto;">${formatMs(Math.round(myScore))}</span>
+              </div>`;
+            }
           } catch { rankEl.textContent = 'Failed to load.'; }
+        }
+
+        // Update club average record banner after all comps processed
+        if (isAvgMode) {
+          const avgRecEl = container.querySelector('#clubAvgRecord');
+          if (avgRecEl) {
+            if (bestAvgMs != null) {
+              avgRecEl.innerHTML = `
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:color-mix(in srgb,var(--good) 10%,var(--panel));border:1px solid var(--good);border-radius:12px;">
+                  <div style="font-size:26px;line-height:1;">🏅</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--good);margin-bottom:2px;">Club Record — Average</div>
+                    <div style="font-size:13px;font-weight:700;">@${escapeHtml(bestAvgHolder?.username||'?')}</div>
+                    <div style="font-size:11px;color:var(--muted);">${bestAvgCompName?`from ${escapeHtml(bestAvgCompName)}`:''}</div>
+                  </div>
+                  <div style="font-size:22px;font-weight:800;color:var(--good);">${formatMs(Math.round(bestAvgMs))}</div>
+                </div>`;
+            } else {
+              avgRecEl.innerHTML = `<div style="color:var(--muted);font-size:13px;">No average record set yet for this event.</div>`;
+            }
+          }
         }
 
       } catch(e) {
@@ -6158,7 +6319,8 @@
             ${escapeHtml(e.label)}
           </label>`).join('');
         evGrid.querySelectorAll('.comp-event-check').forEach(lbl => {
-          lbl.addEventListener('click', () => {
+          lbl.addEventListener('click', (e) => {
+            e.preventDefault(); // prevent browser re-toggling the checkbox after our handler
             const cb = lbl.querySelector('input');
             cb.checked = !cb.checked;
             lbl.classList.toggle('selected', cb.checked);
