@@ -531,7 +531,7 @@
     body.manual-entry-mode .timer{ display:none; }
     body.manual-entry-mode .manual-time-input{ display:block; }
     body.manual-entry-mode .phase{ display:none !important; }
-    body.manual-entry-mode .scramble-wrap{ visibility:hidden; }
+    body.manual-entry-mode .scramble-wrap{ visibility:visible; }
     body.manual-entry-mode .stats{ visibility:hidden; }
     body.manual-entry-mode .delta-indicator{ display:none !important; }
     body.manual-entry-mode .timer-ripple{ display:none; }
@@ -3265,6 +3265,8 @@
               <div id="accountSignedInLabel" style="color:var(--muted);font-size:13px;"></div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="small-btn" id="syncNowBtn">Sync Now</button>
+                <button class="small-btn" id="editProfileBtnAccount">Edit Profile</button>
+                <button class="small-btn" id="signOutBtnAccount">Sign Out</button>
               </div>
             </div>
             <!-- Shown when signed out: mode buttons -->
@@ -4215,7 +4217,7 @@
             try { await setDoc(doc(db,"profiles",p.uid), { pbs: freshPbs, ao5s: freshAo5s, league }, { merge: true }); } catch {}
             return updated;
           }
-          if (p.pbs && Object.keys(p.pbs).length) return p;
+          if (p.pbs && Object.keys(p.pbs).length && p.ao5s && Object.keys(p.ao5s).length) return p;
           // Fallback: compute pbs AND ao5s from raw timerUsers data
           try {
             const tuSnap = await getDoc(doc(db, "timerUsers", p.uid));
@@ -4414,7 +4416,11 @@
             }
             if (Object.keys(newFlags).length) {
               Object.assign(state.socialFlags, newFlags);
-              await setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: newFlags }, { merge: true });
+              // Use dot-notation keys so only the changed flags are updated (shallow merge with
+              // setDoc/merge would replace the entire socialFlags object and lose other flags).
+              const dotFlags = {};
+              for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
+              await updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags);
               // Re-run to pick up newly set flags
               return syncAchievements();
             }
@@ -4491,6 +4497,32 @@
     let selectedClubTab = 'discussion';
     let clubPostsUnsubscribe = null;
     let clubsLoaded = false;
+    let clubMemberSnapshotUnsubscribes = []; // real-time listeners for member clubs
+    let currentClubAdminId = null; // clubId the user is currently an admin of (set when viewing a club)
+
+    function tearDownClubMemberListeners() {
+      clubMemberSnapshotUnsubscribes.forEach(u => u());
+      clubMemberSnapshotUnsubscribes = [];
+    }
+
+    function setupClubMemberListeners() {
+      tearDownClubMemberListeners();
+      if (!db || !state.currentUser) return;
+      clubMembershipIds.forEach(clubId => {
+        const unsub = onSnapshot(doc(db, 'clubs', clubId), snap => {
+          if (!snap.exists()) return;
+          const idx = allClubs.findIndex(c => c.id === clubId);
+          if (idx !== -1) {
+            allClubs[idx] = { id: clubId, ...snap.data() };
+          } else {
+            allClubs.push({ id: clubId, ...snap.data() });
+          }
+          updateClubsNavDot();
+          renderClubsList();
+        }, () => {/* ignore permission errors */});
+        clubMemberSnapshotUnsubscribes.push(unsub);
+      });
+    }
 
     // ── Unread / notification dots ────────────────────────────────────
     function clubHasUnread(club) {
@@ -4553,13 +4585,14 @@
         clubsLoaded = true;
         renderClubsList();
         updateClubsNavDot();
+        setupClubMemberListeners();
         // Retroactively award "Founder" achievement if user created any club
         if (state.currentUser && !state.socialFlags.madeClub) {
           const didCreate = allClubs.some(c => c.createdBy === state.currentUser.uid);
           if (didCreate) {
             state.socialFlags.madeClub = true;
             try {
-              await setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: { madeClub: true } }, { merge: true });
+              await updateDoc(doc(db,'profiles',state.currentUser.uid), { 'socialFlags.madeClub': true });
             } catch {}
             syncAchievements();
           }
@@ -4646,6 +4679,7 @@
         if (state.currentUser) {
           const mSnap = await getDoc(doc(db, 'clubs', selectedClubId, 'members', state.currentUser.uid));
           if (mSnap.exists()) { isMember = true; isAdmin = mSnap.data().role === 'admin'; }
+          currentClubAdminId = isAdmin ? selectedClubId : null;
           if (!isMember) {
             const iSnap = await getDoc(doc(db, 'clubs', selectedClubId, 'invites', state.currentUser.uid));
             hasInvite = iSnap.exists();
@@ -5078,6 +5112,10 @@
     let allOpenComps = [];
     let compsLoaded = false;
     let selectedCompId = null;
+    // Leaderboard view state for multi-event comp detail
+    let compDetailLbEventId = 'combined'; // 'combined' | eventId
+    let compDetailLbMode    = 'avg';      // 'avg' | 'single'
+
     let createCompForClubId = null;
     let createCompScope = 'open';
     let newCompNumSolves = 5;
@@ -5099,23 +5137,40 @@
     }
 
     function compScore(times) {
-      const valid = (times||[]).filter(t => t != null && t > 0);
+      if (!times?.length) return null;
+      const n = times.length;
+      const dnfCount = times.filter(t => t === -1).length;
+      const valid = times.filter(t => t != null && t > 0);
       if (!valid.length) return null;
-      if (valid.length === 1) return valid[0];
-      if (valid.length >= 5) {
+      if (n === 1) return valid.length ? valid[0] : null;
+      if (n >= 5) {
+        // WCA Ao5: 2+ DNFs = DNF result
+        if (dnfCount >= 2) return null;
         const sorted = [...valid].sort((a,b) => a-b);
+        if (dnfCount === 1) {
+          // DNF counts as worst — trim the best, average the remaining 3
+          const trimmed = sorted.slice(1);
+          return trimmed.reduce((a,b) => a+b, 0) / trimmed.length;
+        }
+        // Normal: trim best and worst, average middle 3
         const trimmed = sorted.slice(1, -1);
         return trimmed.reduce((a,b) => a+b, 0) / trimmed.length;
       }
+      // Mean of 3 or less: any DNF = DNF
+      if (dnfCount > 0) return null;
       return valid.reduce((a,b) => a+b, 0) / valid.length;
     }
 
     function compScoreLabel(times) {
       if (!times?.length) return '—';
+      const hasAny = times.some(t => t != null);
+      if (!hasAny) return '—';
+      const dnfCount = times.filter(t => t === -1).length;
       const valid = times.filter(t => t != null && t > 0);
-      if (!valid.length) return '—';
+      // Show DNF if all filled times are DNF, or if Ao5 has 2+ DNFs
+      if (!valid.length || (times.length >= 5 && dnfCount >= 2)) return 'DNF';
       const score = compScore(times);
-      return score != null ? formatMs(Math.round(score)) : '—';
+      return score != null ? formatMs(Math.round(score)) : 'DNF';
     }
 
     // Multi-event: compute combined score across all events (sum of per-event scores)
@@ -5134,6 +5189,7 @@
     function parseTimeInput(str) {
       if (!str) return null;
       str = str.trim();
+      if (str.toUpperCase() === 'DNF') return -1;
       const m1 = str.match(/^(\d+):(\d{2})\.(\d{1,3})$/);
       if (m1) return (parseInt(m1[1])*60 + parseInt(m1[2]))*1000 + Math.round(parseFloat('0.'+m1[3].padEnd(3,'0'))*1000);
       const m2 = str.match(/^(\d+)\.(\d{1,3})$/);
@@ -5265,6 +5321,7 @@
     function renderCompDetailFull(container, comp, entries) {
       const myEntry = state.currentUser ? entries.find(e=>e.uid===state.currentUser.uid) : null;
       const isCreator = state.currentUser?.uid === comp.createdBy;
+      const isClubAdmin = comp.clubId && currentClubAdminId === comp.clubId;
       const isOpen = comp.status === 'open';
       const isH2H = comp.type === 'h2h';
       const canEnter = isOpen && state.currentUser &&
@@ -5291,7 +5348,9 @@
           if (Object.keys(newFlags).length) {
             Object.assign(state.socialFlags, newFlags);
             try {
-              setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: newFlags }, { merge: true });
+              const dotFlags = {};
+              for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
+              await updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags);
             } catch {}
             syncAchievements();
           }
@@ -5344,19 +5403,68 @@
         </div>` : '';
 
       // Build leaderboard HTML
-      const lbHtml = scored.length ? `
+      // For multi-event comps, provide per-event + combined view with avg/single toggle
+      let lbControlsHtml = '';
+      let lbEntries = scored; // default: combined avg ranking
+
+      if (isMulti) {
+        // Ensure view state is valid
+        const validEvIds = ['combined', ...eventIds];
+        if (!validEvIds.includes(compDetailLbEventId)) compDetailLbEventId = 'combined';
+
+        lbControlsHtml = `
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+            <select id="compLbEventSel" style="font-size:12px;padding:4px 7px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);">
+              <option value="combined"${compDetailLbEventId==='combined'?' selected':''}>Combined</option>
+              ${compEvents.map(ev=>`<option value="${ev.id}"${ev.id===compDetailLbEventId?' selected':''}>${escapeHtml(ev.label)}</option>`).join('')}
+            </select>
+            <div style="display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;">
+              <button id="compLbModeAvg" style="padding:3px 10px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${compDetailLbMode==='avg'?'var(--accent)':'var(--panel-2)'};color:${compDetailLbMode==='avg'?'#fff':'var(--muted)'};">Avg</button>
+              <button id="compLbModeSingle" style="padding:3px 10px;font-size:11px;font-weight:700;border:none;border-left:1px solid var(--line);cursor:pointer;background:${compDetailLbMode==='single'?'var(--accent)':'var(--panel-2)'};color:${compDetailLbMode==='single'?'#fff':'var(--muted)'};">Single</button>
+            </div>
+          </div>`;
+
+        if (compDetailLbEventId !== 'combined') {
+          // Rank by selected event's single or avg
+          lbEntries = entries.map(e => {
+            const times = (e.timesByEvent?.[compDetailLbEventId] || []).filter(t => t != null && t > 0);
+            const score = compDetailLbMode === 'single'
+              ? (times.length ? Math.min(...times) : null)
+              : compScore(times);
+            return {...e, score};
+          }).filter(e => e.score != null).sort((a,b) => a.score - b.score);
+        } else if (compDetailLbMode === 'single') {
+          // Combined best-single sum
+          lbEntries = entries.map(e => {
+            let total = 0;
+            for (const evId of eventIds) {
+              const times = (e.timesByEvent?.[evId] || []).filter(t => t != null && t > 0);
+              if (!times.length) return {...e, score: null};
+              total += Math.min(...times);
+            }
+            return {...e, score: total};
+          }).filter(e => e.score != null).sort((a,b) => a.score - b.score);
+        }
+      }
+
+      const lbHtml = lbEntries.length ? `
         <div class="comp-lb-list">
-          ${scored.map((e,i)=>{
+          ${lbEntries.map((e,i)=>{
             let scoreDisplay, timesDisplay;
             if (isMulti) {
               scoreDisplay = formatMs(Math.round(e.score));
-              timesDisplay = compEvents.map(ev => {
-                const evTimes = (e.timesByEvent?.[ev.id]||[]).filter(t=>t!=null);
-                return evTimes.length ? `${ev.label.split('x')[0]}x: ${compScoreLabel(evTimes)}` : `${ev.label}: —`;
-              }).join(' · ');
+              if (compDetailLbEventId !== 'combined') {
+                const times = (e.timesByEvent?.[compDetailLbEventId]||[]).filter(t=>t!=null);
+                timesDisplay = times.map(t=>t===-1?'DNF':formatMs(t)).join(' · ');
+              } else {
+                timesDisplay = compEvents.map(ev => {
+                  const evTimes = (e.timesByEvent?.[ev.id]||[]).filter(t=>t!=null);
+                  return evTimes.length ? `${ev.label.split(' ')[0]}: ${compScoreLabel(evTimes)}` : `${ev.label}: —`;
+                }).join(' · ');
+              }
             } else {
               scoreDisplay = compScoreLabel(e.times);
-              timesDisplay = (e.times||[]).filter(t=>t!=null).map(t=>formatMs(t)).join(' · ');
+              timesDisplay = (e.times||[]).filter(t=>t!=null).map(t=>t===-1?'DNF':formatMs(t)).join(' · ');
             }
             return `<div class="comp-lb-item clickable-user" data-uid="${escapeHtml(e.uid||'')}">
               <div class="comp-lb-rank">${medals[i]||i+1}</div>
@@ -5382,8 +5490,8 @@
                   ${endStr?`<span style="font-size:12px;color:var(--muted);">Ends ${escapeHtml(endStr)}</span>`:''}
                 </div>
               </div>
-              ${isCreator?`<div style="display:flex;gap:6px;flex-shrink:0;">
-                ${isOpen?`<button class="small-btn" id="closeCompBtn" style="color:var(--warn);border-color:var(--warn);">Close</button>`:''}
+              ${(isCreator||isClubAdmin)?`<div style="display:flex;gap:6px;flex-shrink:0;">
+                ${isOpen&&isCreator?`<button class="small-btn" id="closeCompBtn" style="color:var(--warn);border-color:var(--warn);">Close</button>`:''}
                 <button class="small-btn" id="deleteCompBtn" style="color:var(--bad);border-color:var(--bad);">🗑 Delete</button>
               </div>`:''}
             </div>
@@ -5394,10 +5502,23 @@
           </div>
           ${entryFormHtml}
           <div>
-            <div class="comp-section-label">Leaderboard${isMulti?' (combined ao5)':''} (${scored.length} entr${scored.length===1?'y':'ies'})</div>
+            <div class="comp-section-label">Leaderboard (${entries.length} entr${entries.length===1?'y':'ies'})</div>
+            ${lbControlsHtml}
             ${lbHtml}
           </div>
         </div>`;
+
+      // Wire leaderboard event/mode controls (multi-event only)
+      container.querySelector('#compLbEventSel')?.addEventListener('change', e => {
+        compDetailLbEventId = e.target.value;
+        renderCompDetailFull(container, comp, entries);
+      });
+      container.querySelector('#compLbModeAvg')?.addEventListener('click', () => {
+        if (compDetailLbMode !== 'avg') { compDetailLbMode = 'avg'; renderCompDetailFull(container, comp, entries); }
+      });
+      container.querySelector('#compLbModeSingle')?.addEventListener('click', () => {
+        if (compDetailLbMode !== 'single') { compDetailLbMode = 'single'; renderCompDetailFull(container, comp, entries); }
+      });
 
       // Wire event entry tabs
       container.querySelectorAll('.comp-event-entry-tab').forEach(btn => {
@@ -5420,7 +5541,7 @@
           container.querySelectorAll('.comp-time-input').forEach(inp => {
             if (!timesByEvent[inp.dataset.ev]) timesByEvent[inp.dataset.ev] = [];
             const ms = parseTimeInput(inp.value);
-            if (inp.value.trim() && (ms==null||ms<=0)) { inp.style.borderColor='var(--bad)'; ok=false; }
+            if (inp.value.trim() && ms==null) { inp.style.borderColor='var(--bad)'; ok=false; }
             else { inp.style.borderColor=''; timesByEvent[inp.dataset.ev].push(ms); }
           });
           if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
@@ -5439,7 +5560,7 @@
           const times = [];
           inputs.forEach(inp => {
             const ms = parseTimeInput(inp.value);
-            if (inp.value.trim() && (ms==null||ms<=0)) { inp.style.borderColor='var(--bad)'; ok=false; }
+            if (inp.value.trim() && ms==null) { inp.style.borderColor='var(--bad)'; ok=false; }
             else { inp.style.borderColor=''; times.push(ms); }
           });
           if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
@@ -5475,15 +5596,22 @@
       });
       container.querySelector('#deleteCompBtn')?.addEventListener('click', async () => {
         if (!confirm(`Delete "${comp.name||'this competition'}"? This cannot be undone.`)) return;
+        const btn = container.querySelector('#deleteCompBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
         try {
           const p = comp._path || 'competitions';
-          // Delete all entries first, then the comp doc
-          const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
-          await Promise.all(entriesSnap.docs.map(d => deleteDoc(d.ref)));
+          // Delete the comp doc first (this is the critical step — entries becoming
+          // orphaned is harmless since the comp is gone from all queries).
           await deleteDoc(doc(db, ...p.split('/'), comp.id));
-          // If this was a closed club comp, recompute any club records it held
-          if (comp.clubId && comp.status === 'closed') {
-            recomputeClubRecordsAfterDelete(comp.clubId, comp.id);
+          // Best-effort: try to delete own entries; skip any we don't have permission for.
+          try {
+            const entriesSnap = await getDocs(collection(db, ...p.split('/'), comp.id, 'entries'));
+            await Promise.allSettled(entriesSnap.docs.map(d => deleteDoc(d.ref)));
+          } catch { /* ignore — orphaned entries are harmless */ }
+          // If this was a club comp, recompute any club records it held (await so
+          // the Records tab shows fresh data immediately after).
+          if (comp.clubId) {
+            await recomputeClubRecordsAfterDelete(comp.clubId, comp.id);
           }
           // Remove from local cache
           const idx = allOpenComps.findIndex(c=>c.id===comp.id);
@@ -5496,7 +5624,10 @@
           document.getElementById('compsLayout')?.classList.remove('detail-open');
           if (detailEmpty)  { detailEmpty.style.display=''; detailEmpty.textContent='Competition deleted.'; }
           if (detailContent){ detailContent.style.display='none'; detailContent.innerHTML=''; }
-        } catch(e) { alert('Failed to delete: '+e.message); }
+        } catch(e) {
+          if (btn) { btn.disabled = false; btn.textContent = '🗑 Delete'; }
+          alert('Failed to delete: '+e.message);
+        }
       });
 
       container.querySelectorAll('.comp-lb-item[data-uid]').forEach(el =>
@@ -5883,8 +6014,31 @@
       }
     }
 
+    // Push collected times back into the comp entry text-boxes (called on Close)
+    function ctPopulateFormInputs() {
+      const cts = compTimerState;
+      if (!cts.container) return;
+      const fmt = ms => (ms == null || ms === 0) ? '' : (ms === -1 ? 'DNF' : formatMs(ms));
+      if (cts.isMulti) {
+        for (const [evId, times] of Object.entries(cts.timesByEvent)) {
+          times.forEach((ms, idx) => {
+            const inp = cts.container.querySelector(`.comp-time-input[data-ev="${evId}"][data-idx="${idx}"]`);
+            if (inp) inp.value = fmt(ms);
+          });
+        }
+      } else {
+        cts.times.forEach((ms, idx) => {
+          const inp = cts.container.querySelector(`.comp-time-input[data-idx="${idx}"]`);
+          if (inp) inp.value = fmt(ms);
+        });
+      }
+    }
+
     // Wire comp timer overlay buttons
-    document.getElementById('ctCloseBtn')?.addEventListener('click', closeCompTimer);
+    document.getElementById('ctCloseBtn')?.addEventListener('click', () => {
+      ctPopulateFormInputs(); // write times back to form before closing
+      closeCompTimer();
+    });
     document.getElementById('ctOkBtn')?.addEventListener('click', () => ctApplyPenalty('ok'));
     document.getElementById('ctP2Btn')?.addEventListener('click', () => ctApplyPenalty('+2'));
     document.getElementById('ctDnfBtn')?.addEventListener('click', () => ctApplyPenalty('dnf'));
@@ -6018,7 +6172,10 @@
           collection(db, 'clubs', clubId, 'competitions'),
           where('status', '==', 'closed')
         ));
-        const closedComps = closedSnap.docs.map(d => ({id: d.id, ...d.data()}));
+        // Explicitly exclude the deleted comp in case local cache hasn't caught up
+        const closedComps = closedSnap.docs
+          .filter(d => d.id !== deletedCompId)
+          .map(d => ({id: d.id, ...d.data()}));
 
         const updates = {};
         for (const evId of affectedEvIds) {
@@ -6373,7 +6530,7 @@
       if (!state.socialFlags.madeClub) {
         state.socialFlags.madeClub = true;
         try {
-          await setDoc(doc(db,'profiles',state.currentUser.uid), { socialFlags: { madeClub: true } }, { merge: true });
+          await updateDoc(doc(db,'profiles',state.currentUser.uid), { 'socialFlags.madeClub': true });
         } catch {}
         syncAchievements();
       }
@@ -6771,6 +6928,10 @@
     profileEditDialog.addEventListener("click", (e) => { if (e.target === profileEditDialog) profileEditDialog.close(); });
 
     editProfileBtn.addEventListener("click", openProfileEditDialog);
+    document.getElementById('editProfileBtnAccount')?.addEventListener('click', openProfileEditDialog);
+    document.getElementById('signOutBtnAccount')?.addEventListener('click', async () => {
+      await handleSignOut();
+    });
     topbarAvatar.addEventListener("click", openProfileEditDialog);
     // ── End Profile Edit Dialog ───────────────────────────────────────
 
@@ -6799,7 +6960,6 @@
           if (user) {
             authStatusEl.textContent = `${user.email} • signed in`;
             if (mobileAuthStatusEl) mobileAuthStatusEl.textContent = `${user.email} • signed in`;
-            signOutBtn.style.display = "";
             if (mobileNavSignOutBtn) mobileNavSignOutBtn.style.display = "";
             const mobileNavSignOutOption = document.getElementById('mobileNavSignOutOption');
             if (mobileNavSignOutOption) mobileNavSignOutOption.style.display = "";
@@ -6820,7 +6980,6 @@
                 if (mobileAuthStatusEl) mobileAuthStatusEl.textContent = `${username} • synced`;
                 if (accountSignedInLabel) accountSignedInLabel.textContent = `Signed in as ${username}`;
                 updateTopbarAvatar(avatarUrl || defaultAvatarUrl(username));
-                editProfileBtn.style.display = "";
                 // Load social achievement flags from profile
                 if (socialFlags) state.socialFlags = { ...state.socialFlags, ...socialFlags };
                 // Seed earnedAchievements from profile BEFORE syncAchievements so toasts
@@ -6836,7 +6995,6 @@
             authStatusEl.textContent = "Local only";
             if (mobileAuthStatusEl) mobileAuthStatusEl.textContent = "Local only";
             signOutBtn.style.display = "none";
-            editProfileBtn.style.display = "none";
             if (mobileNavSignOutBtn) mobileNavSignOutBtn.style.display = "none";
             const mobileNavSignOutOption2 = document.getElementById('mobileNavSignOutOption');
             if (mobileNavSignOutOption2) mobileNavSignOutOption2.style.display = "none";
@@ -9145,12 +9303,23 @@
         if (secs >= 60) return null;
         return (mins * 60 + secs) * 1000 + frac;
       }
-      // SS.xxx  or  SS
-      const m2 = str.match(/^(\d+)(?:[.,](\d+))?$/);
+      // SS.xxx  (decimal present — treat as plain seconds)
+      const m2 = str.match(/^(\d+)[.,](\d+)$/);
       if (m2) {
         const secs = parseInt(m2[1], 10);
-        const frac = m2[2] ? parseInt(m2[2].padEnd(3, "0").slice(0, 3), 10) : 0;
+        const frac = parseInt(m2[2].padEnd(3, "0").slice(0, 3), 10);
         return secs * 1000 + frac;
+      }
+      // Pure integer — cstimer style: last 2 digits = centiseconds, next 2 = seconds, rest = minutes
+      // e.g. 274 → cs=74, sec=2, min=0 → 2.74s
+      const m3 = str.match(/^(\d+)$/);
+      if (m3) {
+        const n = parseInt(m3[1], 10);
+        const cs = n % 100;
+        const secTotal = Math.floor(n / 100);
+        const sec = secTotal % 60;
+        const min = Math.floor(secTotal / 60);
+        return (min * 60 + sec) * 1000 + cs * 10;
       }
       return null;
     }
@@ -9621,6 +9790,7 @@
 
     async function handleSignOut() {
       if (!firebaseReady || !auth) return;
+      tearDownClubMemberListeners();
       await signOut(auth);
     }
 
@@ -10028,7 +10198,6 @@
     }
 
     function beginMobilePress(e) {
-      if (!document.body.classList.contains("mobile-ui")) return;
       if (state.view !== "timer") return;
       if (settingsDialog.open || solveDetailDialog.open || averageDetailDialog.open) return;
       if (!isMobileTimerInteractionTarget(e.target)) return;
@@ -10050,7 +10219,6 @@
     }
 
     function endMobilePress(e) {
-      if (!document.body.classList.contains("mobile-ui")) return;
       const pointerId = e.pointerId ?? "touch";
       if (!state.mobileTouchActive || (state.mobilePointerId != null && state.mobilePointerId !== pointerId)) return;
 
@@ -10070,7 +10238,6 @@
     }
 
     function cancelMobilePress(e) {
-      if (!document.body.classList.contains("mobile-ui")) return;
       const pointerId = e.pointerId ?? "touch";
       if (!state.mobileTouchActive || (state.mobilePointerId != null && state.mobilePointerId !== pointerId)) return;
 
