@@ -4206,7 +4206,7 @@
 
         // For each profile, get PBs+Ao5s.
         // Current user: always use fresh local data and write it back.
-        // Others: use stored pbs/ao5s; if missing pbs, compute from timerUsers.
+        // Others: use stored profile data directly (pbs and ao5s written by syncPbsToProfile).
         const withPbs = await Promise.all(profiles.map(async p => {
           // Always use fresh local data for the signed-in user
           if (p.uid === state.currentUser?.uid) {
@@ -4217,40 +4217,8 @@
             try { await setDoc(doc(db,"profiles",p.uid), { pbs: freshPbs, ao5s: freshAo5s, league }, { merge: true }); } catch {}
             return updated;
           }
-          if (p.pbs && Object.keys(p.pbs).length && p.ao5s && Object.keys(p.ao5s).length) return p;
-          // Fallback: compute pbs AND ao5s from raw timerUsers data
-          try {
-            const tuSnap = await getDoc(doc(db, "timerUsers", p.uid));
-            if (!tuSnap.exists()) return p;
-            const d = tuSnap.data().data || {};
-            const pbs = {};
-            const ao5Candidates = {}; // evId -> sorted list of times for ao5 calc
-            for (const [evId, bundle] of Object.entries(d.sessionsByEvent || {})) {
-              const allTimes = [];
-              for (const session of (bundle.sessions || [])) {
-                for (const solve of (session.solves || [])) {
-                  if (solve.penalty === "DNF") continue;
-                  const ms = (solve.baseTimeMs ?? solve.time ?? 0) + (solve.penalty === "+2" ? 2000 : 0);
-                  if (pbs[evId] == null || ms < pbs[evId]) pbs[evId] = ms;
-                  allTimes.push(ms);
-                }
-              }
-              // Best ao5 from this event
-              if (allTimes.length >= 5) {
-                let best = null;
-                for (let i = 0; i <= allTimes.length - 5; i++) {
-                  const w = allTimes.slice(i, i+5).sort((a,b)=>a-b);
-                  const avg = (w[1]+w[2]+w[3]) / 3;
-                  if (best == null || avg < best) best = avg;
-                }
-                if (best != null) ao5Candidates[evId] = Math.round(best);
-              }
-            }
-            if (Object.keys(pbs).length) {
-              try { await setDoc(doc(db,"profiles",p.uid), { pbs, ao5s: ao5Candidates }, { merge: true }); } catch {}
-            }
-            return { ...p, pbs, ao5s: ao5Candidates };
-          } catch { return p; }
+          // Use whatever pbs/ao5s are stored on the profile (kept fresh by syncPbsToProfile)
+          return p;
         }));
 
         globalLbProfiles = withPbs;
@@ -5409,12 +5377,11 @@
       if (isMulti) {
         // Ensure view state is valid
         const validEvIds = ['combined', ...eventIds];
-        if (!validEvIds.includes(compDetailLbEventId)) compDetailLbEventId = 'combined';
+        if (!validEvIds.includes(compDetailLbEventId)) compDetailLbEventId = validEvIds[0];
 
         lbControlsHtml = `
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
             <select id="compLbEventSel" style="font-size:12px;padding:4px 7px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);">
-              <option value="combined"${compDetailLbEventId==='combined'?' selected':''}>Combined</option>
               ${compEvents.map(ev=>`<option value="${ev.id}"${ev.id===compDetailLbEventId?' selected':''}>${escapeHtml(ev.label)}</option>`).join('')}
             </select>
             <div style="display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;">
@@ -9606,7 +9573,7 @@
         if (type === 'open' || type === 'club') {
           if (type === 'open') { allOpenComps.unshift({...comp, createdAt:{toMillis:()=>Date.now()}}); renderCompsList(); }
           setView('comps');
-          openCompDetail(comp.id);
+          openCompDetail(comp.id, comp._path);
         }
       } catch(e) {
         if(statusEl){statusEl.textContent='✗ '+e.message;statusEl.style.color='var(--bad)';}
