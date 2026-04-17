@@ -5347,11 +5347,10 @@
           if (myRank === 2 && !flags.compThird)   { newFlags.compThird = true; }
           if (Object.keys(newFlags).length) {
             Object.assign(state.socialFlags, newFlags);
-            try {
-              const dotFlags = {};
-              for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
-              await updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags);
-            } catch {}
+            // Fire-and-forget; use dot-notation to avoid overwriting sibling flags
+            const dotFlags = {};
+            for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
+            updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags).catch(() => {});
             syncAchievements();
           }
         }
