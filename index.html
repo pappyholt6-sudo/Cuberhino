@@ -4204,22 +4204,35 @@
         const profilesSnap = await getDocs(collection(db, "profiles"));
         const profiles = profilesSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
 
-        // For each profile, get PBs+Ao5s.
+        // Build a uid→ao5s map from club member docs, which are the most reliably kept
+        // up to date (renderLeaderboard writes fresh ao5s there on every club lb open).
+        const memberAo5Map = {};
+        try {
+          const allMembersSnap = await getDocs(collectionGroup(db, 'members'));
+          allMembersSnap.docs.forEach(d => {
+            const { uid, ao5s } = d.data();
+            if (uid && ao5s && Object.keys(ao5s).length > 0) {
+              memberAo5Map[uid] = { ...(memberAo5Map[uid] || {}), ...ao5s };
+            }
+          });
+        } catch {}
+
         // Current user: always use fresh local data and write it back.
-        // Others: use stored profile data directly (pbs and ao5s written by syncPbsToProfile).
-        const withPbs = await Promise.all(profiles.map(async p => {
-          // Always use fresh local data for the signed-in user
+        // Others: use stored profile data, supplemented by club member ao5s if needed.
+        const freshPbs  = getAllPbs();
+        const freshAo5s = getAllAo5s();
+        try { setDoc(doc(db,"profiles",state.currentUser?.uid), { pbs: freshPbs, ao5s: freshAo5s, league: state.leagueId||'rookie' }, { merge: true }); } catch {}
+
+        const withPbs = profiles.map(p => {
           if (p.uid === state.currentUser?.uid) {
-            const freshPbs  = getAllPbs();
-            const freshAo5s = getAllAo5s();
-            const league    = state.leagueId || 'rookie';
-            const updated   = { ...p, pbs: freshPbs, ao5s: freshAo5s, league };
-            try { await setDoc(doc(db,"profiles",p.uid), { pbs: freshPbs, ao5s: freshAo5s, league }, { merge: true }); } catch {}
-            return updated;
+            return { ...p, pbs: freshPbs, ao5s: freshAo5s, league: state.leagueId || 'rookie' };
           }
-          // Use whatever pbs/ao5s are stored on the profile (kept fresh by syncPbsToProfile)
-          return p;
-        }));
+          // Use profile ao5s; fall back to club member ao5s for profiles that lack them
+          const ao5s = (p.ao5s && Object.keys(p.ao5s).length > 0)
+            ? p.ao5s
+            : (memberAo5Map[p.uid] || p.ao5s);
+          return { ...p, ao5s };
+        });
 
         globalLbProfiles = withPbs;
         globalLbLoaded   = true;
@@ -4345,7 +4358,9 @@
         const newlyEarned = ACHIEVEMENTS.filter(a => currentEarned.includes(a.id) && !previousEarned.includes(a.id));
         const pts = totalAchievementPoints(currentEarned);
         const league = getLeagueTier(pts).id;
-        state.earnedAchievements = currentEarned;
+        // Union with previousEarned so achievements seeded from the profile (e.g. joined_club)
+        // are never dropped just because clubs/Firebase data hasn't loaded yet this session.
+        state.earnedAchievements = [...new Set([...previousEarned, ...currentEarned])];
         state.leagueId = league;
         state.leaguePoints = pts;
         newlyEarned.forEach(a => showAchievementToast(a));
