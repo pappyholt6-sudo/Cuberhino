@@ -2202,11 +2202,6 @@
     }
     .club-lb-time{ font-size:15px; font-weight:700; color:var(--good); }
     .club-lb-time.no-pb{ color:var(--muted); font-size:13px; font-weight:normal; }
-    .lb-stat-pill{
-      display:inline-block;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;
-      padding:1px 6px;font-size:11px;color:var(--muted);white-space:nowrap;
-    }
-    .lb-stat-pill b{color:var(--text);font-weight:600;}
     .club-lb-event-label{ font-size:11px; color:var(--muted); }
     .create-club-body{ display:flex; flex-direction:column; gap:14px; min-width:300px; max-width:380px; }
     @media(max-width:700px){
@@ -2828,7 +2823,6 @@
           <div class="clubs-filter-toggle">
             <button class="clubs-filter-btn active" id="globalLbRankSingle">Single</button>
             <button class="clubs-filter-btn" id="globalLbRankAo5">Ao5</button>
-            <button class="clubs-filter-btn" id="globalLbRankAo12">Ao12</button>
           </div>
           <span style="font-size:12px;color:var(--muted);" id="globalLbMeta"></span>
           <button class="small-btn" id="globalLbRefresh" style="margin-left:auto;">↻ Refresh</button>
@@ -2954,34 +2948,6 @@
       </div>
     </div>
   </dialog>
-
-  <!-- Create Custom Event Dialog -->
-  <dialog id="createCustomEvDialog">
-    <div class="modal" style="min-width:280px;max-width:360px;">
-      <h2 style="margin-bottom:14px;">Custom Event</h2>
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div>
-          <div class="profile-field-label">Event name</div>
-          <input type="text" class="profile-edit-input" id="customEvNameInput"
-            placeholder='e.g. "OH 2x2", "Feet", "Blind Relay"'
-            maxlength="40" autocomplete="off" />
-        </div>
-        <div>
-          <div class="profile-field-label">Scramble type <span style="color:var(--muted);font-weight:normal;">(optional)</span></div>
-          <select class="select" id="customEvScrambleSelect" style="width:100%;font-size:13px;padding:6px 8px;">
-            <option value="">No scramble</option>
-          </select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">The timer works regardless — this just pre-generates scrambles.</div>
-        </div>
-        <div id="customEvStatus" style="font-size:12px;min-height:14px;"></div>
-        <div class="modal-actions">
-          <button class="small-btn" id="cancelCustomEvBtn">Cancel</button>
-          <button class="small-btn" id="confirmCustomEvBtn">Add Event</button>
-        </div>
-      </div>
-    </div>
-  </dialog>
-
 
   <!-- H2H Challenge Dialog -->
   <dialog id="h2hChallengeDialog">
@@ -3225,13 +3191,6 @@
             <select id="scrambleClickAction">
               <option value="next">Generate next scramble</option>
               <option value="copy">Copy scramble</option>
-            </select>
-          </div>
-          <div class="row">
-            <label for="scrambleSource">Scramble source</label>
-            <select id="scrambleSource">
-              <option value="builtin">Built-in (offline)</option>
-              <option value="online">Online (cubing.net, random-state)</option>
             </select>
           </div>
         </fieldset>
@@ -3512,42 +3471,22 @@
     };
 
     const EVENTS = [
-      // ── WCA Official ──────────────────────────────────────────────────────────
-      { id: "222",   label: "2x2x2",             puzzle: "2x2x2",     official: true },
-      { id: "333",   label: "3x3x3",             puzzle: "3x3x3",     official: true },
-      { id: "444",   label: "4x4x4",             puzzle: "4x4x4",     official: true },
-      { id: "555",   label: "5x5x5",             puzzle: "5x5x5",     official: true },
-      { id: "666",   label: "6x6x6",             puzzle: "6x6x6",     official: true },
-      { id: "777",   label: "7x7x7",             puzzle: "7x7x7",     official: true },
-      { id: "333oh", label: "3x3x3 One-Handed",  puzzle: "3x3x3",     official: true },
-      { id: "clock", label: "Clock",             puzzle: "clock",     official: true },
-      { id: "minx",  label: "Megaminx",          puzzle: "megaminx",  official: true },
-      { id: "pyram", label: "Pyraminx",          puzzle: "pyraminx",  official: true },
-      { id: "skewb", label: "Skewb",             puzzle: "skewb",     official: true },
-      { id: "sq1",   label: "Square-1",          puzzle: "square1",   official: true },
-      { id: "333bf", label: "3x3x3 Blindfolded", puzzle: "3x3x3",     official: true },
-      { id: "444bf", label: "4x4x4 Blindfolded", puzzle: "4x4x4",     official: true },
-      { id: "555bf", label: "5x5x5 Blindfolded", puzzle: "5x5x5",     official: true },
-      { id: "333mbf",label: "3x3x3 Multi-BLD",   puzzle: "3x3x3",     official: true },
-      // ── Unofficial / cubing.js supported ─────────────────────────────────────
-      { id: "fto",          label: "FTO (Face-Turning Octahedron)", puzzle: "fto",           unofficial: true },
-      { id: "redi",         label: "Redi Cube",                     puzzle: "redi_cube",     unofficial: true },
-      { id: "kilominx",     label: "Kilominx",                      puzzle: "kilominx",      unofficial: true },
-      { id: "gigaminx",     label: "Gigaminx",                      puzzle: "gigaminx",      unofficial: true },
-      { id: "master_tetraminx", label: "Master Pyraminx",           puzzle: "master_pyraminx", unofficial: true },
-      { id: "2x2x3",        label: "2x2x3",                        puzzle: "2x2x3",         unofficial: true },
-      { id: "2x3x3",        label: "2x3x3 (Domino)",               puzzle: "2x3x3",         unofficial: true },
-      { id: "1x2x3",        label: "1x2x3",                        puzzle: "1x2x3",         unofficial: true },
-      { id: "4x4x4bf",      label: "4x4x4 Blindfolded",            puzzle: "4x4x4",         unofficial: true, id_alias: "444bf" },
+      { id: "222", label: "2x2x2", puzzle: "2x2x2" },
+      { id: "333", label: "3x3x3", puzzle: "3x3x3" },
+      { id: "444", label: "4x4x4", puzzle: "4x4x4" },
+      { id: "555", label: "5x5x5", puzzle: "5x5x5" },
+      { id: "666", label: "6x6x6", puzzle: "6x6x6" },
+      { id: "777", label: "7x7x7", puzzle: "7x7x7" },
+      { id: "333oh", label: "3x3x3 One-Handed", puzzle: "3x3x3" },
+      { id: "clock", label: "Clock", puzzle: "clock" },
+      { id: "minx", label: "Megaminx", puzzle: "megaminx" },
+      { id: "pyram", label: "Pyraminx", puzzle: "pyraminx" },
+      { id: "skewb", label: "Skewb", puzzle: "skewb" },
+      { id: "sq1", label: "Square-1", puzzle: "square1" },
+      { id: "333bf", label: "3x3x3 Blindfolded", puzzle: "3x3x3" },
+      { id: "444bf", label: "4x4x4 Blindfolded", puzzle: "4x4x4" },
+      { id: "555bf", label: "5x5x5 Blindfolded", puzzle: "5x5x5" }
     ];
-
-    // Deduplicate EVENTS by id (some unofficial may shadow official)
-    const _seenEvIds = new Set();
-    const EVENTS_DEDUP = EVENTS.filter(e => { if (_seenEvIds.has(e.id)) return false; _seenEvIds.add(e.id); return true; });
-    EVENTS.length = 0; EVENTS_DEDUP.forEach(e => EVENTS.push(e));
-
-    // Custom events stored per-session in state
-    // state.customEvents = [{ id: "custom_...", label: "My Event", custom: true }]
 
     // ── League tiers ──────────────────────────────────────────────────────────
     const LEAGUES = [
@@ -3668,8 +3607,7 @@
         autoSize: true,
         scale: 1,
         align: "center",
-        clickAction: "next",
-        source: "builtin"
+        clickAction: "next"
       },
       tools: {
         trend: { enabled: true, slot: "slot1" },
@@ -3703,17 +3641,13 @@
       return {
         currentEvent: "333",
         settings: structuredClone(defaultSettings),
-        sessionsByEvent,
-        customEvents: []
+        sessionsByEvent
       };
     }
 
     let data = loadData();
     let currentEvent = data.currentEvent in data.sessionsByEvent ? data.currentEvent : "333";
     let settings = data.settings;
-    // Sync custom events into both state and data (data is persisted)
-    if (!data.customEvents) data.customEvents = [];
-    state.customEvents = data.customEvents;
 
     const slotMap = { left: "slot1", center: "slot2", right: "slot3" };
     if (settings?.tools) {
@@ -3759,7 +3693,6 @@
       wakeLockSentinel: null,
       selectedAverage: null,
       view: "timer",
-      customEvents: [],
       timesEventFilter: "all",
       timesSessionFilter: "all",
       timesSearch: "",
@@ -4035,7 +3968,7 @@
           ...(parsed.settings || {}),
           averages: { ...base.settings.averages, ...((parsed.settings && parsed.settings.averages) || {}) },
           list: { ...base.settings.list, ...((parsed.settings && parsed.settings.list) || {}) },
-          scramble: { source: "builtin", ...base.settings.scramble, ...((parsed.settings && parsed.settings.scramble) || {}) },
+          scramble: { ...base.settings.scramble, ...((parsed.settings && parsed.settings.scramble) || {}) },
           tools: {
             ...base.settings.tools,
             ...((parsed.settings && parsed.settings.tools) || {}),
@@ -4048,8 +3981,7 @@
           theme: { ...base.settings.theme, ...((parsed.settings && parsed.settings.theme) || {}) },
           font: { ...base.settings.font, ...((parsed.settings && parsed.settings.font) || {}) }
         },
-        sessionsByEvent: { ...base.sessionsByEvent, ...(parsed.sessionsByEvent || {}) },
-        customEvents: Array.isArray(parsed.customEvents) ? parsed.customEvents : []
+        sessionsByEvent: { ...base.sessionsByEvent, ...(parsed.sessionsByEvent || {}) }
       };
 
       for (const ev of EVENTS) {
@@ -4075,7 +4007,6 @@
     }
 
     async function saveData() {
-      if (state.customEvents) data.customEvents = state.customEvents;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeData()));
       await saveRemoteData();
     }
@@ -4173,34 +4104,6 @@
       return bestAo5 != null ? Math.round(bestAo5) : null;
     }
 
-    function getBestAo12(eventId) {
-      const bundle = data.sessionsByEvent[eventId];
-      if (!bundle) return null;
-      let best = null;
-      for (const session of bundle.sessions) {
-        const solves = session.solves.filter(s => s.penalty !== "DNF");
-        if (solves.length < 12) continue;
-        for (let i = 0; i <= solves.length - 12; i++) {
-          const win = solves.slice(i, i + 12).map(s =>
-            (s.baseTimeMs ?? s.time ?? 0) + (s.penalty === "+2" ? 2000 : 0));
-          const sorted = [...win].sort((a,b) => a-b);
-          const avg = sorted.slice(1,-1).reduce((a,b)=>a+b,0) / 10;
-          if (best == null || avg < best) best = avg;
-        }
-      }
-      return best != null ? Math.round(best) : null;
-    }
-
-    function getAllAo12s() {
-      const ao12s = {};
-      for (const ev of EVENTS) {
-        const v = getBestAo12(ev.id);
-        if (v != null) ao12s[ev.id] = v;
-      }
-      return ao12s;
-    }
-
-
     function getAllAo5s() {
       const ao5s = {};
       for (const ev of EVENTS) {
@@ -4238,17 +4141,15 @@
     globalLbRefreshBtn.addEventListener("click", () => { globalLbLoaded = false; loadGlobalLb(); });
     document.getElementById('globalLbRankSingle')?.addEventListener('click', () => { globalLbRankBy = 'single'; renderGlobalLbForEvent(); });
     document.getElementById('globalLbRankAo5')?.addEventListener('click', () => { globalLbRankBy = 'ao5'; renderGlobalLbForEvent(); });
-    document.getElementById('globalLbRankAo12')?.addEventListener('click', () => { globalLbRankBy = 'ao12'; renderGlobalLbForEvent(); });
 
     let globalLbRankBy = 'single'; // 'single' | 'ao5'
 
     function renderGlobalLbForEvent() {
       const medals = ['🥇','🥈','🥉'];
       const eventLabel = EVENTS.find(e => e.id === globalLbEvent)?.label ?? globalLbEvent;
-      const getPb   = p => p.pbs?.[globalLbEvent]  ?? null;
-      const getAo5  = p => p.ao5s?.[globalLbEvent] ?? null;
-      const getAo12 = p => p.ao12s?.[globalLbEvent] ?? null;
-      const getVal  = p => globalLbRankBy === 'ao5' ? getAo5(p) : globalLbRankBy === 'ao12' ? getAo12(p) : getPb(p);
+      const getPb  = p => p.pbs?.[globalLbEvent]  ?? null;
+      const getAo5 = p => p.ao5s?.[globalLbEvent] ?? null;
+      const getVal = p => globalLbRankBy === 'ao5' ? getAo5(p) : getPb(p);
       const withVal = globalLbProfiles.filter(p => getVal(p) != null).sort((a,b) => getVal(a)-getVal(b));
       const noVal   = globalLbProfiles.filter(p => getVal(p) == null);
       const ranked  = [...withVal, ...noVal];
@@ -4256,10 +4157,8 @@
       // Sync toggle button states
       document.getElementById('globalLbRankSingle')?.classList.toggle('active', globalLbRankBy === 'single');
       document.getElementById('globalLbRankAo5')?.classList.toggle('active', globalLbRankBy === 'ao5');
-      document.getElementById('globalLbRankAo12')?.classList.toggle('active', globalLbRankBy === 'ao12');
 
-      const rankLabel = globalLbRankBy === 'ao5' ? 'Ao5' : globalLbRankBy === 'ao12' ? 'Ao12' : 'PB';
-      globalLbMeta.textContent = `${globalLbProfiles.length} user${globalLbProfiles.length!==1?'s':''} · ${withVal.length} with ${eventLabel} ${rankLabel}`;
+      globalLbMeta.textContent = `${globalLbProfiles.length} user${globalLbProfiles.length!==1?'s':''} · ${withVal.length} with ${eventLabel} ${globalLbRankBy === 'ao5' ? 'Ao5' : 'PB'}`;
 
       if (!ranked.length) {
         globalLbList.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">No users found. Sign up to appear here!</div>`;
@@ -4269,14 +4168,10 @@
         const val  = getVal(p);
         const pb   = getPb(p);
         const ao5  = getAo5(p);
-        const ao12 = getAo12(p);
         const badge = leagueBadgeHtml(p.league || "rookie", "sm");
-        // Build mini stat pills showing all available times
-        const statPills = [
-          pb   != null ? `<span class="lb-stat-pill">Single <b>${formatMs(pb)}</b></span>` : '',
-          ao5  != null ? `<span class="lb-stat-pill">Ao5 <b>${formatMs(ao5)}</b></span>`   : '',
-          ao12 != null ? `<span class="lb-stat-pill">Ao12 <b>${formatMs(ao12)}</b></span>` : '',
-        ].filter(Boolean).join('');
+        const subLabel = globalLbRankBy === 'ao5'
+          ? (ao5 != null && pb != null ? `Single: ${formatMs(pb)}` : '')
+          : (pb  != null && ao5 != null ? `Ao5: ${formatMs(ao5)}`  : '');
         return `<div class="club-lb-item clickable-user" data-uid="${escapeHtml(p.uid||'')}">
           <div class="club-lb-rank">${medals[i]??i+1}</div>
           <img class="club-member-avatar" src="${escapeHtml(p.avatarUrl||defaultAvatarUrl(p.username||'?'))}" alt="" onerror="this.src='${defaultAvatarUrl(p.username||'?')}'"/>
@@ -4284,9 +4179,9 @@
             <div class="club-member-name">${badge} ${escapeHtml(p.displayName||p.username)}</div>
             <div class="club-member-username">@${escapeHtml(p.username)}</div>
           </div>
-          <div class="club-lb-meta" style="flex:1;min-width:0;">
-            <div class="club-lb-time${val==null?' no-pb':''}">${val!=null ? `<span style="color:var(--good);font-weight:700;font-size:15px;">${formatMs(val)}</span>` : `<span style="color:var(--muted);font-size:12px;">No ${rankLabel}</span>`}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;">${statPills || `<span style="font-size:11px;color:var(--muted);">${eventLabel}</span>`}</div>
+          <div class="club-lb-meta">
+            <div class="club-lb-time${val==null?' no-pb':''}">${val!=null ? `<span style="color:var(--good);font-weight:700;">${formatMs(val)}</span>` : `<span style="color:var(--muted);font-size:12px;">No ${globalLbRankBy==='ao5'?'Ao5':'PB'}</span>`}</div>
+            <div class="club-lb-event-label">${escapeHtml(subLabel||eventLabel)}</div>
           </div>
         </div>`;
       }).join("");
@@ -4326,18 +4221,17 @@
         // Others: use stored profile data, supplemented by club member ao5s if needed.
         const freshPbs  = getAllPbs();
         const freshAo5s = getAllAo5s();
-        const freshAo12s = getAllAo12s();
-        try { setDoc(doc(db,"profiles",state.currentUser?.uid), { pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, league: state.leagueId||'rookie' }, { merge: true }); } catch {}
+        try { setDoc(doc(db,"profiles",state.currentUser?.uid), { pbs: freshPbs, ao5s: freshAo5s, league: state.leagueId||'rookie' }, { merge: true }); } catch {}
 
         const withPbs = profiles.map(p => {
           if (p.uid === state.currentUser?.uid) {
-            return { ...p, pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, league: state.leagueId || 'rookie' };
+            return { ...p, pbs: freshPbs, ao5s: freshAo5s, league: state.leagueId || 'rookie' };
           }
           // Use profile ao5s; fall back to club member ao5s for profiles that lack them
           const ao5s = (p.ao5s && Object.keys(p.ao5s).length > 0)
             ? p.ao5s
             : (memberAo5Map[p.uid] || p.ao5s);
-          return { ...p, ao5s, ao12s: p.ao12s || {} };
+          return { ...p, ao5s };
         });
 
         globalLbProfiles = withPbs;
@@ -4355,13 +4249,12 @@
       try {
         const pbs   = getAllPbs();
         const ao5s  = getAllAo5s();
-        const ao12s = getAllAo12s();
         const league = state.leagueId || 'rookie';
-        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s, ao12s, league }, { merge: true });
+        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s, league }, { merge: true });
         // Also keep club member docs up to date (including league so badges stay current)
         for (const clubId of clubMembershipIds) {
           try {
-            await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), { pbs, ao5s, ao12s, league }, { merge: true });
+            await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), { pbs, ao5s, league }, { merge: true });
           } catch {}
         }
       } catch {}
@@ -4518,11 +4411,9 @@
         }
         const snap = await getDoc(doc(db,"profiles",state.currentUser.uid));
         const prevLeague = snap.data()?.league;
-        // Save the full earned set (union of previous + current) so achievements that
-        // depend on data not yet loaded (e.g. joined_club before clubs load) are never
-        // stripped from Firebase and re-toasted next session.
+        // Save fresh recomputed list to Firebase (replaces stored, doesn't union)
         await setDoc(doc(db,"profiles",state.currentUser.uid),
-          { achievements: state.earnedAchievements, league, leaguePoints: pts }, { merge: true });
+          { achievements: currentEarned, league, leaguePoints: pts }, { merge: true });
         // Update league on club member docs if it changed
         if (prevLeague !== league) {
           let memberIds = clubMembershipIds.size > 0
@@ -5218,63 +5109,51 @@
     async function generateCompScrambles(eventId, count) {
       const scrambles = [];
       for (let i = 0; i < count; i++) {
-        if (settings.scramble.source === 'builtin') {
-          scrambles.push(builtInScramble(eventId));
-        } else {
-          try {
-            const alg = await randomScrambleForEvent(eventId);
-            scrambles.push(alg.toString());
-          } catch {
-            scrambles.push(builtInScramble(eventId));
-          }
+        try {
+          const alg = await randomScrambleForEvent(eventId);
+          scrambles.push(alg.toString());
+        } catch {
+          scrambles.push(fallbackScrambleForEvent(eventId));
         }
       }
       return scrambles;
     }
 
-    // -1 = DNF, -2 = DNS (Did Not Start), null = not submitted
-    // DNS and DNF are both treated as "worst" in averages.
-    function isWorst(t) { return t === -1 || t === -2 || t == null; }
-
     function compScore(times) {
       if (!times?.length) return null;
       const n = times.length;
-      const worstCount = times.filter(isWorst).length;
-      const valid = times.filter(t => !isWorst(t) && t > 0);
+      const dnfCount = times.filter(t => t === -1).length;
+      const valid = times.filter(t => t != null && t > 0);
       if (!valid.length) return null;
-      if (n === 1) return valid[0];
+      if (n === 1) return valid.length ? valid[0] : null;
       if (n >= 5) {
-        // WCA-style Ao5: 2+ worst = DNF result
-        if (worstCount >= 2) return null;
+        // WCA Ao5: 2+ DNFs = DNF result
+        if (dnfCount >= 2) return null;
         const sorted = [...valid].sort((a,b) => a-b);
-        if (worstCount === 1) {
-          // 1 DNF/DNS = counts as worst — trim best, average remaining (n-2)
-          return sorted.slice(1).reduce((a,b) => a+b, 0) / (n - 2);
+        if (dnfCount === 1) {
+          // DNF counts as worst — trim the best, average the remaining 3
+          const trimmed = sorted.slice(1);
+          return trimmed.reduce((a,b) => a+b, 0) / trimmed.length;
         }
-        // Normal: trim best and worst, average middle (n-2)
-        return sorted.slice(1, -1).reduce((a,b) => a+b, 0) / (n - 2);
+        // Normal: trim best and worst, average middle 3
+        const trimmed = sorted.slice(1, -1);
+        return trimmed.reduce((a,b) => a+b, 0) / trimmed.length;
       }
-      // Mo3 or fewer: any worst = DNF
-      if (worstCount > 0) return null;
-      return valid.reduce((a,b) => a+b, 0) / n;
+      // Mean of 3 or less: any DNF = DNF
+      if (dnfCount > 0) return null;
+      return valid.reduce((a,b) => a+b, 0) / valid.length;
     }
 
     function compScoreLabel(times) {
       if (!times?.length) return '—';
-      const hasAny = times.some(t => !isWorst(t) && t > 0);
+      const hasAny = times.some(t => t != null);
       if (!hasAny) return '—';
-      const worstCount = times.filter(isWorst).length;
-      const valid = times.filter(t => !isWorst(t) && t > 0);
-      if (!valid.length || (times.length >= 5 && worstCount >= 2)) return 'DNF';
+      const dnfCount = times.filter(t => t === -1).length;
+      const valid = times.filter(t => t != null && t > 0);
+      // Show DNF if all filled times are DNF, or if Ao5 has 2+ DNFs
+      if (!valid.length || (times.length >= 5 && dnfCount >= 2)) return 'DNF';
       const score = compScore(times);
       return score != null ? formatMs(Math.round(score)) : 'DNF';
-    }
-
-    function timeDisplayLabel(t) {
-      if (t === -1) return 'DNF';
-      if (t === -2) return 'DNS';
-      if (t == null) return '—';
-      return formatMs(t);
     }
 
     // Multi-event: compute combined score across all events (sum of per-event scores)
@@ -5294,7 +5173,6 @@
       if (!str) return null;
       str = str.trim();
       if (str.toUpperCase() === 'DNF') return -1;
-      if (str.toUpperCase() === 'DNS') return -2;
       const m1 = str.match(/^(\d+):(\d{2})\.(\d{1,3})$/);
       if (m1) return (parseInt(m1[1])*60 + parseInt(m1[2]))*1000 + Math.round(parseFloat('0.'+m1[3].padEnd(3,'0'))*1000);
       const m2 = str.match(/^(\d+)\.(\d{1,3})$/);
@@ -5423,8 +5301,7 @@
       }
     }
 
-    function renderCompDetailFull(container, comp, entries, _preserveScroll) {
-      const _scrollTop = _preserveScroll !== false ? container.scrollTop : 0;
+    function renderCompDetailFull(container, comp, entries) {
       const myEntry = state.currentUser ? entries.find(e=>e.uid===state.currentUser.uid) : null;
       const isCreator = state.currentUser?.uid === comp.createdBy;
       const isClubAdmin = comp.clubId && currentClubAdminId === comp.clubId;
@@ -5467,15 +5344,13 @@
       // Build scrambles HTML — grouped by event for multi-event comps
       const scramblesHtml = compEvents.map(ev => `
         ${isMulti ? `<div style="font-size:12px;font-weight:700;color:var(--accent);margin:8px 0 4px;">${escapeHtml(ev.label)}</div>` : ''}
-        ${ev.custom || !(ev.scrambles||[]).length
-          ? `<div style="font-size:12px;color:var(--muted);padding:4px 0;">No scramble — timer still works, times are entered manually.</div>`
-          : `<div class="comp-scramble-list">
-              ${(ev.scrambles||[]).map((s,i)=>`
-                <div class="comp-scramble-item">
-                  <div class="comp-scramble-num">Scramble ${i+1}</div>
-                  ${escapeHtml(s)}
-                </div>`).join('')}
-             </div>`}`).join('');
+        <div class="comp-scramble-list">
+          ${(ev.scrambles||[]).map((s,i)=>`
+            <div class="comp-scramble-item">
+              <div class="comp-scramble-num">Scramble ${i+1}</div>
+              ${escapeHtml(s)}
+            </div>`).join('')}
+        </div>`).join('');
 
       // Build entry form HTML — tabbed by event for multi-event comps
       const entryFormHtml = canEnter ? `
@@ -5491,15 +5366,15 @@
                   ${Array.from({length:comp.numSolves},(_,j)=>`
                     <div class="comp-time-input-wrap">
                       <div class="comp-time-label">Solve ${j+1}</div>
-                      <input class="comp-time-input" data-ev="${ev.id}" data-idx="${j}" placeholder="0:00.00 / DNF / DNS" value="${(v=>v!=null?(v===-1?'DNF':v===-2?'DNS':formatMs(v)):'')(myEntry?.timesByEvent?.[ev.id]?.[j])}" />
+                      <input class="comp-time-input" data-ev="${ev.id}" data-idx="${j}" placeholder="0:00.00" value="${myEntry?.timesByEvent?.[ev.id]?.[j]?formatMs(myEntry.timesByEvent[ev.id][j]):''}" />
                     </div>`).join('')}
                 </div>
               </div>`).join('')}` :
           `<div class="comp-time-inputs">
-              ${Array.from({length: (compEvents[0]?.scrambles||[]).length || comp.numSolves || 5},(_,i)=>`
+              ${(compEvents[0]?.scrambles||[]).map((_,i)=>`
                 <div class="comp-time-input-wrap">
                   <div class="comp-time-label">Solve ${i+1}</div>
-                  <input class="comp-time-input" data-ev="${compEvents[0]?.id||''}" data-idx="${i}" placeholder="0:00.00 / DNF / DNS" value="${myEntry?.times?.[i]!=null?(myEntry.times[i]===-1?'DNF':myEntry.times[i]===-2?'DNS':formatMs(myEntry.times[i])):''}" />
+                  <input class="comp-time-input" data-ev="${compEvents[0]?.id||''}" data-idx="${i}" placeholder="0:00.00" value="${myEntry?.times?.[i]?formatMs(myEntry.times[i]):''}" />
                 </div>`).join('')}
            </div>`}
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
@@ -5522,7 +5397,6 @@
         lbControlsHtml = `
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
             <select id="compLbEventSel" style="font-size:12px;padding:4px 7px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);">
-              <option value="combined"${compDetailLbEventId==='combined'?' selected':''}>Combined</option>
               ${compEvents.map(ev=>`<option value="${ev.id}"${ev.id===compDetailLbEventId?' selected':''}>${escapeHtml(ev.label)}</option>`).join('')}
             </select>
             <div style="display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;">
@@ -5562,7 +5436,7 @@
               scoreDisplay = formatMs(Math.round(e.score));
               if (compDetailLbEventId !== 'combined') {
                 const times = (e.timesByEvent?.[compDetailLbEventId]||[]).filter(t=>t!=null);
-                timesDisplay = times.map(t=>timeDisplayLabel(t)).join(' · ');
+                timesDisplay = times.map(t=>t===-1?'DNF':formatMs(t)).join(' · ');
               } else {
                 timesDisplay = compEvents.map(ev => {
                   const evTimes = (e.timesByEvent?.[ev.id]||[]).filter(t=>t!=null);
@@ -5571,7 +5445,7 @@
               }
             } else {
               scoreDisplay = compScoreLabel(e.times);
-              timesDisplay = (e.times||[]).filter(t=>t!=null).map(t=>timeDisplayLabel(t)).join(' · ');
+              timesDisplay = (e.times||[]).filter(t=>t!=null).map(t=>t===-1?'DNF':formatMs(t)).join(' · ');
             }
             return `<div class="comp-lb-item clickable-user" data-uid="${escapeHtml(e.uid||'')}">
               <div class="comp-lb-rank">${medals[i]||i+1}</div>
@@ -5618,13 +5492,13 @@
       // Wire leaderboard event/mode controls (multi-event only)
       container.querySelector('#compLbEventSel')?.addEventListener('change', e => {
         compDetailLbEventId = e.target.value;
-        renderCompDetailFull(container, comp, entries, true);
+        renderCompDetailFull(container, comp, entries);
       });
       container.querySelector('#compLbModeAvg')?.addEventListener('click', () => {
-        if (compDetailLbMode !== 'avg') { compDetailLbMode = 'avg'; renderCompDetailFull(container, comp, entries, true); }
+        if (compDetailLbMode !== 'avg') { compDetailLbMode = 'avg'; renderCompDetailFull(container, comp, entries); }
       });
       container.querySelector('#compLbModeSingle')?.addEventListener('click', () => {
-        if (compDetailLbMode !== 'single') { compDetailLbMode = 'single'; renderCompDetailFull(container, comp, entries, true); }
+        if (compDetailLbMode !== 'single') { compDetailLbMode = 'single'; renderCompDetailFull(container, comp, entries); }
       });
 
       // Wire event entry tabs
@@ -5645,19 +5519,11 @@
         let ok = true;
         if (isMulti) {
           const timesByEvent = {};
-          const allInputs = [...container.querySelectorAll('.comp-time-input')];
-          const anyFilled = allInputs.some(inp => inp.value.trim() !== '');
-          allInputs.forEach(inp => {
+          container.querySelectorAll('.comp-time-input').forEach(inp => {
             if (!timesByEvent[inp.dataset.ev]) timesByEvent[inp.dataset.ev] = [];
-            const val = inp.value.trim();
-            if (!val) {
-              // Empty: DNS if any time was entered, otherwise null (not started)
-              timesByEvent[inp.dataset.ev].push(anyFilled ? -2 : null);
-            } else {
-              const ms = parseTimeInput(val);
-              if (ms == null) { inp.style.borderColor='var(--bad)'; ok=false; }
-              else { inp.style.borderColor=''; timesByEvent[inp.dataset.ev].push(ms); }
-            }
+            const ms = parseTimeInput(inp.value);
+            if (inp.value.trim() && ms==null) { inp.style.borderColor='var(--bad)'; ok=false; }
+            else { inp.style.borderColor=''; timesByEvent[inp.dataset.ev].push(ms); }
           });
           if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
           btn.disabled=true; btn.textContent='Saving…'; status.textContent='';
@@ -5671,18 +5537,12 @@
             btn.disabled=false; btn.textContent=myEntry?'Update':'Submit';
           }
         } else {
-          const inputs = [...container.querySelectorAll('.comp-time-input')];
+          const inputs = container.querySelectorAll('.comp-time-input');
           const times = [];
-          const anyFilledSingle = inputs.some(inp => inp.value.trim() !== '');
           inputs.forEach(inp => {
-            const val = inp.value.trim();
-            if (!val) {
-              times.push(anyFilledSingle ? -2 : null);
-            } else {
-              const ms = parseTimeInput(val);
-              if (ms == null) { inp.style.borderColor='var(--bad)'; ok=false; }
-              else { inp.style.borderColor=''; times.push(ms); }
-            }
+            const ms = parseTimeInput(inp.value);
+            if (inp.value.trim() && ms==null) { inp.style.borderColor='var(--bad)'; ok=false; }
+            else { inp.style.borderColor=''; times.push(ms); }
           });
           if (!ok) { status.textContent='✗ Invalid time'; status.style.color='var(--bad)'; return; }
           btn.disabled=true; btn.textContent='Saving…'; status.textContent='';
@@ -5753,8 +5613,6 @@
 
       container.querySelectorAll('.comp-lb-item[data-uid]').forEach(el =>
         el.addEventListener('click', () => openUserProfile(el.dataset.uid)));
-      // Restore scroll position so submitting or switching events doesn't jump to top
-      if (_scrollTop) requestAnimationFrame(() => { container.scrollTop = _scrollTop; });
     }
 
     async function submitCompEntry(compId, timesOrByEvent, compPath, isMultiEvent) {
@@ -6202,14 +6060,8 @@
       const eventList = opts.events || (opts.event ? [EVENTS.find(e=>e.id===opts.event)||{id:opts.event,label:opts.event}] : []);
       const eventsWithScrambles = [];
       for (const ev of eventList) {
-        // Custom events use their scrambleType if set; otherwise no scramble
-        let scrambles = [];
-        if (!ev.custom) {
-          scrambles = await generateCompScrambles(ev.id, opts.numSolves);
-        } else if (ev.scrambleType) {
-          scrambles = await generateCompScrambles(ev.scrambleType, opts.numSolves);
-        }
-        eventsWithScrambles.push({ id: ev.id, label: ev.label, scrambles, custom: ev.custom||false, scrambleType: ev.scrambleType||null });
+        const scrambles = await generateCompScrambles(ev.id, opts.numSolves);
+        eventsWithScrambles.push({ id: ev.id, label: ev.label, scrambles });
       }
       // backward-compat fields derived from first event
       const firstEv = eventsWithScrambles[0];
@@ -6599,34 +6451,14 @@
       if (statusEl) { statusEl.textContent=''; statusEl.style.color=''; }
       const evGrid = document.getElementById('newCompEventsGrid');
       if (evGrid) {
-        const officialEvs = EVENTS.filter(e=>e.official);
-        const unofficialEvs = EVENTS.filter(e=>e.unofficial);
-        const customEvs = (state.customEvents||[]);
-        const allForGrid = [...officialEvs, ...unofficialEvs, ...customEvs];
-        evGrid.innerHTML = allForGrid.map(e=>`
+        evGrid.innerHTML = EVENTS.map(e=>`
           <label class="comp-event-check${e.id==='333'?' selected':''}" data-ev="${e.id}">
             <input type="checkbox" style="display:none;"${e.id==='333'?' checked':''}/>
-            ${escapeHtml(e.label)}${e.custom?` <span style="font-size:10px;color:var(--accent);">custom</span>`:''}
-          </label>`).join('') +
-          `<label class="comp-event-check" data-ev="__new_custom__" style="border-style:dashed;color:var(--accent);">
-            <input type="checkbox" style="display:none;"/>
-            + Custom event
-          </label>`;
+            ${escapeHtml(e.label)}
+          </label>`).join('');
         evGrid.querySelectorAll('.comp-event-check').forEach(lbl => {
           lbl.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (lbl.dataset.ev === '__new_custom__') {
-              // Open the custom event dialog; pass a callback to add the new event label
-              openCustomEvDialog((cid, label, scrambleType) => {
-                const newLbl = document.createElement('label');
-                newLbl.className = 'comp-event-check selected';
-                newLbl.dataset.ev = cid;
-                newLbl.innerHTML = `<input type="checkbox" checked style="display:none;"/>${escapeHtml(label)} <span style="font-size:10px;color:var(--accent);">custom</span>`;
-                newLbl.addEventListener('click', ev2 => { ev2.preventDefault(); const cb=newLbl.querySelector('input'); cb.checked=!cb.checked; newLbl.classList.toggle('selected',cb.checked); });
-                lbl.before(newLbl);
-              });
-              return;
-            }
+            e.preventDefault(); // prevent browser re-toggling the checkbox after our handler
             const cb = lbl.querySelector('input');
             cb.checked = !cb.checked;
             lbl.classList.toggle('selected', cb.checked);
@@ -6640,30 +6472,6 @@
       document.getElementById('compScopeClubBtn')?.classList.toggle('active', true);
       document.getElementById('compScopeOpenBtn')?.classList.toggle('active', false);
       dialog.showModal();
-    }
-
-    let _customEvCallback = null;
-
-    function openCustomEvDialog(callback) {
-      _customEvCallback = callback;
-      const dialog = document.getElementById('createCustomEvDialog');
-      if (!dialog) return;
-      const nameEl = document.getElementById('customEvNameInput');
-      const sel    = document.getElementById('customEvScrambleSelect');
-      const status = document.getElementById('customEvStatus');
-      nameEl.value = '';
-      if (status) { status.textContent=''; status.style.color=''; }
-      // Populate scramble type dropdown with all events
-      if (sel && sel.options.length <= 1) {
-        [...EVENTS].forEach(e => {
-          const opt = document.createElement('option');
-          opt.value = e.id; opt.textContent = e.label;
-          sel.appendChild(opt);
-        });
-      }
-      sel.value = '';
-      dialog.showModal();
-      setTimeout(() => nameEl.focus(), 50);
     }
 
     function openH2HDialog(targetUid, targetUsername) {
@@ -7357,8 +7165,6 @@
       scrambleScaleValueEl.textContent = Number(settings.scramble.scale).toFixed(2) + "x";
       scrambleAlignEl.value = settings.scramble.align;
       scrambleClickActionEl.value = settings.scramble.clickAction;
-      const scrambleSourceEl2 = document.getElementById('scrambleSource');
-      if (scrambleSourceEl2) scrambleSourceEl2.value = settings.scramble.source || 'builtin';
 
       showTrendToolEl.checked = settings.tools.trend.enabled;
       showDistributionToolEl.checked = settings.tools.distribution.enabled;
@@ -7441,8 +7247,6 @@
       settings.scramble.scale = Number(scrambleScaleEl.value);
       settings.scramble.align = scrambleAlignEl.value;
       settings.scramble.clickAction = scrambleClickActionEl.value;
-      const scrambleSourceEl = document.getElementById('scrambleSource');
-      if (scrambleSourceEl) settings.scramble.source = scrambleSourceEl.value;
 
       settings.tools.trend.enabled = showTrendToolEl.checked;
       settings.tools.distribution.enabled = showDistributionToolEl.checked;
@@ -9634,131 +9438,40 @@
     }
 
 
-    function builtInScramble(eventId) {
-      const R = () => Math.random();
-      const pick = arr => arr[Math.floor(R() * arr.length)];
-      const mods = ["","'","2"];
-
-      // Quality random-move: no consecutive same-face, no A-B-A where B=opposite(A)
-      function qualityMoves(faces, oppMap, length) {
+    function fallbackScrambleForEvent(eventId) {
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const simple = (moves, length) => {
         const out = [];
-        let prev = "", pprev = "";
-        let tries = 0;
+        let lastFace = "";
         while (out.length < length) {
-          if (++tries > 10000) break;
-          const face = pick(faces);
-          if (face === prev) continue;
-          if (oppMap && oppMap[face] === prev && face === pprev) continue;
-          pprev = prev; prev = face;
-          out.push(face + pick(mods));
+          const face = pick(moves);
+          if (face === lastFace) continue;
+          lastFace = face;
+          out.push(face + pick(["", "'", "2"]));
         }
         return out.join(" ");
-      }
-
-      const opp3 = {U:"D",D:"U",F:"B",B:"F",R:"L",L:"R"};
-      const oppW  = {...opp3, Rw:"Lw",Lw:"Rw",Uw:"Dw",Dw:"Uw",Fw:"Bw",Bw:"Fw"};
-      const opp6  = {...oppW,"3Rw":"3Lw","3Lw":"3Rw","3Uw":"3Dw","3Dw":"3Uw","3Fw":"3Bw","3Bw":"3Fw"};
+      };
 
       switch (eventId) {
-        case "222": return qualityMoves(["U","R","F"],{U:"D",R:"L",F:"B"},9);
-        case "333": return qualityMoves(["U","D","F","B","R","L"],opp3,20);
-        case "333oh": return qualityMoves(["U","D","F","B","R","L"],opp3,20);
-        case "333bf":
-        case "444bf": return qualityMoves(["U","D","F","B","R","L"],opp3,20);
-        case "555bf": return qualityMoves(["U","D","F","B","R","L"],opp3,20);
-        case "444": {
-          const f4=["R","L","U","D","F","B","Rw","Lw","Uw","Dw","Fw","Bw"];
-          return qualityMoves(f4,oppW,40);
-        }
-        case "555": {
-          const f5=["R","L","U","D","F","B","Rw","Lw","Uw","Dw","Fw","Bw"];
-          return qualityMoves(f5,oppW,60);
-        }
+        case "222": return simple(["R","U","F"], 9);
+        case "333": return simple(["R","L","U","D","F","B"], 20);
+        case "444": return simple(["R","L","U","D","F","B","Rw","Lw","Uw","Dw","Fw","Bw"], 40);
+        case "555": return simple(["R","L","U","D","F","B","Rw","Lw","Uw","Dw","Fw","Bw"], 60);
         case "666":
-        case "777": {
-          const f6=["R","L","U","D","F","B","Rw","Lw","Uw","Dw","Fw","Bw","3Rw","3Lw","3Uw","3Dw","3Fw","3Bw"];
-          return qualityMoves(f6,opp6,80);
-        }
-        case "pyram": {
-          // Pyraminx: tips then moves
-          const tips=["u","l","r","b"].map(t=>pick([t,t+"'"]));
-          const moves=qualityMoves(["U","L","R","B"],{U:"",L:"",R:"",B:""},11);
-          return tips.join(" ")+" "+moves;
-        }
-        case "skewb": {
-          const sk=["R","L","U","B"];
-          const out=[],seen=[];
-          while(out.length<11){const f=pick(sk);if(f===seen[0])continue;seen.unshift(f);out.push(f+pick(["","'"]));}
-          return out.join(" ");
-        }
-        case "clock": {
-          const pins=["UR","DR","DL","UL","U","R","D","L","ALL"];
-          const moves=pins.map(p=>`${p}${Math.floor(R()*11)-5}+`).join(" ");
-          return moves + (R()>0.5?" y2":"");
-        }
-        case "minx": {
-          const minxMoves=[];
-          for(let i=0;i<7;i++){
-            minxMoves.push("R"+pick(["++","--"])+" D"+pick(["++","--"]));
-            if(i<6)minxMoves.push(R()>0.5?"U":"U'");
-          }
-          return minxMoves.join(" ");
-        }
-        case "sq1": {
-          const slices=[];
-          for(let i=0;i<8;i++){
-            const top=Math.floor(R()*12)-5;
-            const bot=Math.floor(R()*12)-5;
-            slices.push(`(${top},${bot})`);
-          }
-          return slices.join(" / ");
-        }
-        case "fto": {
-          const faces=["F","BL","BR","R","L","U"];
-          const out=[]; let prev="";
-          while(out.length<14){const f=pick(faces);if(f===prev)continue;prev=f;out.push(f+pick(["","'"]));}
-          return out.join(" ");
-        }
-        case "redi": {
-          const faces=["F","B","R","L","U","D"];
-          const out=[]; let prev="";
-          while(out.length<14){const f=pick(faces);if(f===prev)continue;prev=f;out.push(f+pick(["","'"]));}
-          return out.join(" ");
-        }
-        case "kilominx": return qualityMoves(["U","R","F","L","BL","BR"],{},10);
-        case "master_tetraminx": return qualityMoves(["U","L","R","B","u","l","r","b"],{},14);
-        default: return qualityMoves(["U","D","F","B","R","L"],opp3,20);
+        case "777": return simple(["R","L","U","D","F","B","Rw","Lw","Uw","Dw","Fw","Bw","3Rw","3Lw","3Uw","3Dw","3Fw","3Bw"], 80);
+        case "pyram": return simple(["R","L","U","B","r","l","u","b"], 10);
+        case "skewb": return simple(["R","L","U","B"], 9);
+        case "clock": return "UR3+ DR2- DL1+ UL4- U5+ R2- D3+ L1- ALL2+ y2";
+        case "minx": return "R++ D-- R++ D++ R-- D-- U' R++ D++ R-- D++ R++ D-- U";
+        case "sq1": return "(1,0) / (3,-2) / (0,3) / (-3,0) /";
+        default: return simple(["R","L","U","D","F","B"], 20);
       }
     }
-    // Keep alias for old call-sites
-    function fallbackScrambleForEvent(eventId) { return builtInScramble(eventId); }
 
     async function generateScramble() {
       if (state.scrambleLoading) return;
       state.scrambleLoading = true;
       scrambleEl.textContent = "Generating scramble...";
-
-      // If offline mode selected OR this event has no cubing.net support, use built-in
-      if (settings.scramble.source === 'builtin') {
-        state.currentScramble = builtInScramble(currentEvent);
-        scrambleEl.textContent = state.currentScramble;
-        if (settings.scramble.autoSize) {
-          const len = state.currentScramble.length;
-          let scale = settings.scramble.scale;
-          if (len > 120) scale = 0.82;
-          else if (len > 90) scale = 0.9;
-          else if (len > 60) scale = 0.98;
-          document.documentElement.style.setProperty("--scramble-scale", scale);
-        } else {
-          document.documentElement.style.setProperty("--scramble-scale", settings.scramble.scale);
-        }
-        updateDrawScramblePlayer();
-        requestAnimationFrame(() => updateToolDockCompaction());
-        state.scrambleLoading = false;
-        renderTools();
-        requestAnimationFrame(() => updateToolDockCompaction());
-        return;
-      }
 
       try {
         const alg = await randomScrambleForEvent(currentEvent);
@@ -9858,14 +9571,7 @@
       const statusEl = document.getElementById('compCreateStatus');
       // Collect selected events
       const selectedEvents = [...document.querySelectorAll('#newCompEventsGrid .comp-event-check.selected')]
-        .filter(lbl => lbl.dataset.ev && lbl.dataset.ev !== '__new_custom__')
-        .map(lbl => {
-          const found = [...EVENTS, ...(state.customEvents||[])].find(e => e.id === lbl.dataset.ev);
-          if (found) return found;
-          // Fallback for custom events injected dynamically in the grid
-          const ceDef = (state.customEvents||[]).find(e=>e.id===lbl.dataset.ev);
-          return { id: lbl.dataset.ev, label: lbl.textContent.trim().replace(/\s*custom\s*$/i,'').trim(), custom: true, scrambleType: ceDef?.scrambleType||null };
-        }).filter(Boolean);
+        .map(lbl => EVENTS.find(e => e.id === lbl.dataset.ev)).filter(Boolean);
       if (!name) { if(statusEl){statusEl.textContent='Name required';statusEl.style.color='var(--bad)';} return; }
       if (!selectedEvents.length) { if(statusEl){statusEl.textContent='Select at least one event';statusEl.style.color='var(--bad)';} return; }
       btn.disabled = true; btn.textContent = 'Creating…';
@@ -9890,33 +9596,7 @@
     });
 
     // ── H2H dialog wiring ─────────────────────────────────────────────────────
-    document.getElementById('cancelCustomEvBtn')?.addEventListener('click', () => {
-      document.getElementById('createCustomEvDialog')?.close();
-      _customEvCallback = null;
-    });
-    document.getElementById('createCustomEvDialog')?.addEventListener('click', e => {
-      if (e.target === document.getElementById('createCustomEvDialog')) {
-        document.getElementById('createCustomEvDialog').close();
-        _customEvCallback = null;
-      }
-    });
-    document.getElementById('confirmCustomEvBtn')?.addEventListener('click', () => {
-      const nameEl = document.getElementById('customEvNameInput');
-      const sel    = document.getElementById('customEvScrambleSelect');
-      const status = document.getElementById('customEvStatus');
-      const name   = nameEl?.value.trim();
-      if (!name) { if(status){status.textContent='Name required';status.style.color='var(--bad)';} return; }
-      const cid = 'custom_' + Date.now();
-      if (!state.customEvents) state.customEvents = [];
-      const scrambleType = sel?.value || '';
-      state.customEvents.push({ id: cid, label: name, custom: true, scrambleType: scrambleType || null });
-      saveData();
-      if (_customEvCallback) _customEvCallback(cid, name, scrambleType);
-      _customEvCallback = null;
-      document.getElementById('createCustomEvDialog')?.close();
-    });
-
-        document.getElementById('cancelH2HBtn')?.addEventListener('click', () => document.getElementById('h2hChallengeDialog')?.close());
+    document.getElementById('cancelH2HBtn')?.addEventListener('click', () => document.getElementById('h2hChallengeDialog')?.close());
     document.getElementById('h2hChallengeDialog')?.addEventListener('click', e => { if(e.target===document.getElementById('h2hChallengeDialog')) document.getElementById('h2hChallengeDialog').close(); });
 
     document.querySelectorAll('#h2hNumSolvesRow .comp-num-btn').forEach(btn => {
