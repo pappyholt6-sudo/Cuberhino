@@ -8228,17 +8228,8 @@
         .slice(0, 6);
 
       const slotCount = Math.max(visibleTools.length, 1);
-      toolSlotsEl.innerHTML = Array.from({ length: slotCount }, (_, index) => `
-        <div class="tool-slot" data-slot="slot${index + 1}"><div class="tool-slot-label">Slot ${index + 1}</div></div>
-      `).join("");
       toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, minmax(220px, 1fr))`;
-
-      const slots = Object.fromEntries(
-        Array.from({ length: slotCount }, (_, index) => {
-          const name = `slot${index + 1}`;
-          return [name, toolSlotsEl.querySelector(`[data-slot="${name}"]`)];
-        })
-      );
+      toolSlotsEl.innerHTML = "";
 
       const titles = {
         trend: "Time Trend",
@@ -8249,11 +8240,17 @@
         recent: "Recent Solves"
       };
 
-      for (const [toolId, cfg] of visibleTools) {
+      visibleTools.forEach(([toolId], index) => {
+        const col = index + 1;
+        const slotEl = document.createElement("div");
+        slotEl.className = "tool-slot";
+        slotEl.dataset.slot = `slot${col}`;
+        slotEl.style.gridColumn = String(col);
+        slotEl.innerHTML = `<div class="tool-slot-label">Slot ${col}</div>`;
+
         const card = document.createElement("div");
         card.className = "tool-card";
         card.dataset.toolId = toolId;
-
         card.innerHTML = `
           <div class="tool-header">
             <div class="tool-title">${titles[toolId] || toolId}</div>
@@ -8261,10 +8258,9 @@
           </div>
           <div class="tool-body">${toolBodyHtml(toolId)}</div>
         `;
-
-        const safeSlot = `slot${Math.min(slotNumber(cfg.slot), slotCount)}`;
-        slots[safeSlot]?.appendChild(card);
-      }
+        slotEl.appendChild(card);
+        toolSlotsEl.appendChild(slotEl);
+      });
 
       setupToolReorderInteractions(toolSlotsEl, { enableHtml5Drag: true, enableTouchDrag: false });
 
