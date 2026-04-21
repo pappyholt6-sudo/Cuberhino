@@ -3671,25 +3671,31 @@
       }
     };
 
+    function makeEmptyEventBundle() {
+      return { activeSessionId: "session-1", sessions: [{ id: "session-1", name: "Session 1", solves: [] }] };
+    }
+
+    function ensureEventBundle(eventId) {
+      if (!data.sessionsByEvent[eventId]) {
+        data.sessionsByEvent[eventId] = makeEmptyEventBundle();
+      }
+    }
+
     function defaultData() {
       const sessionsByEvent = {};
       for (const ev of EVENTS) {
-        sessionsByEvent[ev.id] = {
-          activeSessionId: "session-1",
-          sessions: [
-            { id: "session-1", name: "Session 1", solves: [] }
-          ]
-        };
+        sessionsByEvent[ev.id] = makeEmptyEventBundle();
       }
       return {
         currentEvent: "333",
         settings: structuredClone(defaultSettings),
-        sessionsByEvent
+        sessionsByEvent,
+        customEvents: {}
       };
     }
 
     let data = loadData();
-    let currentEvent = data.currentEvent in data.sessionsByEvent ? data.currentEvent : "333";
+    let currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
     let settings = data.settings;
 
     const slotMap = { left: "slot1", center: "slot2", right: "slot3" };
@@ -4030,7 +4036,8 @@
           theme: { ...base.settings.theme, ...((parsed.settings && parsed.settings.theme) || {}) },
           font: { ...base.settings.font, ...((parsed.settings && parsed.settings.font) || {}) }
         },
-        sessionsByEvent: { ...base.sessionsByEvent, ...(parsed.sessionsByEvent || {}) }
+        sessionsByEvent: { ...base.sessionsByEvent, ...(parsed.sessionsByEvent || {}) },
+        customEvents: { ...(base.customEvents || {}), ...(parsed.customEvents || {}) }
       };
 
       for (const ev of EVENTS) {
@@ -4040,6 +4047,16 @@
         const entry = merged.sessionsByEvent[ev.id];
         if (!Array.isArray(entry.sessions) || entry.sessions.length === 0) {
           entry.sessions = structuredClone(base.sessionsByEvent[ev.id].sessions);
+        }
+        if (!entry.activeSessionId || !entry.sessions.find(s => s.id === entry.activeSessionId)) {
+          entry.activeSessionId = entry.sessions[0].id;
+        }
+      }
+      // Validate any unofficial/custom bundles from saved data
+      for (const [evId, entry] of Object.entries(merged.sessionsByEvent)) {
+        if (EVENTS.find(e => e.id === evId)) continue; // already handled above
+        if (!Array.isArray(entry.sessions) || entry.sessions.length === 0) {
+          entry.sessions = [{ id: "session-1", name: "Session 1", solves: [] }];
         }
         if (!entry.activeSessionId || !entry.sessions.find(s => s.id === entry.activeSessionId)) {
           entry.activeSessionId = entry.sessions[0].id;
@@ -4087,7 +4104,7 @@
         const snap = await getDoc(doc(db, "timerUsers", state.currentUser.uid));
         if (snap.exists()) {
           data = mergeData(snap.data().data || {});
-          currentEvent = data.currentEvent in data.sessionsByEvent ? data.currentEvent : "333";
+          currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
           settings = data.settings;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeData()));
           renderAll();
@@ -4268,16 +4285,20 @@
         const profilesSnap = await getDocs(collection(db, "profiles"));
         const profiles = profilesSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
 
-        // Build a uid→ao5s map from club member docs, which are the most reliably kept
-        // up to date (renderLeaderboard writes fresh ao5s there on every club lb open).
-        const memberAo5Map = {};
+        // Build a uid→stats map from club member docs (most reliably up to date).
+        const memberStatsMap = {};
         try {
           const allMembersSnap = await getDocs(collectionGroup(db, 'members'));
           allMembersSnap.docs.forEach(d => {
-            const { uid, ao5s } = d.data();
-            if (uid && ao5s && Object.keys(ao5s).length > 0) {
-              memberAo5Map[uid] = { ...(memberAo5Map[uid] || {}), ...ao5s };
-            }
+            const { uid, pbs, ao5s, ao12s, ao100s } = d.data();
+            if (!uid) return;
+            const existing = memberStatsMap[uid] || {};
+            memberStatsMap[uid] = {
+              pbs:    (pbs    && Object.keys(pbs).length)    ? pbs    : existing.pbs,
+              ao5s:   (ao5s   && Object.keys(ao5s).length)   ? ao5s   : existing.ao5s,
+              ao12s:  (ao12s  && Object.keys(ao12s).length)  ? ao12s  : existing.ao12s,
+              ao100s: (ao100s && Object.keys(ao100s).length) ? ao100s : existing.ao100s,
+            };
           });
         } catch {}
 
@@ -4292,8 +4313,14 @@
           if (p.uid === state.currentUser?.uid) {
             return { ...p, pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, ao100s: freshAo100s, league: state.leagueId || 'rookie' };
           }
-          const ao5s = (p.ao5s && Object.keys(p.ao5s).length > 0) ? p.ao5s : (memberAo5Map[p.uid] || p.ao5s);
-          return { ...p, ao5s };
+          const m = memberStatsMap[p.uid] || {};
+          return {
+            ...p,
+            pbs:    (p.pbs    && Object.keys(p.pbs).length)    ? p.pbs    : (m.pbs    || p.pbs),
+            ao5s:   (p.ao5s   && Object.keys(p.ao5s).length)   ? p.ao5s   : (m.ao5s   || p.ao5s),
+            ao12s:  (p.ao12s  && Object.keys(p.ao12s).length)  ? p.ao12s  : (m.ao12s  || p.ao12s),
+            ao100s: (p.ao100s && Object.keys(p.ao100s).length) ? p.ao100s : (m.ao100s || p.ao100s),
+          };
         });
 
         globalLbProfiles = withPbs;
@@ -5197,32 +5224,30 @@
     // -1 = DNF, -2 = DNS (did not start / unentered). Both count as worst for scoring.
     const DNS_VAL = -2;
 
+    // DNF (-1) and DNS (-2) are both treated as the slowest solve for trimming/averaging.
+    // They are placed at the end of the sorted list. If any remain in the middle after
+    // trimming fastest+slowest, the average is DNF.
+    const isBad = t => t != null && t < 0;
+
     function compScore(times) {
       if (!times?.length) return null;
       const filled = times.filter(t => t != null);
       if (!filled.length) return null;
-      // Count bad results (DNF or DNS)
-      const badCount = filled.filter(t => t < 0).length;
-      const valid = filled.filter(t => t > 0);
-      const n = filled.length; // use filled count, not array length (ignore trailing nulls)
-      if (!valid.length) return null;
-      if (n === 1) return valid[0];
-      if (n >= 5) {
-        // Ao5: 2+ bad = DNF
-        if (badCount >= 2) return null;
-        const sorted = [...valid].sort((a,b) => a-b);
-        if (badCount === 1) {
-          // 1 bad counts as worst — trim best, average remaining n-2
-          const trimmed = sorted.slice(1);
-          return trimmed.reduce((a,b) => a+b, 0) / trimmed.length;
-        }
-        // 0 bad: trim best and worst, average middle n-2
-        const trimmed = sorted.slice(1, -1);
-        return trimmed.reduce((a,b) => a+b, 0) / trimmed.length;
+      const n = filled.length;
+      if (n === 1) return isBad(filled[0]) ? null : filled[0];
+      if (n < 5) {
+        if (filled.some(isBad)) return null;
+        return filled.reduce((a,b) => a+b, 0) / n;
       }
-      // Mean of < 5: any bad = DNF
-      if (badCount > 0) return null;
-      return valid.reduce((a,b) => a+b, 0) / valid.length;
+      // Ao5+: sort valid ascending, bad (DNF/DNS) at end as slowest
+      const sorted = [
+        ...filled.filter(t => !isBad(t)).sort((a,b) => a-b),
+        ...filled.filter(isBad)
+      ];
+      // Trim fastest and slowest, average the middle n-2
+      const middle = sorted.slice(1, -1);
+      if (middle.some(isBad)) return null; // bad solve in middle → DNF average
+      return middle.reduce((a,b) => a+b, 0) / middle.length;
     }
 
     function formatCompTime(t) {
@@ -5235,11 +5260,22 @@
       if (!times?.length) return '—';
       const filled = times.filter(t => t != null);
       if (!filled.length) return '—';
-      const badCount = filled.filter(t => t < 0).length;
-      const valid = filled.filter(t => t > 0);
-      if (!valid.length || (filled.length >= 5 && badCount >= 2)) return 'DNF';
       const score = compScore(times);
-      return score != null ? formatMs(Math.round(score)) : 'DNF';
+      return score != null ? formatMs(Math.round(score)) : (filled.some(t => t > 0) ? 'DNF' : '—');
+    }
+
+    // Best valid single from a times array
+    function compBestSingle(times) {
+      if (!times?.length) return null;
+      const valid = times.filter(t => t != null && t > 0);
+      return valid.length ? Math.min(...valid) : null;
+    }
+
+    // Rank entries: valid averages first (asc), then DNF averages (asc by best single)
+    function rankEntries(withScores) {
+      const valid  = withScores.filter(e => e.score != null).sort((a,b) => a.score - b.score);
+      const dnfAvg = withScores.filter(e => e.score == null && e.best != null).sort((a,b) => a.best - b.best);
+      return [...valid, ...dnfAvg];
     }
 
     // Multi-event: compute combined score across all events (sum of per-event scores)
@@ -5404,9 +5440,10 @@
         : [{ id: comp.event||'333', label: EVENTS.find(e=>e.id===comp.event)?.label||comp.event||'3x3x3', scrambles: comp.scrambles||[] }];
       const isMulti = compEvents.length > 1;
       const eventIds = compEvents.map(e=>e.id);
-      const scored = entries
-        .map(e=>({...e, score: isMulti ? multiEventScore(e, eventIds) : compScore(e.times||[])}))
-        .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
+      const scored = rankEntries(entries.map(e => {
+        const allTimes = isMulti ? Object.values(e.timesByEvent||{}).flat() : (e.times||[]);
+        return {...e, score: isMulti ? multiEventScore(e, eventIds) : compScore(e.times||[]), best: compBestSingle(allTimes)};
+      }));
       const medals = ['🥇','🥈','🥉'];
       // Check if current user earned a placement achievement on this closed comp
       if (!isOpen && state.currentUser && scored.length >= 1) {
@@ -5486,13 +5523,11 @@
 
       if (isMulti) {
         // Ensure view state is valid
-        const validEvIds = ['combined', ...eventIds];
-        if (!validEvIds.includes(compDetailLbEventId)) compDetailLbEventId = validEvIds[0];
+        if (!eventIds.includes(compDetailLbEventId)) compDetailLbEventId = eventIds[0];
 
         lbControlsHtml = `
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
             <select id="compLbEventSel" style="font-size:12px;padding:4px 7px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);">
-              <option value="combined"${compDetailLbEventId==='combined'?' selected':''}>Combined</option>
               ${compEvents.map(ev=>`<option value="${ev.id}"${ev.id===compDetailLbEventId?' selected':''}>${escapeHtml(ev.label)}</option>`).join('')}
             </select>
             <div style="display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;">
@@ -5501,27 +5536,15 @@
             </div>
           </div>`;
 
-        if (compDetailLbEventId !== 'combined') {
-          // Rank by selected event's single or avg
-          lbEntries = entries.map(e => {
-            const times = (e.timesByEvent?.[compDetailLbEventId] || []).filter(t => t != null && t > 0);
-            const score = compDetailLbMode === 'single'
-              ? (times.length ? Math.min(...times) : null)
-              : compScore(times);
-            return {...e, score};
-          }).filter(e => e.score != null).sort((a,b) => a.score - b.score);
-        } else if (compDetailLbMode === 'single') {
-          // Combined best-single sum
-          lbEntries = entries.map(e => {
-            let total = 0;
-            for (const evId of eventIds) {
-              const times = (e.timesByEvent?.[evId] || []).filter(t => t != null && t > 0);
-              if (!times.length) return {...e, score: null};
-              total += Math.min(...times);
-            }
-            return {...e, score: total};
-          }).filter(e => e.score != null).sort((a,b) => a.score - b.score);
-        }
+        // Rank by selected event's single or avg
+        lbEntries = rankEntries(entries.map(e => {
+          const times = (e.timesByEvent?.[compDetailLbEventId] || []).filter(t => t != null);
+          const score = compDetailLbMode === 'single'
+            ? compBestSingle(times)
+            : compScore(times);
+          return {...e, score, best: compBestSingle(times)};
+        }));
+        if (compDetailLbMode === 'single') lbEntries = lbEntries.filter(e => e.score != null);
       }
 
       const lbHtml = lbEntries.length ? `
@@ -5529,16 +5552,9 @@
           ${lbEntries.map((e,i)=>{
             let scoreDisplay, timesDisplay;
             if (isMulti) {
-              scoreDisplay = formatMs(Math.round(e.score));
-              if (compDetailLbEventId !== 'combined') {
-                const times = (e.timesByEvent?.[compDetailLbEventId]||[]).filter(t=>t!=null);
-                timesDisplay = times.map(formatCompTime).join(' · ');
-              } else {
-                timesDisplay = compEvents.map(ev => {
-                  const evTimes = (e.timesByEvent?.[ev.id]||[]).filter(t=>t!=null);
-                  return evTimes.length ? `${ev.label.split(' ')[0]}: ${compScoreLabel(evTimes)}` : `${ev.label}: —`;
-                }).join(' · ');
-              }
+              scoreDisplay = e.score != null ? formatMs(Math.round(e.score)) : 'DNF';
+              const times = (e.timesByEvent?.[compDetailLbEventId]||[]).filter(t=>t!=null);
+              timesDisplay = times.map(formatCompTime).join(' · ');
             } else {
               scoreDisplay = compScoreLabel(e.times);
               timesDisplay = (e.times||[]).filter(t=>t!=null).map(formatCompTime).join(' · ');
@@ -7127,7 +7143,10 @@
     }
 
     function eventConfig() {
-      return EVENTS.find(e => e.id === currentEvent) || EVENTS[1];
+      if (currentEvent && data.customEvents?.[currentEvent]) {
+        return { id: currentEvent, label: data.customEvents[currentEvent], puzzle: null };
+      }
+      return ALL_COMP_EVENTS.find(e => e.id === currentEvent) || EVENTS[1];
     }
 
     function currentEventBundle() {
@@ -7414,10 +7433,17 @@
     }
 
     function buildEventDropdown() {
-      eventSelectEl.innerHTML = EVENTS.map(ev =>
-        `<option value="${ev.id}">${ev.label}</option>`
-      ).join("");
-      eventSelectEl.value = currentEvent;
+      const customEvs = Object.entries(data.customEvents || {});
+      eventSelectEl.innerHTML =
+        `<optgroup label="WCA">` +
+        EVENTS.map(ev => `<option value="${ev.id}">${ev.label}</option>`).join('') +
+        `</optgroup>` +
+        `<optgroup label="Unofficial">` +
+        UNOFFICIAL_EVENTS.map(ev => `<option value="${ev.id}">${ev.label}</option>`).join('') +
+        `</optgroup>` +
+        (customEvs.length ? `<optgroup label="Custom">${customEvs.map(([id, label]) => `<option value="${id}">${escapeHtml(label)}</option>`).join('')}</optgroup>` : '') +
+        `<option value="__add_custom__">＋ Add custom event…</option>`;
+      eventSelectEl.value = currentEvent in data.sessionsByEvent ? currentEvent : "333";
     }
 
     function buildSessionDropdown() {
@@ -8247,7 +8273,7 @@
         return `<div class="scrgen-body">
           <div class="scrgen-top">
             <select class="scrgen-event" id="scrgenEvent">
-              ${EVENTS.map(e => `<option value="${e.id}"${e.id===sgEvent?' selected':''}>${e.label}</option>`).join('')}
+              ${ALL_COMP_EVENTS.map(e => `<option value="${e.id}"${e.id===sgEvent?' selected':''}>${e.label}</option>`).join('')}
             </select>
             <div class="scrgen-btns">
               <button class="scrgen-btn" id="scrgenNewBtn">New</button>
@@ -9702,6 +9728,16 @@
       state.scrambleLoading = true;
       scrambleEl.textContent = "Generating scramble...";
 
+      // Custom events have no scramble
+      if (currentEvent.startsWith("custom_")) {
+        state.currentScramble = "";
+        scrambleEl.textContent = "No scramble — custom event";
+        state.scrambleLoading = false;
+        updateDrawScramblePlayer();
+        renderTools();
+        return;
+      }
+
       try {
         const alg = await randomScrambleForEvent(currentEvent);
         state.currentScramble = alg.toString();
@@ -9721,6 +9757,19 @@
         updateDrawScramblePlayer();
         requestAnimationFrame(() => updateToolDockCompaction());
       } catch {
+        // For unofficial events, try the puzzle name directly
+        const puzzle = UNOFFICIAL_EVENTS.find(e => e.id === currentEvent)?.puzzle;
+        if (puzzle && puzzle !== currentEvent) {
+          try {
+            const alg = await randomScrambleForEvent(puzzle);
+            state.currentScramble = alg.toString();
+            scrambleEl.textContent = state.currentScramble;
+            updateDrawScramblePlayer();
+            state.scrambleLoading = false;
+            renderTools();
+            return;
+          } catch {}
+        }
         state.currentScramble = fallbackScrambleForEvent(currentEvent);
         scrambleEl.textContent = state.currentScramble;
         updateDrawScramblePlayer();
@@ -10250,8 +10299,29 @@
     }
 
     eventSelectEl.addEventListener("change", async () => {
-      currentEvent = eventSelectEl.value;
+      const val = eventSelectEl.value;
+      if (val === "__add_custom__") {
+        // Restore previous selection while prompting
+        eventSelectEl.value = currentEvent;
+        const label = prompt("Custom event name:")?.trim();
+        if (!label) return;
+        const id = "custom_" + Math.random().toString(36).substr(2, 7);
+        if (!data.customEvents) data.customEvents = {};
+        data.customEvents[id] = label;
+        data.sessionsByEvent[id] = makeEmptyEventBundle();
+        currentEvent = id;
+        await saveData();
+        buildEventDropdown();
+        eventSelectEl.value = id;
+        renderAll();
+        resetToIdle(true);
+        await generateScramble();
+        return;
+      }
+      currentEvent = val;
+      ensureEventBundle(currentEvent);
       await saveData();
+      buildEventDropdown();
       renderAll();
       resetToIdle(true);
       await generateScramble();
@@ -10615,7 +10685,7 @@
         if (!parsed.sessionsByEvent) throw new Error("This doesn't look like a Cuberhino JSON backup (missing sessionsByEvent).");
         if (!confirm("This will replace ALL your local solves and settings with the backup. Are you sure?")) return;
         data = mergeData(parsed);
-        currentEvent = data.currentEvent in data.sessionsByEvent ? data.currentEvent : "333";
+        currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
         settings = data.settings;
         await saveData();
         syncSettingsUI();
