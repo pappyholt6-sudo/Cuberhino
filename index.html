@@ -2231,10 +2231,11 @@
     .comp-detail-meta{ font-size:13px; color:var(--muted); margin-top:4px; }
     /* ── Scramble Generator tool ── */
     .scrgen-body{ display:flex; flex-direction:column; gap:6px; }
-    .scrgen-top{ display:flex; align-items:center; gap:5px; }
-    .scrgen-event{ flex:1 1 0; width:0; min-width:0; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
+    .scrgen-top{ display:flex; flex-direction:column; gap:4px; }
+    .scrgen-event{ width:100%; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
+    .scrgen-controls{ display:flex; align-items:center; gap:5px; }
     .scrgen-count{ width:38px; font-size:11px; padding:3px 4px; text-align:center; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
-    .scrgen-btn{ font-size:11px; padding:3px 8px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); cursor:pointer; white-space:nowrap; }
+    .scrgen-btn{ flex:1; font-size:11px; padding:3px 8px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); cursor:pointer; white-space:nowrap; text-align:center; }
     .scrgen-btn:hover{ background:var(--line); }
     .scrgen-list{ flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
     .scrgen-list.loading{ pointer-events:none; opacity:.6; }
@@ -8304,8 +8305,10 @@
             <select class="scrgen-event" id="scrgenEvent">
               ${ALL_COMP_EVENTS.map(e => `<option value="${e.id}"${e.id===sgEvent?' selected':''}>${e.label}</option>`).join('')}
             </select>
-            <input class="scrgen-count" type="number" id="scrgenCount" min="1" max="20" value="${count}" title="Number of scrambles">
-            <button class="scrgen-btn" id="scrgenNewBtn">New</button>
+            <div class="scrgen-controls">
+              <input class="scrgen-count" type="number" id="scrgenCount" min="1" max="20" value="${count}" title="Number of scrambles">
+              <button class="scrgen-btn" id="scrgenNewBtn">New</button>
+            </div>
           </div>
           <div class="scrgen-list${state.scrambleGenLoading?' loading':''}" id="scrgenList">${listHtml}</div>
           ${count === 1 && scrambles[0] ? `<div class="scrgen-viz" id="scrgenViz"></div>` : ''}
