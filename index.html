@@ -632,7 +632,7 @@
 
     .tool-slots{
       display:grid;
-      grid-template-columns:repeat(6, 240px);
+      grid-template-columns:repeat(6, minmax(220px,1fr));
       gap:10px;
       align-items:stretch;
       min-height:155px;
@@ -2231,7 +2231,7 @@
     .comp-detail-meta{ font-size:13px; color:var(--muted); margin-top:4px; }
     /* ── Scramble Generator tool ── */
     .scrgen-body{ display:flex; flex-direction:column; gap:6px; }
-    .scrgen-top{ display:flex; align-items:center; gap:5px; }
+    .scrgen-top{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
     .scrgen-event{ flex:1; min-width:0; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
     .scrgen-count{ width:38px; font-size:11px; padding:3px 4px; text-align:center; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
     .scrgen-btn{ font-size:11px; padding:3px 8px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); cursor:pointer; white-space:nowrap; }
