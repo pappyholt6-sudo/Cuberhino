@@ -7363,17 +7363,15 @@
 
     function updateToolDockCompaction() {
       if (!toolDockEl || !toolSlotsEl || !scrambleWrapEl) return;
-      const scrambleHeight = Math.ceil(scrambleWrapEl.getBoundingClientRect().height || 0);
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
       const mainRect = document.querySelector('.main')?.getBoundingClientRect();
       const toolDockRect = toolDockEl.getBoundingClientRect();
       const availableHeight = mainRect ? Math.max(0, mainRect.bottom - toolDockRect.top - 10) : 0;
       const defaultSlotHeight = 155;
       const minSlotHeight = 104;
-      const extraPush = Math.max(0, scrambleHeight - 72);
       const needsCompaction = availableHeight > 0 && availableHeight < defaultSlotHeight + 22;
       const viewportPenalty = viewportHeight > 0 && viewportHeight < 760 ? Math.round((760 - viewportHeight) * 0.06) : 0;
-      const compactBy = Math.min(extraPush + (needsCompaction ? Math.max(0, defaultSlotHeight - availableHeight + 12) : 0) + viewportPenalty, defaultSlotHeight - minSlotHeight);
+      const compactBy = Math.min((needsCompaction ? Math.max(0, defaultSlotHeight - availableHeight + 12) : 0) + viewportPenalty, defaultSlotHeight - minSlotHeight);
       const slotHeight = Math.max(minSlotHeight, defaultSlotHeight - compactBy);
       const cardHeight = Math.max(96, slotHeight - 7);
 
