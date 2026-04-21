@@ -667,6 +667,7 @@
     .tool-card{
       height:100%;
       min-height:148px;
+      max-height:220px;
       border:1px solid var(--line);
       border-radius:12px;
       background:var(--panel);
@@ -2229,16 +2230,21 @@
     .comp-detail-title{ font-size:18px; font-weight:700; }
     .comp-detail-meta{ font-size:13px; color:var(--muted); margin-top:4px; }
     /* ── Scramble Generator tool ── */
-    .scrgen-body{ display:flex; flex-direction:column; gap:6px; height:100%; }
-    .scrgen-top{ display:flex; align-items:center; gap:6px; }
-    .scrgen-event{ flex:1; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
-    .scrgen-btns{ display:flex; gap:4px; }
+    .scrgen-body{ display:flex; flex-direction:column; gap:6px; }
+    .scrgen-top{ display:flex; align-items:center; gap:5px; }
+    .scrgen-event{ flex:1; min-width:0; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
+    .scrgen-count{ width:38px; font-size:11px; padding:3px 4px; text-align:center; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
     .scrgen-btn{ font-size:11px; padding:3px 8px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); cursor:pointer; white-space:nowrap; }
     .scrgen-btn:hover{ background:var(--line); }
-    .scrgen-scramble{ font-family:monospace; font-size:12px; line-height:1.5; color:var(--text); word-break:break-all; min-height:32px; flex-shrink:0; }
-    .scrgen-scramble.loading{ color:var(--muted); font-style:italic; }
-    .scrgen-viz{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-    .scrgen-move-count{ font-size:10px; color:var(--muted); text-align:right; }
+    .scrgen-list{ flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+    .scrgen-list.loading{ pointer-events:none; opacity:.6; }
+    .scrgen-empty{ font-size:12px; color:var(--muted); font-style:italic; }
+    .scrgen-row{ display:flex; align-items:flex-start; gap:5px; }
+    .scrgen-row-num{ font-size:10px; color:var(--muted); min-width:14px; padding-top:2px; flex-shrink:0; }
+    .scrgen-row-text{ flex:1; font-family:monospace; font-size:11px; line-height:1.5; word-break:break-all; }
+    .scrgen-row-copy{ flex-shrink:0; font-size:10px; padding:1px 5px; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--muted); cursor:pointer; white-space:nowrap; }
+    .scrgen-row-copy:hover{ color:var(--text); background:var(--line); }
+    .scrgen-viz{ flex:0 0 72px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
     .comp-scramble-list{ display:flex; flex-direction:column; gap:6px; }
     .comp-scramble-item{ background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px; font-family:monospace; line-height:1.5; word-break:break-all; }
     .comp-scramble-num{ font-size:11px; color:var(--muted); margin-bottom:2px; text-transform:uppercase; letter-spacing:.05em; }
@@ -3168,7 +3174,7 @@
             <label class="small-btn" for="importJsonFile" style="display:inline-flex; align-items:center; cursor:pointer;">⬆ Import JSON backup</label>
             <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none;" />
           </div>
-          <div style="color:var(--muted);font-size:12px;margin-top:8px;">CSV is compatible with csTimer. JSON backup saves and restores all solves, sessions, and settings.</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:8px;">CSV imports a single session from csTimer. JSON backup saves/restores all Cuberhino data — or import a csTimer JSON backup directly.</div>
         </fieldset>
       </div>
 
@@ -3755,7 +3761,8 @@
       leagueId: "rookie",
       leaguePoints: 0,
       scrambleGenEvent: null,
-      scrambleGenScramble: "",
+      scrambleGenScrambles: [],
+      scrambleGenCount: 1,
       scrambleGenLoading: false
     };
 
@@ -7878,18 +7885,18 @@
           await togglePlus2(solve.id);
         });
 
-        const del = document.createElement("button");
-        del.className = "delete-btn";
-        del.textContent = "Delete";
-        del.addEventListener("click", async (e) => {
+        const dnf = document.createElement("button");
+        dnf.className = "pill-btn" + (solve.penalty === "DNF" ? " active" : "");
+        dnf.textContent = "DNF";
+        dnf.addEventListener("click", async (e) => {
           e.stopPropagation();
-          await deleteSolve(solve.id);
+          await toggleDNF(solve.id);
         });
 
         row.appendChild(left);
         row.appendChild(aoCol);
         row.appendChild(plus2);
-        row.appendChild(del);
+        row.appendChild(dnf);
         solveListEl.appendChild(row);
       });
 
@@ -8278,21 +8285,28 @@
       }
       if (toolId === "scrambleGen") {
         const sgEvent = state.scrambleGenEvent || currentEvent;
-        const scrambleText = state.scrambleGenScramble || "";
-        const moveCount = scrambleText ? scrambleText.trim().split(/\s+/).filter(Boolean).length : 0;
+        const scrambles = state.scrambleGenScrambles || [];
+        const count = state.scrambleGenCount || 1;
+        const listHtml = state.scrambleGenLoading
+          ? `<div class="scrgen-empty">Generating…</div>`
+          : scrambles.length
+            ? scrambles.map((s, i) => `
+                <div class="scrgen-row">
+                  <span class="scrgen-row-num">${i + 1}.</span>
+                  <span class="scrgen-row-text">${escapeHtml(s)}</span>
+                  <button class="scrgen-row-copy" data-idx="${i}">Copy</button>
+                </div>`).join('')
+            : `<div class="scrgen-empty">Press New to generate</div>`;
         return `<div class="scrgen-body">
           <div class="scrgen-top">
             <select class="scrgen-event" id="scrgenEvent">
               ${ALL_COMP_EVENTS.map(e => `<option value="${e.id}"${e.id===sgEvent?' selected':''}>${e.label}</option>`).join('')}
             </select>
-            <div class="scrgen-btns">
-              <button class="scrgen-btn" id="scrgenNewBtn">New</button>
-              <button class="scrgen-btn" id="scrgenCopyBtn">Copy</button>
-            </div>
+            <input class="scrgen-count" type="number" id="scrgenCount" min="1" max="20" value="${count}" title="Number of scrambles">
+            <button class="scrgen-btn" id="scrgenNewBtn">New</button>
           </div>
-          <div class="scrgen-scramble${state.scrambleGenLoading?' loading':''}" id="scrgenScramble">${state.scrambleGenLoading ? 'Generating…' : (scrambleText || 'Press New to generate')}</div>
-          ${scrambleText ? `<div class="scrgen-move-count">${moveCount} moves</div>` : ''}
-          <div class="scrgen-viz" id="scrgenViz"></div>
+          <div class="scrgen-list${state.scrambleGenLoading?' loading':''}" id="scrgenList">${listHtml}</div>
+          ${count === 1 && scrambles[0] ? `<div class="scrgen-viz" id="scrgenViz"></div>` : ''}
         </div>`;
       }
       if (toolId === "bluetooth") {
@@ -8709,34 +8723,38 @@
 
     async function generateScrambleGen(eventId) {
       if (state.scrambleGenLoading) return;
+      const n = Math.max(1, Math.min(20, parseInt(document.getElementById('scrgenCount')?.value) || state.scrambleGenCount || 1));
       state.scrambleGenEvent = eventId;
+      state.scrambleGenCount = n;
       state.scrambleGenLoading = true;
       renderTools();
       try {
-        const alg = await randomScrambleForEvent(eventId);
-        state.scrambleGenScramble = alg.toString();
-      } catch {
-        state.scrambleGenScramble = fallbackScrambleForEvent(eventId);
+        const results = await Promise.all(Array.from({ length: n }, async () => {
+          try { return (await randomScrambleForEvent(eventId)).toString(); }
+          catch { return fallbackScrambleForEvent(eventId); }
+        }));
+        state.scrambleGenScrambles = results;
       } finally {
         state.scrambleGenLoading = false;
         renderTools();
-        // update viz
-        const viz = document.getElementById('scrgenViz');
-        if (viz) {
-          const puzzle = EVENTS.find(e => e.id === eventId)?.puzzle || '3x3x3';
-          let player = viz.querySelector('twisty-player');
-          if (!player) {
-            player = document.createElement('twisty-player');
-            player.setAttribute('background', 'none');
-            player.setAttribute('control-panel', 'none');
-            player.setAttribute('back-view', 'none');
-            player.setAttribute('viewer-link', 'none');
-            player.setAttribute('experimental-drag-input', 'none');
-            player.style.cssText = 'width:100%;height:100%;min-height:80px;display:block;';
-            viz.appendChild(player);
+        if (n === 1) {
+          const viz = document.getElementById('scrgenViz');
+          if (viz) {
+            const puzzle = ALL_COMP_EVENTS.find(e => e.id === eventId)?.puzzle || '3x3x3';
+            let player = viz.querySelector('twisty-player');
+            if (!player) {
+              player = document.createElement('twisty-player');
+              player.setAttribute('background', 'none');
+              player.setAttribute('control-panel', 'none');
+              player.setAttribute('back-view', 'none');
+              player.setAttribute('viewer-link', 'none');
+              player.setAttribute('experimental-drag-input', 'none');
+              player.style.cssText = 'width:100%;height:72px;display:block;';
+              viz.appendChild(player);
+            }
+            player.setAttribute('puzzle', puzzle);
+            player.setAttribute('alg', state.scrambleGenScrambles[0] || '');
           }
-          player.setAttribute('puzzle', puzzle);
-          player.setAttribute('alg', state.scrambleGenScramble);
         }
       }
     }
@@ -8745,43 +8763,38 @@
       updateDrawScramblePlayer();
       // Scramble Generator
       const scrgenEventEl = document.getElementById('scrgenEvent');
-      const scrgenNewBtn = document.getElementById('scrgenNewBtn');
-      const scrgenCopyBtn = document.getElementById('scrgenCopyBtn');
-      if (scrgenEventEl) {
-        scrgenEventEl.addEventListener('change', () => generateScrambleGen(scrgenEventEl.value));
+      const scrgenCountEl = document.getElementById('scrgenCount');
+      const scrgenNewBtn  = document.getElementById('scrgenNewBtn');
+      if (scrgenEventEl) scrgenEventEl.addEventListener('change', () => generateScrambleGen(scrgenEventEl.value));
+      if (scrgenCountEl) scrgenCountEl.addEventListener('change', () => { state.scrambleGenCount = Math.max(1, Math.min(20, parseInt(scrgenCountEl.value) || 1)); });
+      if (scrgenNewBtn) scrgenNewBtn.addEventListener('click', () => generateScrambleGen(document.getElementById('scrgenEvent')?.value || state.scrambleGenEvent || currentEvent));
+      // Per-row copy buttons
+      document.getElementById('scrgenList')?.addEventListener('click', async e => {
+        const btn = e.target.closest('.scrgen-row-copy');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.idx);
+        const scr = state.scrambleGenScrambles?.[idx];
+        if (scr) try { await navigator.clipboard.writeText(scr); } catch {}
+      });
+      // Auto-generate if no scrambles yet
+      if (scrgenNewBtn && !state.scrambleGenScrambles?.length && !state.scrambleGenLoading) {
+        generateScrambleGen(scrgenEventEl?.value || currentEvent);
       }
-      if (scrgenNewBtn) {
-        scrgenNewBtn.addEventListener('click', () => {
-          const evId = document.getElementById('scrgenEvent')?.value || state.scrambleGenEvent || currentEvent;
-          generateScrambleGen(evId);
-        });
-      }
-      if (scrgenCopyBtn) {
-        scrgenCopyBtn.addEventListener('click', async () => {
-          if (!state.scrambleGenScramble) return;
-          try { await navigator.clipboard.writeText(state.scrambleGenScramble); } catch {}
-        });
-      }
-      // Auto-generate if no scramble yet
-      if (scrgenNewBtn && !state.scrambleGenScramble && !state.scrambleGenLoading) {
-        const evId = document.getElementById('scrgenEvent')?.value || currentEvent;
-        generateScrambleGen(evId);
-      }
-      // Restore viz if scramble already exists
-      if (state.scrambleGenScramble) {
+      // Restore viz if single scramble already exists
+      if ((state.scrambleGenCount || 1) === 1 && state.scrambleGenScrambles?.[0]) {
         const viz = document.getElementById('scrgenViz');
         if (viz && !viz.querySelector('twisty-player')) {
           const evId = state.scrambleGenEvent || currentEvent;
-          const puzzle = EVENTS.find(e => e.id === evId)?.puzzle || '3x3x3';
+          const puzzle = ALL_COMP_EVENTS.find(e => e.id === evId)?.puzzle || '3x3x3';
           const player = document.createElement('twisty-player');
           player.setAttribute('background', 'none');
           player.setAttribute('control-panel', 'none');
           player.setAttribute('back-view', 'none');
           player.setAttribute('viewer-link', 'none');
           player.setAttribute('experimental-drag-input', 'none');
-          player.style.cssText = 'width:100%;height:100%;min-height:80px;display:block;';
+          player.style.cssText = 'width:100%;height:72px;display:block;';
           player.setAttribute('puzzle', puzzle);
-          player.setAttribute('alg', state.scrambleGenScramble);
+          player.setAttribute('alg', state.scrambleGenScrambles[0]);
           viz.appendChild(player);
         }
       }
@@ -10197,6 +10210,64 @@
       };
     }
 
+    const CSTIMER_SCRTYPE_MAP = {
+      '333':'333','222':'222','444':'444','555':'555','666':'666','777':'777',
+      '333oh':'333oh','minx':'minx','pyram':'pyram','skewb':'skewb','sq1':'sq1',
+      '444bf':'444bf','555bf':'555bf','333bf':'333bf','333fm':'333fm','clock':'clock',
+      '333ft':'333','fto':'fto','redi_cube':'redi_cube','kilominx':'kilominx',
+      'gigaminx':'gigaminx','8x8x8':'8x8x8','9x9x9':'9x9x9','10x10x10':'10x10x10'
+    };
+
+    function isCstimerBackup(parsed) {
+      return typeof parsed === 'object' && parsed !== null &&
+        !parsed.sessionsByEvent &&
+        Object.keys(parsed).some(k => /^session\d+$/.test(k));
+    }
+
+    function importCstimerBackup(parsed) {
+      const sessionKeys = Object.keys(parsed).filter(k => /^session\d+$/.test(k))
+        .sort((a, b) => parseInt(a.slice(7)) - parseInt(b.slice(7)));
+      let total = 0;
+      for (const key of sessionKeys) {
+        const csSession = parsed[key];
+        if (!csSession || !Array.isArray(csSession.result)) continue;
+        const scrType = csSession.opt?.scrType || '333';
+        const eventId = CSTIMER_SCRTYPE_MAP[scrType] || '333';
+        const sessionName = csSession.name || key;
+        ensureEventBundle(eventId);
+        const newSession = { id: crypto.randomUUID(), name: sessionName, solves: [] };
+        for (const entry of csSession.result) {
+          if (!Array.isArray(entry) || entry.length < 1) continue;
+          const rawTime = entry[0];
+          let baseTimeMs = 0, penalty = '';
+          if (rawTime < 0) {
+            penalty = 'DNF'; baseTimeMs = 0;
+          } else {
+            baseTimeMs = rawTime;
+            const pen = entry[1];
+            if (Array.isArray(pen)) {
+              if ((pen[1] || '') === '+2') { penalty = '+2'; baseTimeMs = Math.max(0, rawTime - 2000); }
+              else if (pen[0] === 1) { penalty = 'DNF'; baseTimeMs = 0; }
+            } else if (typeof pen === 'number') {
+              if (pen === 2000) { penalty = '+2'; baseTimeMs = rawTime - 2000; }
+              else if (pen < 0) { penalty = 'DNF'; baseTimeMs = 0; }
+            }
+          }
+          const scramble = typeof entry[2] === 'string' ? entry[2] : '';
+          const comment  = typeof entry[3] === 'string' ? entry[3] : '';
+          const tsRaw    = typeof entry[4] === 'number' ? entry[4] : 0;
+          const tsMs     = tsRaw > 1e10 ? tsRaw : tsRaw * 1000;
+          newSession.solves.push({
+            id: crypto.randomUUID(), baseTimeMs, penalty, scramble,
+            note: comment, createdAt: tsMs > 0 ? new Date(tsMs).toISOString() : new Date().toISOString()
+          });
+          total++;
+        }
+        data.sessionsByEvent[eventId].sessions.push(newSession);
+      }
+      return total;
+    }
+
     function importCSVIntoSession(text, eventId, sessionId) {
       // Strip UTF-8 BOM if present
       const cleaned = text.replace(/^\uFEFF/, "");
@@ -10692,18 +10763,29 @@
       try {
         const text   = await file.text();
         const parsed = JSON.parse(text);
-        if (!parsed.sessionsByEvent) throw new Error("This doesn't look like a Cuberhino JSON backup (missing sessionsByEvent).");
-        if (!confirm("This will replace ALL your local solves and settings with the backup. Are you sure?")) return;
-        data = mergeData(parsed);
-        currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
-        settings = data.settings;
-        await saveData();
-        syncSettingsUI();
-        applyTheme();
-        renderAll();
-        resetToIdle(true);
-        await generateScramble();
-        alert("Backup restored successfully.");
+        if (isCstimerBackup(parsed)) {
+          // csTimer JSON backup — import sessions additively
+          const count = importCstimerBackup(parsed);
+          if (count === 0) { alert("No solves found in this csTimer backup."); return; }
+          await saveData();
+          renderAll();
+          resetToIdle(true);
+          await generateScramble();
+          alert(`Imported ${count} solve${count !== 1 ? 's' : ''} from csTimer.`);
+        } else {
+          if (!parsed.sessionsByEvent) throw new Error("This doesn't look like a Cuberhino or csTimer backup file.");
+          if (!confirm("This will replace ALL your local solves and settings with the backup. Are you sure?")) return;
+          data = mergeData(parsed);
+          currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
+          settings = data.settings;
+          await saveData();
+          syncSettingsUI();
+          applyTheme();
+          renderAll();
+          resetToIdle(true);
+          await generateScramble();
+          alert("Backup restored successfully.");
+        }
       } catch(err) {
         alert("Import failed: " + err.message);
         console.error(err);
