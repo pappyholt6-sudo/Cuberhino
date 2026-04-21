@@ -6613,7 +6613,12 @@
         row.style.cssText = 'display:flex;gap:6px;align-items:center;';
         const uid = 'custom_' + Math.random().toString(36).substr(2,6);
         row.innerHTML = `
-          <input type="text" class="profile-edit-input custom-event-input" data-uid="${uid}" placeholder="Event name (e.g. Relay)" maxlength="30" style="flex:1;font-size:12px;padding:5px 8px;" autocomplete="off"/>
+          <input type="text" class="profile-edit-input custom-event-input" data-uid="${uid}" placeholder="Name (e.g. Relay)" maxlength="30" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" autocomplete="off"/>
+          <select class="custom-event-puzzle" data-uid="${uid}" style="font-size:11px;padding:4px 6px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);">
+            <option value="">No scramble</option>
+            ${EVENTS.map(e => `<option value="${e.puzzle}">${escapeHtml(e.label)}</option>`).join('')}
+            ${UNOFFICIAL_EVENTS.map(e => `<option value="${e.puzzle}">${escapeHtml(e.label)}</option>`).join('')}
+          </select>
           <button class="small-btn" type="button" style="font-size:11px;padding:3px 7px;color:var(--bad);border-color:var(--bad);" onclick="this.parentElement.remove()">✕</button>`;
         document.getElementById('customEventsList')?.appendChild(row);
       });
@@ -7148,9 +7153,17 @@
       }
     }
 
+    function customEventData(id) {
+      const val = data.customEvents?.[id];
+      if (!val) return null;
+      if (typeof val === 'string') return { label: val, puzzle: null }; // backward compat
+      return val;
+    }
+
     function eventConfig() {
       if (currentEvent && data.customEvents?.[currentEvent]) {
-        return { id: currentEvent, label: data.customEvents[currentEvent], puzzle: null };
+        const ce = customEventData(currentEvent);
+        return { id: currentEvent, label: ce.label, puzzle: ce.puzzle || null };
       }
       return ALL_COMP_EVENTS.find(e => e.id === currentEvent) || EVENTS[1];
     }
@@ -7447,7 +7460,7 @@
         `<optgroup label="Unofficial">` +
         UNOFFICIAL_EVENTS.map(ev => `<option value="${ev.id}">${ev.label}</option>`).join('') +
         `</optgroup>` +
-        (customEvs.length ? `<optgroup label="Custom">${customEvs.map(([id, label]) => `<option value="${id}">${escapeHtml(label)}</option>`).join('')}</optgroup>` : '') +
+        (customEvs.length ? `<optgroup label="Custom">${customEvs.map(([id]) => { const ce = customEventData(id); return `<option value="${id}">${escapeHtml(ce?.label || id)}</option>`; }).join('')}</optgroup>` : '') +
         `<option value="__add_custom__">＋ Add custom event…</option>`;
       eventSelectEl.value = currentEvent in data.sessionsByEvent ? currentEvent : "333";
     }
@@ -9754,13 +9767,33 @@
       state.scrambleLoading = true;
       scrambleEl.textContent = "Generating scramble...";
 
-      // Custom events have no scramble
+      // Custom events: use assigned puzzle if set, otherwise no scramble
       if (currentEvent.startsWith("custom_")) {
-        state.currentScramble = "";
-        scrambleEl.textContent = "No scramble — custom event";
-        state.scrambleLoading = false;
-        updateDrawScramblePlayer();
-        renderTools();
+        const cePuzzle = customEventData(currentEvent)?.puzzle;
+        if (!cePuzzle) {
+          state.currentScramble = "";
+          scrambleEl.textContent = "No scramble — custom event";
+          state.scrambleLoading = false;
+          updateDrawScramblePlayer();
+          renderTools();
+          return;
+        }
+        // Has a puzzle assigned — fall through to normal scramble generation using that puzzle
+        try {
+          const alg = await scrambleWithTimeout(cePuzzle);
+          state.currentScramble = alg;
+          scrambleEl.textContent = state.currentScramble;
+          updateDrawScramblePlayer();
+          requestAnimationFrame(() => updateToolDockCompaction());
+        } catch {
+          state.currentScramble = fallbackScrambleForEvent(cePuzzle);
+          scrambleEl.textContent = state.currentScramble;
+          updateDrawScramblePlayer();
+        } finally {
+          state.scrambleLoading = false;
+          renderTools();
+          requestAnimationFrame(() => updateToolDockCompaction());
+        }
         return;
       }
 
@@ -9878,7 +9911,12 @@
         ...[...document.querySelectorAll('#newCompEventsGrid .comp-event-check.selected')]
           .map(lbl => ALL_COMP_EVENTS.find(e => e.id === lbl.dataset.ev)).filter(Boolean),
         ...[...document.querySelectorAll('#customEventsList .custom-event-input')]
-          .map(inp => { const label = inp.value.trim(); return label ? { id: inp.dataset.uid, label, puzzle: null } : null; })
+          .map(inp => {
+            const label = inp.value.trim();
+            if (!label) return null;
+            const puzzle = document.querySelector(`.custom-event-puzzle[data-uid="${inp.dataset.uid}"]`)?.value || null;
+            return { id: inp.dataset.uid, label, puzzle: puzzle || null };
+          })
           .filter(Boolean)
       ];
       if (!name) { if(statusEl){statusEl.textContent='Name required';statusEl.style.color='var(--bad)';} return; }
@@ -10297,6 +10335,45 @@
       return count;
     }
 
+    // ── Custom event dialog ──────────────────────────────────────────────────
+    const customEventDialog      = document.getElementById("customEventDialog");
+    const customEventNameInput   = document.getElementById("customEventNameInput");
+    const customEventPuzzleSel   = document.getElementById("customEventPuzzleSelect");
+    const customEventCancelBtn   = document.getElementById("customEventCancelBtn");
+    const customEventConfirmBtn  = document.getElementById("customEventConfirmBtn");
+    let   _customEventResolve    = null;
+
+    // Populate puzzle options
+    customEventPuzzleSel.innerHTML =
+      `<option value="">No scramble</option>` +
+      `<optgroup label="WCA">` +
+      EVENTS.map(e => `<option value="${e.puzzle}">${escapeHtml(e.label)}</option>`).join('') +
+      `</optgroup>` +
+      `<optgroup label="Unofficial">` +
+      UNOFFICIAL_EVENTS.map(e => `<option value="${e.puzzle}">${escapeHtml(e.label)}</option>`).join('') +
+      `</optgroup>`;
+
+    customEventCancelBtn.addEventListener("click", () => { customEventDialog.close(); if (_customEventResolve) _customEventResolve(null); });
+    customEventDialog.addEventListener("click", e => { if (e.target === customEventDialog) { customEventDialog.close(); if (_customEventResolve) _customEventResolve(null); } });
+    customEventConfirmBtn.addEventListener("click", () => {
+      const label = customEventNameInput.value.trim();
+      if (!label) { customEventNameInput.focus(); return; }
+      const puzzle = customEventPuzzleSel.value || null;
+      customEventDialog.close();
+      if (_customEventResolve) _customEventResolve({ label, puzzle });
+    });
+    customEventNameInput.addEventListener("keydown", e => { if (e.key === "Enter") customEventConfirmBtn.click(); });
+
+    function openCustomEventDialog() {
+      customEventNameInput.value = "";
+      customEventPuzzleSel.value = "";
+      return new Promise(resolve => {
+        _customEventResolve = resolve;
+        customEventDialog.showModal();
+        customEventNameInput.focus();
+      });
+    }
+
     // ── Session picker modal ─────────────────────────────────────────────────
     const csvPickerDialog   = document.getElementById("csvPickerDialog");
     const csvPickerTitle    = document.getElementById("csvPickerTitle");
@@ -10385,13 +10462,12 @@
     eventSelectEl.addEventListener("change", async () => {
       const val = eventSelectEl.value;
       if (val === "__add_custom__") {
-        // Restore previous selection while prompting
         eventSelectEl.value = currentEvent;
-        const label = prompt("Custom event name:")?.trim();
-        if (!label) return;
+        const result = await openCustomEventDialog();
+        if (!result) return;
         const id = "custom_" + Math.random().toString(36).substr(2, 7);
         if (!data.customEvents) data.customEvents = {};
-        data.customEvents[id] = label;
+        data.customEvents[id] = { label: result.label, puzzle: result.puzzle || null };
         data.sessionsByEvent[id] = makeEmptyEventBundle();
         currentEvent = id;
         await saveData();
@@ -10920,6 +10996,27 @@
       <div class="modal-actions" style="margin-top:16px;">
         <button class="small-btn" id="csvPickerCancel">Cancel</button>
         <button class="small-btn" id="csvPickerConfirm" style="background:var(--accent);color:#000;">Confirm</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Custom Event Dialog -->
+  <dialog id="customEventDialog">
+    <div class="modal" style="max-width:320px;">
+      <h2>Custom Event</h2>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+        <div>
+          <div class="profile-field-label">Name</div>
+          <input type="text" class="profile-edit-input" id="customEventNameInput" placeholder="e.g. Relay 2-3-3" maxlength="30" autocomplete="off"/>
+        </div>
+        <div>
+          <div class="profile-field-label">Scramble type <span style="color:var(--muted);font-weight:normal;">(optional)</span></div>
+          <select class="select" id="customEventPuzzleSelect" style="width:100%;font-size:13px;padding:5px 8px;"></select>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="small-btn" id="customEventCancelBtn">Cancel</button>
+        <button class="small-btn" id="customEventConfirmBtn">Add</button>
       </div>
     </div>
   </dialog>
