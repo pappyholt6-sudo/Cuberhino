@@ -2231,8 +2231,8 @@
     .comp-detail-meta{ font-size:13px; color:var(--muted); margin-top:4px; }
     /* ── Scramble Generator tool ── */
     .scrgen-body{ display:flex; flex-direction:column; gap:6px; }
-    .scrgen-top{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
-    .scrgen-event{ flex:1; min-width:0; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
+    .scrgen-top{ display:flex; align-items:center; gap:5px; }
+    .scrgen-event{ flex:1 1 0; min-width:0; overflow:hidden; font-size:11px; padding:3px 6px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
     .scrgen-count{ width:38px; font-size:11px; padding:3px 4px; text-align:center; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); }
     .scrgen-btn{ font-size:11px; padding:3px 8px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px; color:var(--text); cursor:pointer; white-space:nowrap; }
     .scrgen-btn:hover{ background:var(--line); }
@@ -6614,7 +6614,7 @@
         const uid = 'custom_' + Math.random().toString(36).substr(2,6);
         row.innerHTML = `
           <input type="text" class="profile-edit-input custom-event-input" data-uid="${uid}" placeholder="Name (e.g. Relay)" maxlength="30" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" autocomplete="off"/>
-          <select class="custom-event-puzzle" data-uid="${uid}" style="font-size:11px;padding:4px 6px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);">
+          <select class="custom-event-puzzle" data-uid="${uid}" style="flex-shrink:0;width:110px;font-size:11px;padding:4px 6px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);">
             <option value="">No scramble</option>
             ${EVENTS.map(e => `<option value="${e.puzzle}">${escapeHtml(e.label)}</option>`).join('')}
             ${UNOFFICIAL_EVENTS.map(e => `<option value="${e.puzzle}">${escapeHtml(e.label)}</option>`).join('')}
