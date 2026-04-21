@@ -8230,7 +8230,7 @@
       toolSlotsEl.innerHTML = Array.from({ length: slotCount }, (_, index) => `
         <div class="tool-slot" data-slot="slot${index + 1}"><div class="tool-slot-label">Slot ${index + 1}</div></div>
       `).join("");
-      toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, 240px)`;
+      toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, minmax(220px, 1fr))`;
 
       const slots = Object.fromEntries(
         Array.from({ length: slotCount }, (_, index) => {
