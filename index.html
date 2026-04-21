@@ -4285,22 +4285,31 @@
         const profilesSnap = await getDocs(collection(db, "profiles"));
         const profiles = profilesSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
 
-        // Build a uid→stats map from club member docs (most reliably up to date).
+        // Build a uid→stats map from club member docs — same source as the club leaderboard.
         const memberStatsMap = {};
+        const absorbMemberDoc = d => {
+          const { uid, pbs, ao5s, ao12s, ao100s } = d.data();
+          if (!uid) return;
+          const ex = memberStatsMap[uid] || {};
+          memberStatsMap[uid] = {
+            pbs:    (pbs    && Object.keys(pbs).length)    ? pbs    : ex.pbs,
+            ao5s:   (ao5s   && Object.keys(ao5s).length)   ? ao5s   : ex.ao5s,
+            ao12s:  (ao12s  && Object.keys(ao12s).length)  ? ao12s  : ex.ao12s,
+            ao100s: (ao100s && Object.keys(ao100s).length) ? ao100s : ex.ao100s,
+          };
+        };
+        // 1. Try collectionGroup (all clubs at once — may be blocked by rules)
         try {
           const allMembersSnap = await getDocs(collectionGroup(db, 'members'));
-          allMembersSnap.docs.forEach(d => {
-            const { uid, pbs, ao5s, ao12s, ao100s } = d.data();
-            if (!uid) return;
-            const existing = memberStatsMap[uid] || {};
-            memberStatsMap[uid] = {
-              pbs:    (pbs    && Object.keys(pbs).length)    ? pbs    : existing.pbs,
-              ao5s:   (ao5s   && Object.keys(ao5s).length)   ? ao5s   : existing.ao5s,
-              ao12s:  (ao12s  && Object.keys(ao12s).length)  ? ao12s  : existing.ao12s,
-              ao100s: (ao100s && Object.keys(ao100s).length) ? ao100s : existing.ao100s,
-            };
-          });
+          allMembersSnap.docs.forEach(absorbMemberDoc);
         } catch {}
+        // 2. Explicitly read each club the current user is in (same path as club lb)
+        await Promise.all([...clubMembershipIds].map(async clubId => {
+          try {
+            const snap = await getDocs(collection(db, 'clubs', clubId, 'members'));
+            snap.docs.forEach(absorbMemberDoc);
+          } catch {}
+        }));
 
         // Current user: always use fresh local data and write it back.
         const freshPbs   = getAllPbs();
@@ -4314,12 +4323,13 @@
             return { ...p, pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, ao100s: freshAo100s, league: state.leagueId || 'rookie' };
           }
           const m = memberStatsMap[p.uid] || {};
+          // Merge member doc data with profile data; profile takes precedence per-key
           return {
             ...p,
-            pbs:    (p.pbs    && Object.keys(p.pbs).length)    ? p.pbs    : (m.pbs    || p.pbs),
-            ao5s:   (p.ao5s   && Object.keys(p.ao5s).length)   ? p.ao5s   : (m.ao5s   || p.ao5s),
-            ao12s:  (p.ao12s  && Object.keys(p.ao12s).length)  ? p.ao12s  : (m.ao12s  || p.ao12s),
-            ao100s: (p.ao100s && Object.keys(p.ao100s).length) ? p.ao100s : (m.ao100s || p.ao100s),
+            pbs:    { ...(m.pbs    || {}), ...(p.pbs    || {}) },
+            ao5s:   { ...(m.ao5s   || {}), ...(p.ao5s   || {}) },
+            ao12s:  { ...(m.ao12s  || {}), ...(p.ao12s  || {}) },
+            ao100s: { ...(m.ao100s || {}), ...(p.ao100s || {}) },
           };
         });
 
