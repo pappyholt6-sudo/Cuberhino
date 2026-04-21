@@ -632,7 +632,7 @@
 
     .tool-slots{
       display:grid;
-      grid-template-columns:repeat(6, minmax(220px,1fr));
+      grid-template-columns:repeat(6, 240px);
       gap:10px;
       align-items:stretch;
       min-height:155px;
@@ -3516,21 +3516,10 @@
       { id: "555bf", label: "5x5x5 Blindfolded", puzzle: "5x5x5" }
     ];
 
-    // Unofficial events supported by cubing.js for comp scrambles/visualization
+    // Unofficial events supported by cubing.js
     const UNOFFICIAL_EVENTS = [
-      { id: "fto",              label: "FTO",                     puzzle: "fto" },
-      { id: "redi_cube",        label: "Redi Cube",               puzzle: "redi_cube" },
-      { id: "kilominx",         label: "Kilominx",                puzzle: "kilominx" },
-      { id: "master_tetraminx", label: "Master Tetraminx",        puzzle: "master_tetraminx" },
-      { id: "baby_fto",         label: "Baby FTO",                puzzle: "baby_fto" },
-      { id: "loopover",         label: "Loopover 5x5",            puzzle: "loopover" },
-      { id: "8x8x8",            label: "8x8x8",                   puzzle: "8x8x8" },
-      { id: "9x9x9",            label: "9x9x9",                   puzzle: "9x9x9" },
-      { id: "10x10x10",         label: "10x10x10",                puzzle: "10x10x10" },
-      { id: "gigaminx",         label: "Gigaminx",                puzzle: "gigaminx" },
-      { id: "2x2x3",            label: "2x2x3",                   puzzle: "2x2x3" },
-      { id: "2x3x3",            label: "2x3x3 (Domino)",          puzzle: "2x3x3" },
-      { id: "3x3x4",            label: "3x3x4",                   puzzle: "3x3x4" }
+      { id: "fto",      label: "FTO",      puzzle: "fto"      },
+      { id: "baby_fto", label: "Baby FTO", puzzle: "baby_fto" }
     ];
 
     // All events available for comp creation (WCA + unofficial)
@@ -8228,7 +8217,7 @@
       toolSlotsEl.innerHTML = Array.from({ length: slotCount }, (_, index) => `
         <div class="tool-slot" data-slot="slot${index + 1}"><div class="tool-slot-label">Slot ${index + 1}</div></div>
       `).join("");
-      toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, minmax(220px, 1fr))`;
+      toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, 240px)`;
 
       const slots = Object.fromEntries(
         Array.from({ length: slotCount }, (_, index) => {
@@ -8721,6 +8710,23 @@
       renderTools();
     }
 
+    function scrambleWithTimeout(id, ms = 6000) {
+      return Promise.race([
+        randomScrambleForEvent(id).then(a => a.toString()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+      ]);
+    }
+
+    async function oneScramble(eventId) {
+      const puzzle = ALL_COMP_EVENTS.find(e => e.id === eventId)?.puzzle;
+      // Try eventId first; if it fails or times out, try the puzzle name
+      const ids = (puzzle && puzzle !== eventId) ? [eventId, puzzle] : [eventId];
+      for (const id of ids) {
+        try { return await scrambleWithTimeout(id); } catch {}
+      }
+      return fallbackScrambleForEvent(eventId);
+    }
+
     async function generateScrambleGen(eventId) {
       if (state.scrambleGenLoading) return;
       const n = Math.max(1, Math.min(20, parseInt(document.getElementById('scrgenCount')?.value) || state.scrambleGenCount || 1));
@@ -8729,10 +8735,7 @@
       state.scrambleGenLoading = true;
       renderTools();
       try {
-        const results = await Promise.all(Array.from({ length: n }, async () => {
-          try { return (await randomScrambleForEvent(eventId)).toString(); }
-          catch { return fallbackScrambleForEvent(eventId); }
-        }));
+        const results = await Promise.all(Array.from({ length: n }, () => oneScramble(eventId)));
         state.scrambleGenScrambles = results;
       } finally {
         state.scrambleGenLoading = false;
