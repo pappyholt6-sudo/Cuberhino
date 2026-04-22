@@ -2796,8 +2796,9 @@
         <input type="checkbox" id="mobileModeToggle" />
       </label>
     </div>
-    <div class="topbar-center">
+    <div class="topbar-center" style="display:flex;align-items:center;gap:6px;">
       <select id="eventSelect" class="select"></select>
+      <button id="deleteCustomEventBtn" title="Delete custom event" style="display:none;background:none;border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:4px 8px;font-size:13px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
     </div>
     <div class="topbar-right">
       <div class="view-tabs">
@@ -10680,6 +10681,24 @@
       if (count > 0) alert(`Imported ${count} solve${count !== 1 ? "s" : ""} into ${EVENTS.find(e=>e.id===eventId)?.label} • ${data.sessionsByEvent[eventId].sessions.find(s=>s.id===sessionId)?.name}.`);
     }
 
+    const deleteCustomEventBtn = document.getElementById("deleteCustomEventBtn");
+    function updateDeleteCustomBtn() {
+      deleteCustomEventBtn.style.display = currentEvent?.startsWith("custom_") ? "" : "none";
+    }
+    deleteCustomEventBtn.addEventListener("click", async () => {
+      const ce = customEventData(currentEvent);
+      if (!confirm(`Delete custom event "${ce?.label || currentEvent}"? All its solves will be lost.`)) return;
+      delete data.customEvents[currentEvent];
+      delete data.sessionsByEvent[currentEvent];
+      currentEvent = "333";
+      await saveData();
+      buildEventDropdown();
+      renderAll();
+      resetToIdle(true);
+      await generateScramble();
+      updateDeleteCustomBtn();
+    });
+
     eventSelectEl.addEventListener("change", async () => {
       const val = eventSelectEl.value;
       if (val === "__add_custom__") {
@@ -10697,6 +10716,7 @@
         renderAll();
         resetToIdle(true);
         await generateScramble();
+        updateDeleteCustomBtn();
         return;
       }
       currentEvent = val;
@@ -10706,6 +10726,7 @@
       renderAll();
       resetToIdle(true);
       await generateScramble();
+      updateDeleteCustomBtn();
     });
 
     sessionSelectEl.addEventListener("change", async () => {
@@ -11211,6 +11232,7 @@
     applySidebarWidth(getSidebarWidth(), false);
     setupSidebarResize();
     buildEventDropdown();
+    updateDeleteCustomBtn();
     initFirebase();
     applyTheme();
     syncSettingsUI();
