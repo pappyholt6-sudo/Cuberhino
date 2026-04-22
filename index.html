@@ -5384,7 +5384,7 @@
               continue;
             } catch {}
           }
-          scrambles.push(fallbackScrambleForEvent(eventId));
+          scrambles.push("No internet — scramble unavailable");
         }
       }
       return scrambles;
@@ -8912,7 +8912,7 @@
       for (const id of ids) {
         try { return await scrambleWithTimeout(id); } catch {}
       }
-      return fallbackScrambleForEvent(eventId);
+      return "No internet — scramble unavailable";
     }
 
     async function generateScrambleGen(eventId) {
@@ -9907,87 +9907,6 @@
       detailSetDNFBtn.className = "status-btn" + (solve.penalty === "DNF" ? " active-dnf" : "");
     }
 
-
-    function fallbackScrambleForEvent(eventId) {
-      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-      const simple = (moves, length, mods = ["", "'", "2"]) => {
-        const out = [];
-        let lastFace = "";
-        while (out.length < length) {
-          const face = pick(moves);
-          if (face === lastFace) continue;
-          lastFace = face;
-          out.push(face + pick(mods));
-        }
-        return out.join(" ");
-      };
-
-      switch (eventId) {
-        case "222":
-          return simple(["R","U","F"], 11);
-        case "333":
-        case "333oh":
-        case "333bf":
-          return simple(["R","L","U","D","F","B"], 20);
-        case "444":
-        case "444bf":
-          return simple(["R","L","U","D","F","B","Rw","Uw","Fw","Lw","Dw","Bw"], 45);
-        case "555":
-        case "555bf":
-          return simple(["R","L","U","D","F","B","Rw","Uw","Fw","Lw","Dw","Bw"], 60);
-        case "666":
-          return simple(["R","L","U","D","F","B","Rw","Uw","Fw","Lw","Dw","Bw","3Rw","3Uw","3Fw","3Lw","3Dw","3Bw"], 80);
-        case "777":
-          return simple(["R","L","U","D","F","B","Rw","Uw","Fw","Lw","Dw","Bw","3Rw","3Uw","3Fw","3Lw","3Dw","3Bw"], 100);
-        case "skewb":
-          return simple(["R","L","U","B"], 11, ["", "'"]);
-        case "pyram": {
-          const main = ["U","L","R","B"];
-          const tips = ["u","l","r","b"];
-          const out = [];
-          let last = "";
-          for (let i = 0; i < 10; i++) {
-            let f; do { f = pick(main); } while (f === last);
-            last = f;
-            out.push(f + (Math.random() < 0.5 ? "'" : ""));
-          }
-          for (const t of tips) { if (Math.random() < 0.5) out.push(t + (Math.random() < 0.5 ? "'" : "")); }
-          return out.join(" ");
-        }
-        case "clock": {
-          const n = () => Math.floor(Math.random() * 6) + 1;
-          const d = () => Math.random() < 0.5 ? "+" : "-";
-          const front = `UR${n()}${d()} DR${n()}${d()} DL${n()}${d()} UL${n()}${d()} U${n()}${d()} R${n()}${d()} D${n()}${d()} L${n()}${d()} ALL${n()}${d()}`;
-          const back  = `U${n()}${d()} R${n()}${d()} D${n()}${d()} L${n()}${d()} ALL${n()}${d()}`;
-          const upPins = ["UR","DR","DL","UL"].filter(() => Math.random() < 0.5).join(" ");
-          return `${front} y2 ${back}${upPins ? " " + upPins : ""}`;
-        }
-        case "minx": {
-          const RD = ["R++","R--","D++","D--"];
-          const out = [];
-          for (let i = 0; i < 7; i++) {
-            let last = "";
-            for (let j = 0; j < 4; j++) {
-              let m; do { m = pick(RD); } while (m === last);
-              last = m;
-              out.push(m);
-            }
-            out.push(Math.random() < 0.5 ? "U" : "U'");
-          }
-          return out.join(" ");
-        }
-        case "sq1": {
-          const v = () => { let n; do { n = Math.floor(Math.random()*12)-5; } while(n===0); return n; };
-          const b = () => Math.floor(Math.random()*12)-5;
-          const parts = [];
-          for (let i = 0; i < 11; i++) parts.push(`(${v()}, ${b()})`);
-          return parts.join(" / ") + " /";
-        }
-        default:
-          return simple(["R","L","U","D","F","B"], 20);
-      }
-    }
-
     async function generateScramble() {
       if (state.scrambleLoading) return;
       state.scrambleLoading = true;
@@ -10006,14 +9925,14 @@
         }
         // Has a puzzle assigned — fall through to normal scramble generation using that puzzle
         try {
-          const alg = await scrambleWithTimeout(cePuzzle);
+          const alg = await scrambleWithTimeout(cePuzzle, 8000);
           state.currentScramble = alg;
           scrambleEl.textContent = state.currentScramble;
           updateDrawScramblePlayer();
           requestAnimationFrame(() => updateToolDockCompaction());
         } catch {
-          state.currentScramble = fallbackScrambleForEvent(cePuzzle);
-          scrambleEl.textContent = state.currentScramble;
+          state.currentScramble = "";
+          scrambleEl.textContent = "No internet — scramble unavailable";
           updateDrawScramblePlayer();
         } finally {
           state.scrambleLoading = false;
@@ -10026,7 +9945,8 @@
       try {
         let scrambleStr = await scrambleWithTimeout(currentEvent, 8000);
         if (currentEvent === "222" && /\b[LDB]['2]?\b/.test(scrambleStr)) {
-          scrambleStr = fallbackScrambleForEvent("222");
+          // Invalid scramble from CDN — retry once
+          scrambleStr = await scrambleWithTimeout(currentEvent, 8000);
         }
         state.currentScramble = scrambleStr;
         scrambleEl.textContent = state.currentScramble;
@@ -10045,21 +9965,8 @@
         updateDrawScramblePlayer();
         requestAnimationFrame(() => updateToolDockCompaction());
       } catch {
-        // For unofficial events, try the puzzle name directly
-        const puzzle = UNOFFICIAL_EVENTS.find(e => e.id === currentEvent)?.puzzle;
-        if (puzzle && puzzle !== currentEvent) {
-          try {
-            const alg = await randomScrambleForEvent(puzzle);
-            state.currentScramble = alg.toString();
-            scrambleEl.textContent = state.currentScramble;
-            updateDrawScramblePlayer();
-            state.scrambleLoading = false;
-            renderTools();
-            return;
-          } catch {}
-        }
-        state.currentScramble = fallbackScrambleForEvent(currentEvent);
-        scrambleEl.textContent = state.currentScramble;
+        state.currentScramble = "";
+        scrambleEl.textContent = "No internet — scramble unavailable";
         updateDrawScramblePlayer();
       } finally {
         state.scrambleLoading = false;
