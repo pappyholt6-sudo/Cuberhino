@@ -73,11 +73,11 @@
       border-bottom:1px solid var(--line);
       display:flex;
       align-items:center;
-      padding:0 12px;
+      padding:0 16px;
       gap:0;
       height:64px;
-      background:color-mix(in srgb, var(--bg) 92%, transparent);
-      backdrop-filter:blur(8px);
+      background:linear-gradient(to bottom, color-mix(in srgb, var(--panel) 85%, var(--bg)), var(--bg));
+      backdrop-filter:blur(12px);
       flex-shrink:0;
     }
 
@@ -106,17 +106,18 @@
 
     .settings-btn,.select,.small-btn,.tab-btn,.status-btn,.auth-btn{
       border:1px solid var(--line);
-      background:var(--panel);
+      background:linear-gradient(to bottom, var(--panel-2), var(--panel));
       color:var(--text);
-      border-radius:10px;
+      border-radius:11px;
       padding:8px 12px;
       font-size:14px;
     }
 
     .settings-btn,.small-btn,.tab-btn,.status-btn,.auth-btn{cursor:pointer}
     .brand{
-      font-weight:700;
-      color:var(--muted);
+      font-weight:800;
+      color:var(--text);
+      letter-spacing:-0.01em;
     }
 
     .auth-strip{
@@ -154,14 +155,17 @@
     }
 
     .sidebar-header{
-      padding:12px 12px 8px;
+      padding:12px 13px 8px;
       border-bottom:1px solid var(--line);
       flex:0 0 auto;
+      background:linear-gradient(to bottom, rgba(255,255,255,.018), transparent);
     }
 
     .sidebar-header h2{
       margin:0 0 10px 0;
       font-size:17px;
+      font-weight:600;
+      letter-spacing:-0.01em;
     }
 
     .session-row{
@@ -180,30 +184,35 @@
     .session-stats{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:8px;
+      gap:7px;
       margin-bottom:6px;
     }
 
     .session-stat{
       border:1px solid var(--line);
       border-radius:10px;
-      padding:8px;
-      background:rgba(255,255,255,.02);
+      padding:7px 8px;
+      background:linear-gradient(160deg, rgba(255,255,255,.035) 0%, rgba(255,255,255,.008) 100%);
+      box-shadow:0 2px 8px rgba(0,0,0,.12);
       min-width:0;
     }
 
     .session-stat-label{
       color:var(--muted);
-      font-size:11px;
+      font-size:9px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:0.06em;
       margin-bottom:4px;
     }
 
     .session-stat-value{
-      font-size:15px;
+      font-size:14px;
       font-weight:700;
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
+      letter-spacing:-0.01em;
     }
 
     .solves{
@@ -211,7 +220,7 @@
       min-height:0;
       overflow-y:auto;
       overflow-x:hidden;
-      padding:8px 10px 14px;
+      padding:10px 12px 16px;
       scrollbar-width: thin;
       scrollbar-color: var(--accent) transparent;
     }
@@ -234,8 +243,9 @@
       grid-template-columns:minmax(0,1fr) 66px 46px 52px;
       gap:8px;
       align-items:center;
-      border-bottom:1px solid rgba(255,255,255,.04);
-      padding:8px 0;
+      border-bottom:1px solid rgba(255,255,255,.03);
+      padding:9px 4px;
+      border-radius:8px;
     }
 
     .solve-main{
@@ -248,8 +258,9 @@
     }
 
     .solve-row:hover{
-      background:rgba(255,255,255,.025);
+      background:linear-gradient(to right, rgba(255,255,255,.035), rgba(255,255,255,.012));
       transform:translateX(2px);
+      border-color:rgba(255,255,255,.06);
     }
 
     .solve-time{
@@ -300,12 +311,13 @@
 
     .pill-btn{
       border:1px solid var(--line);
-      background:transparent;
+      background:rgba(255,255,255,.03);
       color:var(--muted);
       border-radius:999px;
-      padding:5px 8px;
+      padding:5px 10px;
       cursor:pointer;
       font-size:12px;
+      font-weight:600;
       white-space:nowrap;
     }
 
@@ -316,10 +328,10 @@
 
     .delete-btn{
       border:1px solid var(--line);
-      background:transparent;
+      background:rgba(255,255,255,.02);
       color:var(--muted);
-      border-radius:8px;
-      padding:6px 8px;
+      border-radius:10px;
+      padding:6px 9px;
       cursor:pointer;
       font-size:12px;
     }
@@ -358,7 +370,7 @@
       min-height:0;
       overflow:hidden;
       position:relative;
-      padding:18px 20px 10px;
+      padding:18px 22px 10px;
     }
 
     .main.hide-while-timing .top-hide{
@@ -392,8 +404,11 @@
 
     .scramble-label{
       color:var(--muted);
-      font-size:13px;
-      margin-bottom:6px;
+      font-size:10px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:0.08em;
+      margin-bottom:8px;
     }
 
     .scramble{
@@ -593,13 +608,14 @@
     }
 
     .stat{
-      background:var(--panel);
+      background:linear-gradient(160deg, color-mix(in srgb, var(--panel-2) 80%, var(--panel)) 0%, var(--panel) 100%);
       border:1px solid var(--line);
-      border-radius:14px;
+      border-radius:16px;
       min-width:130px;
-      padding:12px 14px;
+      padding:12px 15px;
       transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
       animation:cardFadeIn .28s ease;
+      box-shadow:0 2px 10px rgba(0,0,0,.14);
     }
 
     .stat.clickable{
@@ -607,20 +623,24 @@
     }
 
     .stat.clickable:hover{
-      transform:translateY(-2px) scale(1.01);
+      transform:translateY(-3px) scale(1.02);
       border-color:color-mix(in srgb, var(--accent) 58%, var(--line));
-      box-shadow:0 10px 26px rgba(0,0,0,.22), 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent) inset;
+      box-shadow:0 14px 32px rgba(0,0,0,.28), 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent) inset;
     }
 
     .stat-label{
       color:var(--muted);
-      font-size:13px;
-      margin-bottom:6px;
+      font-size:10px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:0.06em;
+      margin-bottom:7px;
     }
 
     .stat-value{
       font-size:24px;
-      font-weight:700;
+      font-weight:800;
+      letter-spacing:-0.02em;
     }
 
     .tool-dock{
@@ -653,11 +673,11 @@
     }
 
     .tool-slot{
-      border:1px dashed color-mix(in srgb, var(--line) 70%, transparent);
-      border-radius:14px;
+      border:1px dashed color-mix(in srgb, var(--line) 60%, transparent);
+      border-radius:16px;
       min-height:155px;
       padding:3px;
-      background:rgba(255,255,255,.01);
+      background:rgba(255,255,255,.008);
       position:relative;
       transition:min-height .18s ease;
     }
@@ -669,21 +689,22 @@
       min-height:148px;
       max-height:220px;
       border:1px solid var(--line);
-      border-radius:12px;
-      background:var(--panel);
-      padding:8px;
+      border-radius:14px;
+      background:linear-gradient(160deg, color-mix(in srgb, var(--panel-2) 70%, var(--panel)) 0%, var(--panel) 100%);
+      padding:9px;
       display:flex;
       flex-direction:column;
       overflow:hidden;
       transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease, min-height .18s ease;
       animation:cardFadeIn .28s ease;
+      box-shadow:0 2px 10px rgba(0,0,0,.14);
     }
 
     .tool-card:hover{
-      transform:translateY(-2px);
+      transform:translateY(-3px);
       border-color:color-mix(in srgb, var(--accent) 58%, var(--line));
-      box-shadow:0 12px 28px rgba(0,0,0,.18);
-      background:color-mix(in srgb, var(--panel) 94%, var(--accent));
+      box-shadow:0 14px 32px rgba(0,0,0,.24);
+      background:linear-gradient(160deg, color-mix(in srgb, var(--panel-2) 85%, var(--accent)) 0%, var(--panel) 100%);
     }
 
     .tool-card.dragging{ opacity:.45; }
@@ -716,9 +737,11 @@
     }
 
     .tool-title{
-      font-weight:700;
+      font-weight:600;
       color:var(--text);
-      font-size:13px;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:0.05em;
     }
 
     .tool-body{
@@ -821,22 +844,24 @@
     dialog{
       width:min(980px,94vw);
       border:1px solid var(--line);
-      border-radius:16px;
-      background:var(--panel);
+      border-radius:18px;
+      background:linear-gradient(160deg, var(--panel-2) 0%, var(--panel) 100%);
       color:var(--text);
       padding:0;
+      box-shadow:0 24px 64px rgba(0,0,0,.45);
     }
 
-    dialog::backdrop{ background:rgba(0,0,0,.5); }
+    dialog::backdrop{ background:rgba(0,0,0,.6); backdrop-filter:blur(4px); }
 
-    .modal{ padding:18px; }
-    .modal h2{ margin:0 0 14px 0; }
+    .modal{ padding:20px; }
+    .modal h2{ margin:0 0 14px 0; font-weight:800; letter-spacing:-0.01em; }
 
     fieldset{
       border:1px solid var(--line);
-      border-radius:12px;
-      padding:12px;
+      border-radius:13px;
+      padding:12px 14px;
       margin:0 0 14px 0;
+      background:rgba(255,255,255,.012);
     }
 
     legend{
@@ -867,8 +892,8 @@
     }
 
     input[type="number"], input[type="color"], input[type="email"], input[type="password"], select, input[type="range"]{
-      padding:7px 8px;
-      border-radius:8px;
+      padding:8px 10px;
+      border-radius:10px;
       border:1px solid var(--line);
       background:var(--panel-2);
       color:var(--text);
@@ -892,7 +917,7 @@
       border:1px solid var(--line);
       border-radius:12px;
       padding:10px 12px;
-      background:rgba(255,255,255,.02);
+      background:linear-gradient(to bottom, rgba(255,255,255,.03), rgba(255,255,255,.01));
       text-align:left;
     }
 
@@ -918,6 +943,147 @@
     .status-btn.active-ok{ border-color: var(--good); color: var(--good); }
     .status-btn.active-plus2{ border-color: var(--warn); color: var(--warn); }
     .status-btn.active-dnf{ border-color: var(--bad); color: var(--bad); }
+    .status-btn-danger{ border-color: var(--bad); color: var(--bad); }
+
+    /* ── Card dialogs ──────────────────────────────────────────────────────── */
+    .card-dialog{ width:min(480px,94vw); }
+
+    .solve-card{ padding:22px; }
+
+    .card-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:18px;
+    }
+
+    .card-badge{
+      background:var(--panel-2);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:4px 12px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:600;
+      letter-spacing:0.04em;
+    }
+
+    .card-close-btn{
+      background:none;
+      border:none;
+      color:var(--muted);
+      cursor:pointer;
+      font-size:16px;
+      padding:4px 8px;
+      border-radius:8px;
+      line-height:1;
+    }
+
+    .card-close-btn:hover{ background:var(--panel-2); color:var(--text); }
+
+    .card-time{
+      font-size:clamp(38px,10vw,56px);
+      font-weight:700;
+      letter-spacing:-0.03em;
+      line-height:1;
+      margin-bottom:6px;
+    }
+
+    .card-date{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:16px;
+    }
+
+    .card-scramble-section{
+      background:var(--panel-2);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px 14px;
+      margin-bottom:14px;
+      max-height:200px;
+      overflow-y:auto;
+    }
+
+    .card-section-label{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:0.07em;
+      font-weight:600;
+      margin-bottom:7px;
+    }
+
+    .card-scramble{
+      font-family:monospace;
+      font-size:13px;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    .card-avg-list{ font-size:13px; }
+
+    .avg-solve-line{
+      display:grid;
+      grid-template-columns:28px 60px 1fr;
+      gap:6px;
+      align-items:baseline;
+      padding:5px 0;
+      border-bottom:1px solid var(--line);
+    }
+
+    .avg-solve-line:last-child{ border-bottom:none; }
+
+    .avg-solve-num{ color:var(--muted); font-size:12px; }
+
+    .avg-solve-time{ font-weight:600; font-variant-numeric:tabular-nums; }
+
+    .avg-solve-time.trimmed{
+      color:var(--muted);
+      font-weight:400;
+      text-decoration:line-through;
+    }
+
+    .avg-solve-scramble{
+      color:var(--muted);
+      font-family:monospace;
+      font-size:12px;
+      word-break:break-word;
+      line-height:1.45;
+    }
+
+    .card-status-row{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .card-copy-row{
+      display:flex;
+      gap:8px;
+      margin-top:4px;
+    }
+
+    .copy-btn{
+      flex:1;
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:var(--panel-2);
+      color:var(--text);
+      cursor:pointer;
+      font-size:13px;
+      font-weight:500;
+    }
+
+    .copy-btn:hover{ background:var(--line); }
+
+    .copy-btn-accent{ border-color:var(--accent); color:var(--accent); }
+
+    .copy-btn-accent:hover{ background:color-mix(in srgb,var(--accent) 12%,var(--panel-2)); }
+
+    .copy-btn.copied{ border-color:var(--good) !important; color:var(--good) !important; }
 
     .tabs{
       display:flex;
@@ -926,11 +1092,13 @@
       margin-bottom:14px;
     }
 
-    .tab-btn{ background:var(--panel-2); }
+    .tab-btn{ background:linear-gradient(to bottom, var(--panel-2), var(--panel)); }
 
     .tab-btn.active{
       border-color:var(--accent);
       color:var(--accent);
+      background:linear-gradient(to bottom, color-mix(in srgb, var(--accent) 14%, var(--panel-2)), color-mix(in srgb, var(--accent) 8%, var(--panel)));
+      box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent) inset;
     }
 
     .tab-panel{ display:none; }
@@ -984,10 +1152,10 @@
       display:flex;
       justify-content:space-between;
       gap:8px;
-      padding:7px 8px;
+      padding:8px 10px;
       border:1px solid rgba(255,255,255,.05);
-      border-radius:10px;
-      background:rgba(255,255,255,.03);
+      border-radius:12px;
+      background:linear-gradient(to bottom, rgba(255,255,255,.04), rgba(255,255,255,.015));
       font-size:12px;
     }
 
@@ -1056,8 +1224,8 @@
     }
 
     @keyframes cardFadeIn{
-      from{ opacity:0; transform:translateY(6px); }
-      to{ opacity:1; transform:translateY(0); }
+      from{ opacity:0; transform:translateY(8px) scale(.98); }
+      to{ opacity:1; transform:translateY(0) scale(1); }
     }
 
     @media (max-width: 1100px){
@@ -1148,13 +1316,13 @@
 
     .mobile-sidebar-btn{
       border:1px solid var(--line);
-      background:rgba(255,255,255,.03);
+      background:linear-gradient(to bottom, rgba(255,255,255,.05), rgba(255,255,255,.02));
       color:var(--text);
-      border-radius:8px;
+      border-radius:12px;
       padding:10px 4px;
       min-height:44px;
       text-align:center;
-      font-weight:600;
+      font-weight:700;
       font-size:12px;
       cursor:pointer;
       display:flex;
@@ -1219,9 +1387,9 @@
       width:40px;
       height:40px;
       border:1px solid var(--line);
-      background:var(--panel);
+      background:linear-gradient(to bottom, var(--panel-2), var(--panel));
       color:var(--text);
-      border-radius:12px;
+      border-radius:14px;
       cursor:pointer;
       font-size:18px;
     }
@@ -1422,12 +1590,12 @@
       grid-template-columns:repeat(5, minmax(0,1fr));
       gap:8px;
       padding:8px;
-      background:color-mix(in srgb, var(--panel) 92%, black 8%);
+      background:linear-gradient(to bottom, var(--panel-2), color-mix(in srgb, var(--panel) 94%, black));
       border:1px solid var(--line);
-      border-radius:18px;
-      box-shadow:0 12px 28px rgba(0,0,0,.28);
+      border-radius:20px;
+      box-shadow:0 16px 36px rgba(0,0,0,.36);
       z-index:40;
-      backdrop-filter:blur(8px);
+      backdrop-filter:blur(12px);
     }
 
     body.mobile-ui .mobile-bottom-btn{
@@ -1562,11 +1730,12 @@
 
     .view-tab-btn{
       border:1px solid var(--line);
-      background:var(--panel);
+      background:linear-gradient(to bottom, var(--panel-2), var(--panel));
       color:var(--muted);
-      border-radius:12px;
+      border-radius:13px;
       padding:8px 14px;
       font-size:14px;
+      font-weight:600;
       cursor:pointer;
       position:relative;
       transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, color .18s ease, background .18s ease;
@@ -1594,8 +1763,8 @@
     .view-tab-btn.active{
       color:var(--accent);
       border-color:color-mix(in srgb, var(--accent) 60%, var(--line));
-      background:color-mix(in srgb, var(--accent) 12%, var(--panel));
-      box-shadow:0 10px 24px color-mix(in srgb, var(--accent) 18%, transparent);
+      background:linear-gradient(to bottom, color-mix(in srgb, var(--accent) 16%, var(--panel-2)), color-mix(in srgb, var(--accent) 8%, var(--panel)));
+      box-shadow:0 10px 24px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent) inset;
     }
 
     .history-view{
@@ -1949,8 +2118,9 @@
       min-height:0;
       overflow:hidden;
       border:1px solid var(--line);
-      border-radius:12px;
+      border-radius:14px;
       background:var(--panel);
+      box-shadow:0 4px 16px rgba(0,0,0,.14);
     }
     .clubs-list-panel{
       border-right:1px solid var(--line);
@@ -3395,59 +3565,46 @@
     </div>
   </dialog>
 
-  <dialog id="solveDetailDialog">
-    <div class="modal">
-      <h2>Solve Details</h2>
-
-      <div class="detail-grid">
-        <div class="detail-item">
-          <div class="detail-label">Time</div>
-          <div class="detail-value" id="detailTime"></div>
-        </div>
-
-        <div class="detail-item">
-          <div class="detail-label">Date</div>
-          <div class="detail-value" id="detailDate"></div>
-        </div>
-
-        <div class="detail-item">
-          <div class="detail-label">Scramble</div>
-          <div class="detail-value" id="detailScramble"></div>
-        </div>
+  <dialog id="solveDetailDialog" class="card-dialog">
+    <div class="solve-card">
+      <div class="card-header">
+        <div class="card-badge" id="detailEventBadge"></div>
+        <button class="card-close-btn" id="closeDetail">✕</button>
       </div>
-
-      <div class="status-buttons">
-        <button class="status-btn" id="detailSetOK">Set OK</button>
-        <button class="status-btn" id="detailSetPlus2">Set +2</button>
-        <button class="status-btn" id="detailSetDNF">Set DNF</button>
-        <button class="status-btn" id="detailDelete">Delete Solve</button>
+      <div class="card-time" id="detailTime"></div>
+      <div class="card-date" id="detailDate"></div>
+      <div class="card-scramble-section">
+        <div class="card-section-label">Scramble</div>
+        <div class="card-scramble" id="detailScramble"></div>
       </div>
-
-      <div class="modal-actions">
-        <button class="small-btn" id="closeDetail">Close</button>
+      <div class="card-status-row">
+        <button class="status-btn" id="detailSetOK">OK</button>
+        <button class="status-btn" id="detailSetPlus2">+2</button>
+        <button class="status-btn" id="detailSetDNF">DNF</button>
+        <button class="status-btn status-btn-danger" id="detailDelete">Delete</button>
+      </div>
+      <div class="card-copy-row">
+        <button class="copy-btn" id="copyScrambleBtn">Copy Scramble</button>
+        <button class="copy-btn copy-btn-accent" id="copyCardBtn">Copy Card</button>
       </div>
     </div>
   </dialog>
 
-  <dialog id="averageDetailDialog">
-    <div class="modal">
-      <h2 id="averageDetailTitle">Average Details</h2>
-      <div class="detail-grid">
-        <div class="detail-item">
-          <div class="detail-label">Average</div>
-          <div class="detail-value" id="averageDetailValue"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Included solves</div>
-          <div class="detail-value" id="averageDetailMeta"></div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Times and scrambles</div>
-          <div class="detail-value" id="averageDetailList"></div>
-        </div>
+  <dialog id="averageDetailDialog" class="card-dialog">
+    <div class="solve-card">
+      <div class="card-header">
+        <div class="card-badge" id="averageDetailTitle"></div>
+        <button class="card-close-btn" id="closeAverageDetail">✕</button>
       </div>
-      <div class="modal-actions">
-        <button class="small-btn" id="closeAverageDetail">Close</button>
+      <div class="card-time" id="averageDetailValue"></div>
+      <div class="card-date" id="averageDetailMeta"></div>
+      <div class="card-scramble-section">
+        <div class="card-section-label">Solves</div>
+        <div class="card-avg-list" id="averageDetailList"></div>
+      </div>
+      <div class="card-copy-row">
+        <button class="copy-btn" id="copyAvgScramblesBtn">Copy Scrambles</button>
+        <button class="copy-btn copy-btn-accent" id="copyAvgCardBtn">Copy Card</button>
       </div>
     </div>
   </dialog>
@@ -3825,11 +3982,6 @@
     }
 
     function shouldUseMobileLayout() {
-      try {
-        const saved = localStorage.getItem(LAYOUT_MODE_KEY);
-        if (saved === "mobile") return true;
-        if (saved === "desktop") return false;
-      } catch {}
       return getAutomaticMobileLayout();
     }
 
@@ -3990,6 +4142,7 @@
     const textScaleEl = document.getElementById("textScale");
     const textScaleValueEl = document.getElementById("textScaleValue");
 
+    const detailEventBadgeEl = document.getElementById("detailEventBadge");
     const detailTimeEl = document.getElementById("detailTime");
     const detailDateEl = document.getElementById("detailDate");
     const detailScrambleEl = document.getElementById("detailScramble");
@@ -7744,26 +7897,27 @@
       return { n, endIndex, avg, windowSolves, excluded };
     }
 
-    function formatAverageSolveLine(solve, excluded) {
-      const label = excluded ? ' (trimmed)' : '';
-      const scramble = solve.scramble ? ` — ${solve.scramble}` : '';
-      return `${solveDisplay(solve)}${label}${scramble}`;
-    }
+
 
     function openAverageDetail(n, endIndex = currentSolves().length - 1, titlePrefix = 'Average') {
       const details = averageDetails(n, endIndex);
       if (!details || !Number.isFinite(details.avg)) return;
 
-      state.selectedAverage = { n, endIndex, titlePrefix };
+      state.selectedAverage = { n, endIndex, titlePrefix, details };
       averageDetailTitleEl.textContent = `${titlePrefix} Ao${n}`;
       averageDetailValueEl.textContent = averageDisplay(details.avg);
-      averageDetailMetaEl.textContent = `${details.windowSolves.length} solves ending at #${endIndex + 1}`;
+      averageDetailMetaEl.textContent = `${details.windowSolves.length} solves · ending at #${endIndex + 1}`;
+      const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       averageDetailListEl.innerHTML = details.windowSolves.map((solve, idx) => {
-        const escaped = formatAverageSolveLine(solve, details.excluded.has(idx))
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-        return `<div style="margin-bottom:8px;"><strong>#${endIndex - n + idx + 2}</strong> ${escaped}</div>`;
+        const isTrimmed = details.excluded.has(idx);
+        const solveNum = endIndex - n + idx + 2;
+        const timeStr = esc(solveDisplay(solve));
+        const scramble = solve.scramble ? `<span class="avg-solve-scramble">${esc(solve.scramble)}</span>` : '';
+        return `<div class="avg-solve-line">
+          <span class="avg-solve-num">${solveNum}.</span>
+          <span class="avg-solve-time${isTrimmed ? ' trimmed' : ''}">${isTrimmed ? `(${timeStr})` : timeStr}</span>
+          ${scramble}
+        </div>`;
       }).join('');
       averageDetailDialog.showModal();
     }
@@ -7977,14 +8131,29 @@
         return [x, y];
       });
 
-      const poly = points.map(p => p.join(",")).join(" ");
+      const tension = 0.18;
+      const smoothD = (() => {
+        let d = `M${points[0][0]},${points[0][1]}`;
+        for (let i = 0; i < points.length - 1; i++) {
+          const [x0, y0] = i > 0 ? points[i - 1] : points[i];
+          const [x1, y1] = points[i];
+          const [x2, y2] = points[i + 1];
+          const [x3, y3] = i < points.length - 2 ? points[i + 2] : points[i + 1];
+          const cp1x = x1 + (x2 - x0) * tension;
+          const cp1y = y1 + (y2 - y0) * tension;
+          const cp2x = x2 - (x3 - x1) * tension;
+          const cp2y = y2 - (y3 - y1) * tension;
+          d += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${x2},${y2}`;
+        }
+        return d;
+      })();
 
       return `
         <svg class="trend" viewBox="0 0 300 100" preserveAspectRatio="none">
           <rect x="0" y="0" width="300" height="100" fill="transparent"></rect>
           <line x1="10" y1="90" x2="290" y2="90" stroke="var(--line)" stroke-width="1"></line>
           <line x1="10" y1="10" x2="10" y2="90" stroke="var(--line)" stroke-width="1"></line>
-          <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${poly}"></polyline>
+          <path fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${smoothD}"></path>
         </svg>
       `;
     }
@@ -9719,6 +9888,7 @@
       const solve = getSolveById(state.selectedSolveId);
       if (!solve) return;
 
+      detailEventBadgeEl.textContent = currentEventLabel();
       detailTimeEl.textContent = solveDisplay(solve);
       detailDateEl.textContent = new Date(solve.createdAt).toLocaleString();
       detailScrambleEl.textContent = solve.scramble || "—";
@@ -10496,11 +10666,11 @@
 
     scrambleWrapEl.addEventListener("click", handleScrambleClick);
     window.addEventListener("resize", () => { applyResponsiveMode(); updateToolDockCompaction(); });
+    try { localStorage.removeItem(LAYOUT_MODE_KEY); } catch {}
     mobileModeToggleEl?.addEventListener("change", () => {
-      try {
-        localStorage.setItem(LAYOUT_MODE_KEY, mobileModeToggleEl.checked ? "mobile" : "desktop");
-      } catch {}
-      applyResponsiveMode();
+      document.body.classList.toggle("mobile-ui", mobileModeToggleEl.checked);
+      if (mobileModeToggleSettingsEl) mobileModeToggleSettingsEl.checked = mobileModeToggleEl.checked;
+      requestAnimationFrame(() => updateToolDockCompaction?.());
     });
     mobileSidebarToggleEl?.addEventListener("click", () => {
       document.body.classList.toggle("sidebar-open");
@@ -10918,6 +11088,69 @@
 
     closeDetailBtn.addEventListener("click", () => {
       solveDetailDialog.close();
+    });
+
+    function flashCopied(btn) {
+      btn.classList.add("copied");
+      const prev = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.classList.remove("copied"); btn.textContent = prev; }, 1500);
+    }
+
+    document.getElementById("copyScrambleBtn").addEventListener("click", async () => {
+      const solve = getSolveById(state.selectedSolveId);
+      if (!solve) return;
+      try {
+        await navigator.clipboard.writeText(solve.scramble || "");
+        flashCopied(document.getElementById("copyScrambleBtn"));
+      } catch {}
+    });
+
+    document.getElementById("copyCardBtn").addEventListener("click", async () => {
+      const solve = getSolveById(state.selectedSolveId);
+      if (!solve) return;
+      const penalty = solve.penalty && solve.penalty !== "OK" ? ` [${solve.penalty}]` : "";
+      const text = [
+        `${currentEventLabel()} — ${solveDisplay(solve)}${penalty}`,
+        new Date(solve.createdAt).toLocaleString(),
+        solve.scramble ? `Scramble: ${solve.scramble}` : ""
+      ].filter(Boolean).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        flashCopied(document.getElementById("copyCardBtn"));
+      } catch {}
+    });
+
+    document.getElementById("copyAvgScramblesBtn").addEventListener("click", async () => {
+      const { n, endIndex, details } = state.selectedAverage || {};
+      if (!details) return;
+      const text = details.windowSolves.map((solve, idx) => {
+        const num = endIndex - n + idx + 2;
+        return solve.scramble ? `${num}. ${solve.scramble}` : null;
+      }).filter(Boolean).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        flashCopied(document.getElementById("copyAvgScramblesBtn"));
+      } catch {}
+    });
+
+    document.getElementById("copyAvgCardBtn").addEventListener("click", async () => {
+      const { n, endIndex, titlePrefix, details } = state.selectedAverage || {};
+      if (!details) return;
+      const header = `${titlePrefix} Ao${n} — ${averageDisplay(details.avg)}`;
+      const meta = `${details.windowSolves.length} solves · ending at #${endIndex + 1}`;
+      const lines = details.windowSolves.map((solve, idx) => {
+        const isTrimmed = details.excluded.has(idx);
+        const num = endIndex - n + idx + 2;
+        const time = isTrimmed ? `(${solveDisplay(solve)})` : solveDisplay(solve);
+        const scramble = solve.scramble ? ` — ${solve.scramble}` : "";
+        return `${num}. ${time}${scramble}`;
+      }).join("\n");
+      const text = `${header}\n${meta}\n\n${lines}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        flashCopied(document.getElementById("copyAvgCardBtn"));
+      } catch {}
     });
 
     applyResponsiveMode();
