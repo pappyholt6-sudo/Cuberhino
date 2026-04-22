@@ -104,9 +104,18 @@
       margin-left:auto;
     }
 
-    .settings-btn,.select,.small-btn,.tab-btn,.status-btn,.auth-btn{
+    .settings-btn,.small-btn,.tab-btn,.status-btn,.auth-btn{
       border:1px solid var(--line);
       background:linear-gradient(to bottom, var(--panel-2), var(--panel));
+      color:var(--text);
+      border-radius:11px;
+      padding:8px 12px;
+      font-size:14px;
+    }
+
+    .select{
+      border:1px solid var(--line);
+      background:var(--panel-2);
       color:var(--text);
       border-radius:11px;
       padding:8px 12px;
@@ -240,7 +249,7 @@
 
     .solve-row{
       display:grid;
-      grid-template-columns:minmax(0,1fr) 66px 46px 52px;
+      grid-template-columns:minmax(0,1fr) 44px 46px 52px;
       gap:8px;
       align-items:center;
       border-bottom:1px solid rgba(255,255,255,.03);
@@ -1269,7 +1278,7 @@
       }
       .delta-indicator{ font-size:18px; }
       .solve-row{
-        grid-template-columns:minmax(0,1fr) 62px 44px 50px;
+        grid-template-columns:minmax(0,1fr) 40px 44px 50px;
       }
       .tool-slots{
         grid-template-columns:repeat(6, minmax(220px,1fr));
@@ -9966,7 +9975,11 @@
 
       try {
         const alg = await randomScrambleForEvent(currentEvent);
-        state.currentScramble = alg.toString();
+        let scrambleStr = alg.toString();
+        if (currentEvent === "222" && /\b[LDB]['2]?\b/.test(scrambleStr)) {
+          scrambleStr = fallbackScrambleForEvent("222");
+        }
+        state.currentScramble = scrambleStr;
         scrambleEl.textContent = state.currentScramble;
 
         if (settings.scramble.autoSize) {
