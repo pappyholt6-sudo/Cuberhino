@@ -3620,7 +3620,6 @@
 
   <script type="module">
     import { randomScrambleForEvent } from "https://cdn.cubing.net/v0/js/cubing/scramble";
-    import Scrambo from "https://esm.sh/scrambo";
     import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
     import {
@@ -5372,8 +5371,17 @@
       const scrambles = [];
       for (let i = 0; i < count; i++) {
         try {
-          scrambles.push(await scrambleWithTimeout(eventId));
+          const alg = await randomScrambleForEvent(eventId);
+          scrambles.push(alg.toString());
         } catch {
+          const puzzle = ALL_COMP_EVENTS.find(e => e.id === eventId)?.puzzle;
+          if (puzzle && puzzle !== eventId) {
+            try {
+              const alg = await randomScrambleForEvent(puzzle);
+              scrambles.push(alg.toString());
+              continue;
+            } catch {}
+          }
           scrambles.push("No internet — scramble unavailable");
         }
       }
@@ -8888,39 +8896,19 @@
       renderTools();
     }
 
-    // FTO and baby FTO require cubing.js; all WCA events use scrambo (local, no network)
-    const CUBING_JS_ONLY = new Set(['fto', 'baby_fto']);
-
-    const SCRAMBO_TYPE_MAP = {
-      '333oh': '333',
-      '333bf': '333',
-      '444bf': '444',
-      '555bf': '555',
-    };
-
-    function scramboGet(eventId) {
-      const type = SCRAMBO_TYPE_MAP[eventId] || eventId;
-      return new Promise((resolve, reject) => {
-        try {
-          const results = new Scrambo().type(type).get(1);
-          if (results && results.length > 0) resolve(results[0]);
-          else reject(new Error('No scramble returned'));
-        } catch (e) { reject(e); }
-      });
-    }
-
     function scrambleWithTimeout(id, ms = 6000) {
-      if (CUBING_JS_ONLY.has(id)) {
-        return Promise.race([
-          randomScrambleForEvent(id).then(a => a.toString()),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
-        ]);
-      }
-      return scramboGet(id);
+      return Promise.race([
+        randomScrambleForEvent(id).then(a => a.toString()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+      ]);
     }
 
     async function oneScramble(eventId) {
-      try { return await scrambleWithTimeout(eventId); } catch {}
+      const puzzle = ALL_COMP_EVENTS.find(e => e.id === eventId)?.puzzle;
+      const ids = (puzzle && puzzle !== eventId) ? [eventId, puzzle] : [eventId];
+      for (const id of ids) {
+        try { return await scrambleWithTimeout(id); } catch {}
+      }
       return "No internet — scramble unavailable";
     }
 
