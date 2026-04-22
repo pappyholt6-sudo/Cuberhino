@@ -8891,10 +8891,18 @@
     // FTO and baby FTO require cubing.js; all WCA events use scrambo (local, no network)
     const CUBING_JS_ONLY = new Set(['fto', 'baby_fto']);
 
+    const SCRAMBO_TYPE_MAP = {
+      '333oh': '333',
+      '333bf': '333',
+      '444bf': '444',
+      '555bf': '555',
+    };
+
     function scramboGet(eventId) {
+      const type = SCRAMBO_TYPE_MAP[eventId] || eventId;
       return new Promise((resolve, reject) => {
         try {
-          const results = new Scrambo().type(eventId).get();
+          const results = new Scrambo().type(type).get(1);
           if (results && results.length > 0) resolve(results[0]);
           else reject(new Error('No scramble returned'));
         } catch (e) { reject(e); }
