@@ -8897,6 +8897,12 @@
     }
 
     function scrambleWithTimeout(id, ms = 6000) {
+      if (id === '222') {
+        return Promise.race([
+          fetch('https://pappyholt6-sudo.github.io/Scramble-test/').then(r => r.text()).then(t => t.trim()),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+        ]);
+      }
       return Promise.race([
         randomScrambleForEvent(id).then(a => a.toString()),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
