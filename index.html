@@ -8898,7 +8898,97 @@
       renderTools();
     }
 
+    // 2x2 random-state UFR scramble generator (no network, U/F/R only)
+    const _222gen = (() => {
+      const FN=["U","R","F"], SFX=["","2","'"], INV=[2,1,0];
+      const FACT=[1,1,2,6,24,120,720,5040];
+      const MCP=[[3,0,1,2,4,5,6,7],[4,1,2,0,7,5,6,3],[1,5,2,3,0,4,6,7]];
+      const MCO=[[0,0,0,0,0,0,0,0],[2,0,0,1,1,0,0,2],[1,2,0,0,2,1,0,0]];
+      const MOV=[0,1,2,3,4,5,7];
+      const NO=729, NP=5040;
+      const oM=Array.from({length:9},()=>new Uint16Array(NO));
+      const pM=Array.from({length:9},()=>new Uint16Array(NP));
+      const oD=new Uint8Array(NO), pD=new Uint8Array(NP);
+
+      function applyFace(cp,co,f){
+        const nc=new Array(8),no=new Array(8);
+        for(let i=0;i<8;i++){const s=MCP[f][i];nc[i]=cp[s];no[i]=(co[s]+MCO[f][i])%3;}
+        return{cp:nc,co:no};
+      }
+      function p2i(cp){
+        const a=MOV.map(p=>{const c=cp[p];return c<6?c:6;});
+        let x=0;for(let i=0;i<7;i++){let l=0;for(let j=i+1;j<7;j++)if(a[j]<a[i])l++;x=x*(7-i)+l;}
+        return x;
+      }
+      function i2p(idx){
+        const it=[0,1,2,3,4,5,6],a=new Array(7);
+        for(let i=0;i<7;i++){const f=FACT[6-i],p=(idx/f)|0;idx%=f;a[i]=it.splice(p,1)[0];}
+        const cp=[0,1,2,3,4,5,6,7];
+        for(let i=0;i<7;i++)cp[MOV[i]]=a[i]<6?a[i]:7;
+        cp[6]=6;return cp;
+      }
+      function o2i(co){let x=0;for(let i=0;i<6;i++)x=x*3+co[MOV[i]];return x;}
+      function i2o(idx){
+        const co=new Array(8).fill(0);let s=0;
+        for(let i=5;i>=0;i--){const v=idx%3;idx=(idx/3)|0;co[MOV[i]]=v;s+=v;}
+        co[7]=(3-s%3)%3;co[6]=0;return co;
+      }
+      function buildMoves(){
+        const sc=[0,1,2,3,4,5,6,7],so=[0,0,0,0,0,0,0,0];
+        for(let ori=0;ori<NO;ori++){const b=i2o(ori);for(let f=0;f<3;f++){let cp=sc.slice(),co=b.slice();for(let p=0;p<3;p++){({cp,co}=applyFace(cp,co,f));oM[f*3+p][ori]=o2i(co);}}}
+        for(let per=0;per<NP;per++){const b=i2p(per);for(let f=0;f<3;f++){let cp=b.slice(),co=so.slice();for(let p=0;p<3;p++){({cp,co}=applyFace(cp,co,f));pM[f*3+p][per]=p2i(cp);}}}
+      }
+      function buildDist(mt,dt,sz){
+        dt.fill(255);const q=new Uint32Array(sz);let h=0,t=0;
+        q[t++]=0;dt[0]=0;
+        while(h<t){const s=q[h++],d=dt[s]+1;for(let m=0;m<9;m++){const n=mt[m][s];if(dt[n]===255){dt[n]=d;q[t++]=n;}}}
+      }
+      function rnd(max){
+        if(crypto?.getRandomValues){const a=new Uint32Array(1),lim=Math.floor(0x100000000/max)*max;do{crypto.getRandomValues(a);}while(a[0]>=lim);return a[0]%max;}
+        return Math.floor(Math.random()*max);
+      }
+      function randState(){
+        const a=[0,1,2,3,4,5,6];for(let i=6;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}
+        let per=0;for(let i=0;i<7;i++){let l=0;for(let j=i+1;j<7;j++)if(a[j]<a[i])l++;per=per*(7-i)+l;}
+        let ori=0;for(let i=0;i<6;i++)ori=ori*3+rnd(3);
+        return{per,ori};
+      }
+      function dfs(ori,per,dep,lf,path){
+        const h=Math.max(oD[ori],pD[per]);
+        if(h>dep)return false;
+        if(dep===0)return ori===0&&per===0;
+        for(let f=0;f<3;f++){if(f===lf)continue;for(let p=0;p<3;p++){const m=f*3+p;path.push(m);if(dfs(oM[m][ori],pM[m][per],dep-1,f,path))return true;path.pop();}}
+        return false;
+      }
+      function solve(ori,per){
+        for(let d=Math.max(Math.max(oD[ori],pD[per]),4);d<=20;d++){const path=[];if(dfs(ori,per,d,-1,path))return path;}
+        throw new Error('No solution');
+      }
+      function getScramble(){
+        const{per,ori}=randState();
+        return solve(ori,per).reverse().map(m=>FN[(m/3)|0]+SFX[INV[m%3]]).join(' ');
+      }
+
+      let ready=null;
+      async function doInit(){
+        await new Promise(r=>setTimeout(r,0)); buildMoves();
+        await new Promise(r=>setTimeout(r,0)); buildDist(oM,oD,NO);
+        await new Promise(r=>setTimeout(r,0)); buildDist(pM,pD,NP);
+      }
+      return{
+        init(){if(!ready)ready=doInit();return ready;},
+        async scramble(){await this.init();return getScramble();}
+      };
+    })();
+    _222gen.init(); // start building tables in background immediately
+
     function scrambleWithTimeout(id, ms = 6000) {
+      if (id === '222') {
+        return Promise.race([
+          _222gen.scramble(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+        ]);
+      }
       return Promise.race([
         randomScrambleForEvent(id).then(a => a.toString()),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
