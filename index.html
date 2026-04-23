@@ -4905,9 +4905,36 @@
           state.clubLastRead = snap.data().clubLastRead || {};
         }
       } catch {}
-      // Refresh dots now that timestamps are loaded
+      // Refresh dots with newly loaded timestamps (if clubs are already rendered)
       updateClubsNavDot();
       renderClubsList();
+      // Also do a lightweight pre-load check so the tab dot shows before clubs view is opened
+      checkClubsUnreadEarly();
+    }
+
+    async function checkClubsUnreadEarly() {
+      if (!firebaseReady || !db || !state.currentUser) return;
+      try {
+        // Find clubs this user is a member of
+        const memberSnap = await getDocs(query(
+          collectionGroup(db, 'members'), where('uid', '==', state.currentUser.uid)
+        ));
+        if (memberSnap.empty) return;
+        const clubIds = memberSnap.docs.map(d => d.ref.parent?.parent?.id).filter(Boolean);
+        // Check each club doc for unread messages
+        const clubDocs = await Promise.all(clubIds.map(id => getDoc(doc(db, 'clubs', id))));
+        const uid = state.currentUser.uid;
+        const hasUnread = clubDocs.some(d => {
+          if (!d.exists()) return false;
+          const { lastPostAt, lastPostUid } = d.data();
+          if (!lastPostAt) return false;
+          if (lastPostUid === uid) return false;
+          const lastPostMs = lastPostAt?.toMillis?.() ?? 0;
+          const lastReadMs = state.clubLastRead[d.id] ?? 0;
+          return lastPostMs > lastReadMs;
+        });
+        if (hasUnread) clubsViewBtn.classList.add('has-notif');
+      } catch {}
     }
 
     async function loadClubs() {
