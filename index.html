@@ -2115,7 +2115,7 @@
       padding:10px 0;
     }
 
-    @media (max-width: 980px){
+    @media (max-width: 768px){
       .times-toolbar{ grid-template-columns:1fr; }
       .times-list{ max-height:none; }
     }
@@ -4084,7 +4084,7 @@
       const touchPoints = Number(navigator.maxTouchPoints || 0);
       const coarse = window.matchMedia?.('(pointer: coarse)').matches || false;
       const noHover = window.matchMedia?.('(hover: none)').matches || false;
-      const narrow = window.innerWidth <= 980;
+      const narrow = window.innerWidth <= 768;
       const phoneLikeScreen = Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight) <= 1024;
       return narrow || (touchPoints > 0 && (coarse || noHover) && phoneLikeScreen);
     }
@@ -8401,6 +8401,34 @@
     function setupToolReorderInteractions(root, { enableHtml5Drag = true, enableTouchDrag = false } = {}) {
       if (!root) return;
 
+      // Shared helpers for slide preview
+      const clearSlotPreviews = () => {
+        root.querySelectorAll(".tool-card").forEach(c => {
+          c.style.transform = "";
+          c.style.zIndex = "";
+        });
+        root.querySelectorAll(".tool-slot").forEach(s => s.classList.remove("drag-over"));
+      };
+
+      const applySlotHoverPreview = (dragToolId, targetSlotEl) => {
+        clearSlotPreviews();
+        if (!targetSlotEl) return;
+        targetSlotEl.classList.add("drag-over");
+        // Find source slot number
+        const srcTool = dragToolId ? root.querySelector(`.tool-card[data-tool-id="${dragToolId}"]`) : null;
+        const srcSlot = srcTool?.closest?.(".tool-slot");
+        const srcNum = srcSlot ? slotNumber(srcSlot.dataset.slot) : 0;
+        const tgtNum = slotNumber(targetSlotEl.dataset.slot);
+        if (!srcNum || srcNum === tgtNum) return;
+        // Slide the card currently in the target slot toward the source
+        const tgtCard = targetSlotEl.querySelector(".tool-card");
+        if (tgtCard) {
+          const dir = srcNum < tgtNum ? -1 : 1; // toward source
+          tgtCard.style.transform = `translateX(${dir * 28}px)`;
+          tgtCard.style.zIndex = "2";
+        }
+      };
+
       root.querySelectorAll(".tool-card").forEach(card => {
         const toolId = card.dataset.toolId;
         card.draggable = !!enableHtml5Drag;
@@ -8413,6 +8441,7 @@
         card.ondragend = enableHtml5Drag ? (() => {
           card.classList.remove("dragging");
           state.dragToolId = null;
+          clearSlotPreviews();
         }) : null;
 
         const header = card.querySelector(".tool-header") || card;
@@ -8441,9 +8470,8 @@
 
           const setOverSlot = (slotEl) => {
             if (overSlotEl === slotEl) return;
-            if (overSlotEl) overSlotEl.classList.remove("drag-over");
             overSlotEl = slotEl;
-            if (overSlotEl) overSlotEl.classList.add("drag-over");
+            applySlotHoverPreview(toolId, slotEl);
           };
 
           const updateGhost = () => {
@@ -8524,9 +8552,18 @@
 
       root.querySelectorAll(".tool-slot").forEach(slotEl => {
         slotEl.ondragover = enableHtml5Drag ? ((e) => e.preventDefault()) : null;
+        slotEl.ondragenter = enableHtml5Drag ? ((e) => {
+          e.preventDefault();
+          applySlotHoverPreview(state.dragToolId, slotEl);
+        }) : null;
+        slotEl.ondragleave = enableHtml5Drag ? ((e) => {
+          // Only clear if leaving the slot entirely (not entering a child)
+          if (!slotEl.contains(e.relatedTarget)) clearSlotPreviews();
+        }) : null;
         slotEl.ondrop = enableHtml5Drag ? ((e) => {
           e.preventDefault();
           if (!state.dragToolId) return;
+          clearSlotPreviews();
           swapToolIntoSlot(state.dragToolId, slotEl.dataset.slot);
         }) : null;
       });
@@ -9461,11 +9498,18 @@
           </div>
           <div class="hm-grid-monthly">${dayLabels}${cells}</div>`;
       } else {
-        // Yearly: last ~52 weeks ending today, columns = weeks
+        // Yearly / All-time: week-column grid
         const endDate = new Date(todayStr + 'T00:00:00');
-        const startDate = new Date(endDate);
-        startDate.setDate(startDate.getDate() - 364);
-        // align to Sunday
+        let startDate;
+        if (_hmView === 'alltime') {
+          // Start from the very first solve date
+          const firstDate = daily.length ? daily[0].date : todayStr;
+          startDate = new Date(firstDate + 'T00:00:00');
+        } else {
+          startDate = new Date(endDate);
+          startDate.setDate(startDate.getDate() - 364);
+        }
+        // Align to Sunday
         startDate.setDate(startDate.getDate() - startDate.getDay());
 
         const weeks = [];
@@ -9479,14 +9523,30 @@
           weeks.push(wk);
         }
 
-        let monthLabels = '';
+        let topLabels = '';
         let lastMonth = -1;
+        let lastYear = -1;
         weeks.forEach((wk, wi) => {
-          const m = new Date(wk[0] + 'T00:00:00').getMonth();
-          if (m !== lastMonth) {
-            lastMonth = m;
-            const lbl = new Date(wk[0] + 'T00:00:00').toLocaleDateString(undefined, { month: 'short' });
-            monthLabels += `<div class="hm-yr-mlabel" style="grid-column:${wi+2};grid-row:1">${lbl}</div>`;
+          const dt = new Date(wk[0] + 'T00:00:00');
+          const m = dt.getMonth();
+          const y = dt.getFullYear();
+          if (_hmView === 'alltime') {
+            // Show year label at year boundaries, month label otherwise
+            if (y !== lastYear) {
+              lastYear = y;
+              lastMonth = m;
+              topLabels += `<div class="hm-yr-mlabel" style="grid-column:${wi+2};grid-row:1;font-weight:700;color:var(--text)">${y}</div>`;
+            } else if (m !== lastMonth) {
+              lastMonth = m;
+              const lbl = dt.toLocaleDateString(undefined, { month: 'short' });
+              topLabels += `<div class="hm-yr-mlabel" style="grid-column:${wi+2};grid-row:1">${lbl}</div>`;
+            }
+          } else {
+            if (m !== lastMonth) {
+              lastMonth = m;
+              const lbl = dt.toLocaleDateString(undefined, { month: 'short' });
+              topLabels += `<div class="hm-yr-mlabel" style="grid-column:${wi+2};grid-row:1">${lbl}</div>`;
+            }
           }
         });
 
@@ -9506,7 +9566,7 @@
         inner = `
           <div class="hm-yr-wrap">
             <div class="hm-yr-grid" style="grid-template-columns:22px repeat(${weeks.length},9px)">
-              ${monthLabels}${dowLabels}${cells}
+              ${topLabels}${dowLabels}${cells}
             </div>
           </div>`;
       }
@@ -9515,6 +9575,7 @@
         <div class="heatmap-tabs">
           <button class="heatmap-tab${_hmView==='monthly'?' hm-active':''}" onclick="window._hmSwitch('monthly')">Month</button>
           <button class="heatmap-tab${_hmView==='yearly'?' hm-active':''}" onclick="window._hmSwitch('yearly')">Year</button>
+          <button class="heatmap-tab${_hmView==='alltime'?' hm-active':''}" onclick="window._hmSwitch('alltime')">All Time</button>
         </div>
         ${inner}
         ${legend}`;
