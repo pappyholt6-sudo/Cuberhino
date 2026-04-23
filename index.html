@@ -3017,8 +3017,15 @@
 
           <div class="times-list-card">
             <div class="times-meta" id="timesMeta">No times shown</div>
+            <div id="timesSelectBar" style="display:none;align-items:center;gap:8px;padding:6px 0 10px;flex-wrap:wrap;">
+              <button class="small-btn" id="timesSelectAllBtn">Select all</button>
+              <button class="small-btn" id="timesDeselectAllBtn">Deselect all</button>
+              <span id="timesSelectedCount" style="font-size:12px;color:var(--muted);flex:1;"></span>
+              <button class="small-btn" id="timesDeleteSelectedBtn" style="color:var(--bad);border-color:var(--bad);">Delete selected</button>
+            </div>
             <div class="times-list" id="timesList"></div>
           </div>
+          <button class="small-btn" id="timesSelectModeBtn" style="margin-top:8px;">Select</button>
         </div>
 
         <!-- ── History panel ── -->
@@ -4169,6 +4176,8 @@
     const subPanelTimes    = document.getElementById("subPanelTimes");
     const subPanelHistory  = document.getElementById("subPanelHistory");
     let timesSubTab = 'times'; // 'times' | 'history'
+    let timesSelectMode = false;
+    let timesSelectedIds = new Set(); // solve id → {eventId, sessionId}
     const timesEventFilterEl = document.getElementById("timesEventFilter");
     const timesSessionFilterEl = document.getElementById("timesSessionFilter");
     const timesSearchInputEl = document.getElementById("timesSearchInput");
@@ -9743,11 +9752,25 @@
       timesSearchInputEl.value = state.timesSearch || '';
     }
 
+    function updateTimesSelectBar() {
+      const bar = document.getElementById('timesSelectBar');
+      const countEl = document.getElementById('timesSelectedCount');
+      const modeBtn = document.getElementById('timesSelectModeBtn');
+      if (bar) bar.style.display = timesSelectMode ? 'flex' : 'none';
+      if (modeBtn) {
+        modeBtn.textContent = timesSelectMode ? 'Cancel' : 'Select';
+        modeBtn.style.borderColor = timesSelectMode ? 'var(--bad)' : '';
+        modeBtn.style.color = timesSelectMode ? 'var(--bad)' : '';
+      }
+      if (countEl) countEl.textContent = timesSelectedIds.size ? `${timesSelectedIds.size} selected` : '';
+    }
+
     function renderTimesView() {
       renderTimesFilters();
       const entries = getFilteredTimesEntries();
       timesCountBadgeEl.textContent = `${entries.length} ${entries.length === 1 ? 'time' : 'times'} shown`;
       timesMetaEl.textContent = entries.length ? 'Click a time to view its scramble. Use +2 and DNF here just like the sidebar.' : 'No matching times.';
+      updateTimesSelectBar();
       timesListEl.innerHTML = '';
       if (!entries.length) {
         timesListEl.innerHTML = '<div class="solve-meta">No matching times.</div>';
@@ -9813,10 +9836,27 @@
           await toggleDNF(entry.solve.id);
         });
 
+        if (timesSelectMode) {
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = timesSelectedIds.has(entry.solve.id);
+          cb.style.cssText = 'width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:var(--accent);';
+          cb.addEventListener('change', () => {
+            if (cb.checked) timesSelectedIds.add(entry.solve.id);
+            else timesSelectedIds.delete(entry.solve.id);
+            updateTimesSelectBar();
+          });
+          row.prepend(cb);
+          // Clicking the row toggles the checkbox in select mode
+          left.addEventListener('click', (e) => { e.stopPropagation(); cb.click(); }, true);
+        }
+
         row.appendChild(left);
         row.appendChild(aoCol);
-        row.appendChild(plus2);
-        row.appendChild(dnf);
+        if (!timesSelectMode) {
+          row.appendChild(plus2);
+          row.appendChild(dnf);
+        }
         timesListEl.appendChild(row);
       });
     }
@@ -10587,6 +10627,48 @@
     timesEventFilterEl?.addEventListener("change", () => { state.timesEventFilter = timesEventFilterEl.value; state.timesSessionFilter = "all"; renderTimesView(); });
     timesSessionFilterEl?.addEventListener("change", () => { state.timesSessionFilter = timesSessionFilterEl.value; renderTimesView(); });
     timesSearchInputEl?.addEventListener("input", () => { state.timesSearch = timesSearchInputEl.value; renderTimesView(); });
+
+    document.getElementById('timesSelectModeBtn')?.addEventListener('click', () => {
+      timesSelectMode = !timesSelectMode;
+      timesSelectedIds.clear();
+      renderTimesView();
+    });
+
+    document.getElementById('timesSelectAllBtn')?.addEventListener('click', () => {
+      getFilteredTimesEntries().forEach(e => timesSelectedIds.add(e.solve.id));
+      renderTimesView();
+    });
+
+    document.getElementById('timesDeselectAllBtn')?.addEventListener('click', () => {
+      timesSelectedIds.clear();
+      renderTimesView();
+    });
+
+    document.getElementById('timesDeleteSelectedBtn')?.addEventListener('click', async () => {
+      if (!timesSelectedIds.size) return;
+      if (!confirm(`Delete ${timesSelectedIds.size} solve${timesSelectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+      // Group by eventId → sessionId for efficient deletion
+      const entries = getFilteredTimesEntries().filter(e => timesSelectedIds.has(e.solve.id));
+      const grouped = new Map();
+      entries.forEach(e => {
+        const key = `${e.eventId}::${e.sessionId}`;
+        if (!grouped.has(key)) grouped.set(key, { eventId: e.eventId, sessionId: e.sessionId, ids: new Set() });
+        grouped.get(key).ids.add(e.solve.id);
+      });
+      grouped.forEach(({ eventId, sessionId, ids }) => {
+        const bundle = data.sessionsByEvent[eventId];
+        if (!bundle) return;
+        const session = bundle.sessions.find(s => s.id === sessionId);
+        if (!session) return;
+        session.solves = session.solves.filter(s => !ids.has(s.id));
+      });
+      timesSelectedIds.clear();
+      timesSelectMode = false;
+      await saveData();
+      renderAll();
+      syncPbsToProfile();
+      syncAchievements();
+    });
 
     function activateTab(tabId) {
       document.querySelectorAll(".tab-btn").forEach(btn => {
