@@ -3741,6 +3741,36 @@
 
     const STORAGE_KEY = "cube_timer_full_data_v12";
 
+    // ── IndexedDB helpers (no size cap, replaces localStorage for solve data) ──
+    const IDB_NAME = 'cuberhino_data';
+    const IDB_STORE = 'kv';
+    let _idbInstance = null;
+    function openIdb() {
+      if (_idbInstance) return Promise.resolve(_idbInstance);
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+        req.onsuccess = e => { _idbInstance = e.target.result; resolve(_idbInstance); };
+        req.onerror = e => reject(e.target.error);
+      });
+    }
+    async function idbGet(key) {
+      const db = await openIdb();
+      return new Promise((resolve, reject) => {
+        const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
+        req.onsuccess = () => resolve(req.result ?? null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function idbSet(key, value) {
+      const db = await openIdb();
+      return new Promise((resolve, reject) => {
+        const req = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(value, key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDS5fd364dOQAeI7LcKDFD6vLktwMsmKx0",
       authDomain: "cubing-timer-e0700.firebaseapp.com",
@@ -3942,19 +3972,10 @@
       };
     }
 
-    let data = loadData();
-    let currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
+    // Placeholders — filled by async init below before renderAll() runs
+    let data = defaultData();
+    let currentEvent = "333";
     let settings = data.settings;
-
-    const slotMap = { left: "slot1", center: "slot2", right: "slot3" };
-    if (settings?.tools) {
-      for (const key of Object.keys(settings.tools)) {
-        if (slotMap[settings.tools[key]?.slot]) settings.tools[key].slot = slotMap[settings.tools[key].slot];
-      }
-      delete settings.tools.quickStats;
-      delete settings.tools.streaks;
-      settings.tools.recent ||= { enabled: false, slot: "slot5" };
-    }
 
     let firebaseApp = null;
     let analytics = null;
@@ -4262,11 +4283,20 @@
     const detailDeleteBtn = document.getElementById("detailDelete");
     const closeDetailBtn = document.getElementById("closeDetail");
 
-    function loadData() {
+    async function loadData() {
       try {
+        // Try IndexedDB first
+        const idbData = await idbGet(STORAGE_KEY);
+        if (idbData) return mergeData(idbData);
+        // Migrate from localStorage if present
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return defaultData();
-        return mergeData(JSON.parse(raw));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          await idbSet(STORAGE_KEY, parsed);
+          try { localStorage.removeItem(STORAGE_KEY); } catch {}
+          return mergeData(parsed);
+        }
+        return defaultData();
       } catch {
         return defaultData();
       }
@@ -4333,7 +4363,7 @@
     }
 
     async function saveData() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeData()));
+      await idbSet(STORAGE_KEY, serializeData());
       await saveRemoteData();
     }
 
@@ -4366,7 +4396,7 @@
           data = mergeData(snap.data().data || {});
           currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
           settings = data.settings;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeData()));
+          await idbSet(STORAGE_KEY, serializeData());
           renderAll();
           resetToIdle(true);
           await generateScramble();
@@ -11755,16 +11785,33 @@
     applyResponsiveMode();
     applySidebarWidth(getSidebarWidth(), false);
     setupSidebarResize();
-    buildEventDropdown();
-    updateDeleteCustomBtn();
-    initFirebase();
-    applyTheme();
-    syncSettingsUI();
-    renderAll();
-    syncWakeLock();
-    resetToIdle(true);
-    generateScramble();
     document.addEventListener("visibilitychange", () => { if (!document.hidden) applyResponsiveMode(); });
+
+    // Async init — loads from IndexedDB before rendering
+    (async () => {
+      data = await loadData();
+      currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
+      settings = data.settings;
+      // Slot key migration
+      const slotMap = { left: "slot1", center: "slot2", right: "slot3" };
+      if (settings?.tools) {
+        for (const key of Object.keys(settings.tools)) {
+          if (slotMap[settings.tools[key]?.slot]) settings.tools[key].slot = slotMap[settings.tools[key].slot];
+        }
+        delete settings.tools.quickStats;
+        delete settings.tools.streaks;
+        settings.tools.recent ||= { enabled: false, slot: "slot5" };
+      }
+      buildEventDropdown();
+      updateDeleteCustomBtn();
+      initFirebase();
+      applyTheme();
+      syncSettingsUI();
+      renderAll();
+      syncWakeLock();
+      resetToIdle(true);
+      generateScramble();
+    })();
   </script>
 
   <!-- User Profile Viewer Dialog -->
