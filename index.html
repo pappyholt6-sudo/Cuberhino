@@ -10392,7 +10392,7 @@
       URL.revokeObjectURL(url);
     }
 
-    function parseCSVLine(line) {
+    function parseCSVLine(line, delim = ",") {
       const fields = [];
       let cur = "", inQ = false;
       for (let i = 0; i < line.length; i++) {
@@ -10403,12 +10403,20 @@
           else cur += ch;
         } else {
           if (ch === '"') inQ = true;
-          else if (ch === ',') { fields.push(cur); cur = ""; }
+          else if (ch === delim) { fields.push(cur); cur = ""; }
           else cur += ch;
         }
       }
       fields.push(cur);
       return fields;
+    }
+
+    function detectCSVDelim(text) {
+      const firstLine = text.replace(/^\uFEFF/, "").split(/\r?\n/).find(l => l.trim());
+      if (!firstLine) return ",";
+      const semis = (firstLine.match(/;/g) || []).length;
+      const commas = (firstLine.match(/,/g) || []).length;
+      return semis > commas ? ";" : ",";
     }
 
     function parseCstimerDate(raw) {
@@ -10534,6 +10542,7 @@
     function importCSVIntoSession(text, eventId, sessionId) {
       // Strip UTF-8 BOM if present
       const cleaned = text.replace(/^\uFEFF/, "");
+      const delim = detectCSVDelim(cleaned);
       const lines = cleaned.split(/\r?\n/);
       const bundle  = data.sessionsByEvent[eventId];
       const session = bundle?.sessions.find(s => s.id === sessionId);
@@ -10541,7 +10550,7 @@
       let count = 0;
       for (const line of lines) {
         if (!line.trim()) continue;
-        const fields = parseCSVLine(line);
+        const fields = parseCSVLine(line, delim);
         if (fields.length < 2) continue;
         const timeField = (fields[1] || "").trim().toUpperCase();
         // Skip header rows and blank time fields
