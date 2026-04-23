@@ -4085,7 +4085,9 @@
       const coarse = window.matchMedia?.('(pointer: coarse)').matches || false;
       const noHover = window.matchMedia?.('(hover: none)').matches || false;
       const narrow = window.innerWidth <= 768;
-      const phoneLikeScreen = Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight) <= 1024;
+      // In landscape (width > height) with enough room, treat as desktop even on touch devices
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const phoneLikeScreen = !isLandscape && Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight) <= 1024;
       return narrow || (touchPoints > 0 && (coarse || noHover) && phoneLikeScreen);
     }
 
@@ -4493,14 +4495,16 @@
         return getPb(p);
       };
       const modeLabel = { single:'PB', ao5:'Ao5', ao12:'Ao12', ao100:'Ao100' }[globalLbRankBy] || 'PB';
-      const withVal = globalLbProfiles.filter(p => getVal(p) != null).sort((a,b) => getVal(a)-getVal(b));
-      const noVal   = globalLbProfiles.filter(p => getVal(p) == null);
+      const MIN_SOLVES = 25;
+      const eligible = globalLbProfiles.filter(p => (p.totalSolves ?? 0) >= MIN_SOLVES);
+      const withVal = eligible.filter(p => getVal(p) != null).sort((a,b) => getVal(a)-getVal(b));
+      const noVal   = eligible.filter(p => getVal(p) == null);
       const ranked  = [...withVal, ...noVal];
 
       ['Single','Ao5','Ao12','Ao100'].forEach(mode =>
         document.getElementById(`globalLbRank${mode}`)?.classList.toggle('active', globalLbRankBy === mode.toLowerCase()));
 
-      globalLbMeta.textContent = `${globalLbProfiles.length} user${globalLbProfiles.length!==1?'s':''} · ${withVal.length} with ${eventLabel} ${modeLabel}`;
+      globalLbMeta.textContent = `${eligible.length} user${eligible.length!==1?'s':''} · ${withVal.length} with ${eventLabel} ${modeLabel} · 25 solves required`;
 
       if (!ranked.length) {
         globalLbList.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">No users found. Sign up to appear here!</div>`;
@@ -4576,9 +4580,10 @@
         const freshAo100s= getAllAo100s();
         try { setDoc(doc(db,"profiles",state.currentUser?.uid), { pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, ao100s: freshAo100s, league: state.leagueId||'rookie' }, { merge: true }); } catch {}
 
+        const freshTotalSolves = getAllSolvesWithEvent().length;
         const withPbs = profiles.map(p => {
           if (p.uid === state.currentUser?.uid) {
-            return { ...p, pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, ao100s: freshAo100s, league: state.leagueId || 'rookie' };
+            return { ...p, pbs: freshPbs, ao5s: freshAo5s, ao12s: freshAo12s, ao100s: freshAo100s, league: state.leagueId || 'rookie', totalSolves: freshTotalSolves };
           }
           const m = memberStatsMap[p.uid] || {};
           // Merge member doc data with profile data; profile takes precedence per-key
@@ -4609,7 +4614,8 @@
         const ao12s  = getAllAo12s();
         const ao100s = getAllAo100s();
         const league = state.leagueId || 'rookie';
-        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s, ao12s, ao100s, league }, { merge: true });
+        const totalSolves = getAllSolvesWithEvent().length;
+        await setDoc(doc(db,"profiles",state.currentUser.uid), { pbs, ao5s, ao12s, ao100s, league, totalSolves }, { merge: true });
         for (const clubId of clubMembershipIds) {
           try {
             await setDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid), { pbs, ao5s, ao12s, ao100s, league }, { merge: true });
@@ -8263,10 +8269,36 @@
       return bins;
     }
 
+    const TREND_WINDOWS = [0, 100, 50, 25, 10]; // 0 = all
+    if (!state.trendWindow) state.trendWindow = 0;
+
+    window._trendZoomIn = () => {
+      const idx = TREND_WINDOWS.indexOf(state.trendWindow);
+      const next = TREND_WINDOWS[idx + 1];
+      if (next != null) { state.trendWindow = next; renderTools(); }
+    };
+    window._trendZoomOut = () => {
+      const idx = TREND_WINDOWS.indexOf(state.trendWindow);
+      const prev = TREND_WINDOWS[idx - 1];
+      if (prev != null) { state.trendWindow = prev; renderTools(); }
+    };
+
     function renderTrendSvg() {
-      const values = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
+      const allValues = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
+      const w = state.trendWindow;
+      const values = w > 0 ? allValues.slice(-w) : allValues;
+      const windowLabel = w > 0 ? `Last ${w}` : 'All';
+      const canIn  = TREND_WINDOWS.indexOf(w) < TREND_WINDOWS.length - 1;
+      const canOut = TREND_WINDOWS.indexOf(w) > 0;
+
+      const controls = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="font-size:11px;color:var(--muted);flex:1;">${windowLabel}</span>
+        <button onclick="window._trendZoomOut()" style="background:none;border:1px solid var(--line);border-radius:5px;color:var(--muted);width:20px;height:20px;font-size:13px;cursor:${canOut?'pointer':'default'};opacity:${canOut?1:.35};line-height:1;padding:0;">−</button>
+        <button onclick="window._trendZoomIn()" style="background:none;border:1px solid var(--line);border-radius:5px;color:var(--muted);width:20px;height:20px;font-size:13px;cursor:${canIn?'pointer':'default'};opacity:${canIn?1:.35};line-height:1;padding:0;">+</button>
+      </div>`;
+
       if (values.length < 2) {
-        return `
+        return controls + `
           <svg class="trend" viewBox="0 0 300 100" preserveAspectRatio="none">
             <rect x="0" y="0" width="300" height="100" fill="transparent"></rect>
             <text x="150" y="55" text-anchor="middle" fill="var(--muted)" font-size="11">Not enough solves</text>
@@ -8301,7 +8333,7 @@
         return d;
       })();
 
-      return `
+      return controls + `
         <svg class="trend" viewBox="0 0 300 100" preserveAspectRatio="none">
           <rect x="0" y="0" width="300" height="100" fill="transparent"></rect>
           <line x1="10" y1="90" x2="290" y2="90" stroke="var(--line)" stroke-width="1"></line>
@@ -9887,7 +9919,13 @@
         renderHistoryView();
       }
       if (isAch) renderAchView();
-      if (isClubs && firebaseReady && !clubsLoaded) loadClubs();
+      if (isClubs) {
+        if (!state.currentUser) {
+          clubsListScroll.innerHTML = `<div style="padding:24px 16px;color:var(--muted);font-size:14px;text-align:center;">Sign in to load clubs.</div>`;
+        } else if (firebaseReady && !clubsLoaded) {
+          loadClubs();
+        }
+      }
       if (!isClubs && clubPostsUnsubscribe) { clubPostsUnsubscribe(); clubPostsUnsubscribe = null; }
       if (isGlobalLb && !globalLbLoaded) loadGlobalLb();
       if (isComps && firebaseReady && state.currentUser && !compsLoaded) loadComps();
@@ -11068,7 +11106,8 @@
       const nextBtn = document.getElementById("scrambleNextBtn");
       if (!prevBtn || !nextBtn) return;
       prevBtn.disabled = state.scrambleHistoryIdx <= 0;
-      nextBtn.disabled = state.scrambleHistoryIdx >= state.scrambleHistory.length - 1;
+      // Next button is never disabled — at the end it generates a new scramble
+      nextBtn.disabled = false;
     }
 
     document.getElementById("scramblePrevBtn").addEventListener("click", e => {
