@@ -2997,7 +2997,10 @@
               <h2 class="history-title">Times</h2>
               <div class="history-subtitle">Search solves by event, session, time text, notes, or scramble. Click a solve to view its scramble.</div>
             </div>
-            <div class="history-badge" id="timesCountBadge">0 times shown</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="small-btn" id="timesSelectModeBtn">Select times</button>
+              <div class="history-badge" id="timesCountBadge">0 times shown</div>
+            </div>
           </div>
 
           <div class="times-toolbar">
@@ -3025,7 +3028,6 @@
             </div>
             <div class="times-list" id="timesList"></div>
           </div>
-          <button class="small-btn" id="timesSelectModeBtn" style="margin-top:8px;">Select</button>
         </div>
 
         <!-- ── History panel ── -->
@@ -3762,20 +3764,30 @@
       });
     }
     async function idbGet(key) {
-      const db = await openIdb();
-      return new Promise((resolve, reject) => {
-        const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
-        req.onsuccess = () => resolve(req.result ?? null);
-        req.onerror = () => reject(req.error);
-      });
+      try {
+        const db = await openIdb();
+        return await new Promise((resolve, reject) => {
+          const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
+          req.onsuccess = () => resolve(req.result ?? null);
+          req.onerror = () => reject(req.error);
+        });
+      } catch {
+        // Fallback: read from localStorage
+        try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch { return null; }
+      }
     }
     async function idbSet(key, value) {
-      const db = await openIdb();
-      return new Promise((resolve, reject) => {
-        const req = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(value, key);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
+      try {
+        const db = await openIdb();
+        await new Promise((resolve, reject) => {
+          const req = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(value, key);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      } catch {
+        // Fallback: write to localStorage (may hit quota on large datasets)
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) { console.warn('Storage full:', e); }
+      }
     }
 
     const FIREBASE_CONFIG = {
