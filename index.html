@@ -4035,12 +4035,19 @@
     function setupSidebarResize() {
       if (!sidebarResizerEl) return;
       let dragging = false;
+      let rafPending = false;
+      let lastClientX = 0;
 
       const onMove = (clientX) => {
-        const appRect = document.querySelector('.app')?.getBoundingClientRect();
-        if (!appRect) return;
-        const width = clientX - appRect.left;
-        applySidebarWidth(width);
+        lastClientX = clientX;
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          const appRect = document.querySelector('.app')?.getBoundingClientRect();
+          if (!appRect) return;
+          applySidebarWidth(lastClientX - appRect.left, false);
+        });
       };
 
       sidebarResizerEl.addEventListener('pointerdown', (e) => {
@@ -4061,8 +4068,12 @@
       const endDrag = (e) => {
         if (!dragging) return;
         dragging = false;
+        rafPending = false;
         sidebarResizerEl.classList.remove('dragging');
         sidebarResizerEl.releasePointerCapture?.(e.pointerId);
+        // Persist only once on release
+        const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')) || 320;
+        try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w)); } catch {}
       };
 
       sidebarResizerEl.addEventListener('pointerup', endDrag);
@@ -4711,6 +4722,7 @@
         state.leagueId = league;
         state.leaguePoints = pts;
         newlyEarned.forEach(a => showAchievementToast(a));
+        if (newlyEarned.length > 0 && achViewBtn) achViewBtn.classList.add('has-notif');
         // If not signed in, stop here — local state is updated, no Firebase needed
         if (!firebaseReady || !db || !state.currentUser) return;
         // ── Retroactive comp placement scan (runs once per session until all flags set) ──
@@ -4893,6 +4905,9 @@
           state.clubLastRead = snap.data().clubLastRead || {};
         }
       } catch {}
+      // Refresh dots now that timestamps are loaded
+      updateClubsNavDot();
+      renderClubsList();
     }
 
     async function loadClubs() {
@@ -7953,7 +7968,7 @@
       let best = Infinity;
       const solves = currentSolves();
       for (let i = 4; i < solves.length; i++) {
-        const ao = rollingAo5AtIndex(i);
+        const ao = averageFromWindow(solves.slice(i - 4, i + 1));
         if (Number.isFinite(ao) && ao < best) {
           best = ao;
           indexes.add(i);
@@ -8090,12 +8105,26 @@
         return;
       }
 
+      // Build lookup structures once — avoids O(n²) findIndex inside the loop
+      const idToIndex = new Map(solves.map((s, i) => [s.id, i]));
+
+      // Pre-compute ao5 values in one pass — avoids repeated currentSolves() calls
+      const showAo = settings.list.showAoColumn;
+      const ao5Values = new Array(solves.length).fill(null);
+      if (showAo) {
+        for (let i = 4; i < solves.length; i++) {
+          ao5Values[i] = averageFromWindow(solves.slice(i - 4, i + 1));
+        }
+      }
+
       const pbIds = getPbSolveIds();
       const pbAo5Indexes = getPbAo5Indexes();
       const source = settings.list.inverseTimeList ? solves : [...solves].reverse();
 
+      const frag = document.createDocumentFragment();
+
       source.forEach((solve) => {
-        const originalIndex = solves.findIndex(s => s.id === solve.id);
+        const originalIndex = idToIndex.get(solve.id);
         const displayIndex = originalIndex + 1;
         const row = document.createElement("div");
         row.className = "solve-row";
@@ -8115,10 +8144,10 @@
         left.appendChild(time);
 
         const aoCol = document.createElement("div");
+        const rollingAo5 = ao5Values[originalIndex];
         aoCol.className = "ao-col" + (pbAo5Indexes.has(originalIndex) ? " pb-ao" : "");
-        const rollingAo5 = rollingAo5AtIndex(originalIndex);
-        aoCol.textContent = settings.list.showAoColumn ? averageDisplay(rollingAo5) : "";
-        if (settings.list.showAoColumn && Number.isFinite(rollingAo5)) {
+        aoCol.textContent = showAo ? averageDisplay(rollingAo5) : "";
+        if (showAo && Number.isFinite(rollingAo5)) {
           aoCol.style.cursor = "pointer";
           aoCol.title = "Click to view included solves";
           aoCol.addEventListener("click", (e) => {
@@ -8147,8 +8176,10 @@
         row.appendChild(aoCol);
         row.appendChild(plus2);
         row.appendChild(dnf);
-        solveListEl.appendChild(row);
+        frag.appendChild(row);
       });
+
+      solveListEl.appendChild(frag);
 
       // Auto-scroll to bottom when newest-at-bottom mode is active
       if (settings.list.inverseTimeList) {
@@ -9750,7 +9781,10 @@
 
       timerViewBtn.classList.toggle('active', view === 'timer');
       timesViewBtn.classList.toggle('active', isTimes);
-      if (achViewBtn)   achViewBtn.classList.toggle('active', isAch);
+      if (achViewBtn) {
+        achViewBtn.classList.toggle('active', isAch);
+        if (isAch) achViewBtn.classList.remove('has-notif');
+      }
       clubsViewBtn.classList.toggle('active', isClubs);
       globalLbViewBtn.classList.toggle('active', isGlobalLb);
       if (compsViewBtn) compsViewBtn.classList.toggle('active', isComps);
