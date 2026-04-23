@@ -411,13 +411,40 @@
       flex:0 0 auto;
     }
 
+    .scramble-nav{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      margin-bottom:8px;
+    }
+
+    .scramble-nav-btn{
+      background:none;
+      border:1px solid var(--line);
+      color:var(--muted);
+      cursor:pointer;
+      font-size:14px;
+      width:26px;
+      height:26px;
+      border-radius:7px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+      line-height:1;
+      transition:background .1s, color .1s, border-color .1s;
+    }
+
+    .scramble-nav-btn:not(:disabled):hover{ background:var(--panel-2); color:var(--text); border-color:var(--accent); }
+    .scramble-nav-btn:disabled{ opacity:0.3; cursor:default; }
+
     .scramble-label{
       color:var(--muted);
       font-size:10px;
       font-weight:700;
       text-transform:uppercase;
       letter-spacing:0.08em;
-      margin-bottom:8px;
     }
 
     .scramble{
@@ -1914,6 +1941,58 @@
       display:block;
     }
 
+    /* Heatmap */
+    .heatmap-tabs{ display:flex; gap:6px; margin-bottom:14px; }
+    .heatmap-tab{
+      background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+      cursor:pointer; padding:5px 14px; border-radius:8px; font-size:12px; font-weight:600;
+      transition:background .1s, border-color .1s, color .1s;
+    }
+    .heatmap-tab:hover{ color:var(--text); border-color:color-mix(in srgb,var(--accent) 50%,var(--line)); }
+    .heatmap-tab.hm-active{ border-color:var(--accent); color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,var(--panel-2)); }
+
+    .hm-month-nav{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .hm-nav-title{ font-size:14px; font-weight:700; color:var(--text); }
+    .hm-nav-btn{
+      background:none; border:1px solid var(--line); color:var(--muted); cursor:pointer;
+      width:28px; height:28px; border-radius:7px; font-size:14px; display:flex;
+      align-items:center; justify-content:center; padding:0; line-height:1;
+      transition:background .1s, color .1s, border-color .1s;
+    }
+    .hm-nav-btn:not(:disabled):hover{ background:var(--panel-2); color:var(--text); border-color:var(--accent); }
+    .hm-nav-btn:disabled{ opacity:.3; cursor:default; }
+
+    .hm-grid-monthly{
+      display:grid;
+      grid-template-columns:repeat(7,minmax(0,36px));
+      gap:3px;
+      justify-content:center;
+    }
+    .hm-day-label{ text-align:center; font-size:11px; color:var(--muted); font-weight:600; padding-bottom:2px; }
+    .hm-cell{
+      aspect-ratio:1; border-radius:4px; border:1px solid rgba(255,255,255,.05);
+      cursor:default; transition:filter .1s;
+    }
+    .hm-cell:not(.hm-zero):hover{ filter:brightness(1.3); }
+    .hm-empty{ background:transparent !important; border-color:transparent !important; }
+    .hm-today{ box-shadow:0 0 0 2px var(--accent) !important; }
+
+    .hm-legend{ display:flex; align-items:center; gap:4px; margin-top:12px; justify-content:flex-end; }
+    .hm-legend-label{ font-size:11px; color:var(--muted); }
+    .hm-legend-cell{ width:13px; height:13px; border-radius:3px; border:1px solid rgba(255,255,255,.05); flex-shrink:0; }
+
+    .hm-yr-wrap{ overflow-x:auto; padding-bottom:4px; }
+    .hm-yr-grid{
+      display:grid;
+      grid-template-rows:14px repeat(7,8px);
+      gap:2px;
+      min-width:max-content;
+    }
+    .hm-yr-mlabel{ font-size:10px; color:var(--muted); align-self:end; white-space:nowrap; padding-bottom:1px; }
+    .hm-yr-dlabel{ font-size:10px; color:var(--muted); grid-column:1; align-self:center; text-align:right; padding-right:3px; white-space:nowrap; }
+    .hm-yr-cell{ border-radius:2px; border:1px solid rgba(255,255,255,.03); cursor:default; transition:filter .1s; }
+    .hm-yr-cell:hover{ filter:brightness(1.3); }
+
     .history-empty{
       height:240px;
       display:flex;
@@ -2870,7 +2949,11 @@
       <div class="timer-view" id="timerView">
         <div class="top-zone">
           <div class="scramble-wrap top-hide" id="scrambleWrap">
-            <div class="scramble-label">Scramble</div>
+            <div class="scramble-nav" id="scrambleNav">
+              <button class="scramble-nav-btn" id="scramblePrevBtn" title="Previous scramble" disabled>&#8592;</button>
+              <div class="scramble-label">Scramble</div>
+              <button class="scramble-nav-btn" id="scrambleNextBtn" title="Next scramble" disabled>&#8594;</button>
+            </div>
             <div class="scramble center" id="scramble">Loading scramble...</div>
           </div>
 
@@ -2955,7 +3038,7 @@
               <div class="history-card-header">
                 <div>
                   <h3 class="history-card-title">Daily activity</h3>
-                  <div class="history-card-subtitle">A bar graph of how many solves you did each day.</div>
+                  <div class="history-card-subtitle">Heatmap of time spent cubing each day. Darker = more time.</div>
                 </div>
                 <div class="history-badge" id="historyDayBadge">0 days</div>
               </div>
@@ -3890,6 +3973,8 @@
       postSolveTimeout: null,
       pendingPenalty: "OK",
       currentScramble: "",
+      scrambleHistory: [],
+      scrambleHistoryIdx: -1,
       scrambleLoading: false,
       selectedSolveId: null,
       alert8Played: false,
@@ -9171,11 +9256,14 @@
         const date = new Date(solve.createdAt);
         if (Number.isNaN(date.getTime())) continue;
         const key = date.toISOString().slice(0, 10);
-        map.set(key, (map.get(key) || 0) + 1);
+        const cur = map.get(key) || { count: 0, totalMs: 0 };
+        cur.count++;
+        cur.totalMs += Number(solve.baseTimeMs) || 0;
+        map.set(key, cur);
       }
       return Array.from(map.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, count]) => ({ date, count, label: formatShortDateLabel(date) }));
+        .map(([date, { count, totalMs }]) => ({ date, count, totalMs, label: formatShortDateLabel(date) }));
     }
 
     function historyEventData() {
@@ -9227,6 +9315,23 @@
       historyEventBadgeEl.textContent = formatDuration(totalTimeMs);
     }
 
+    let _hmView = 'monthly';
+    let _hmYear = new Date().getFullYear();
+    let _hmMonth = new Date().getMonth();
+
+    window._hmSwitch = v => { _hmView = v; renderHistoryActivityChart(); };
+    window._hmPrev = () => {
+      _hmMonth--; if (_hmMonth < 0) { _hmMonth = 11; _hmYear--; }
+      renderHistoryActivityChart();
+    };
+    window._hmNext = () => {
+      const n = new Date();
+      if (_hmYear < n.getFullYear() || (_hmYear === n.getFullYear() && _hmMonth < n.getMonth())) {
+        _hmMonth++; if (_hmMonth > 11) { _hmMonth = 0; _hmYear++; }
+        renderHistoryActivityChart();
+      }
+    };
+
     function renderHistoryActivityChart() {
       const daily = historyDailyData();
       if (!daily.length) {
@@ -9235,56 +9340,127 @@
       }
 
       const accent = settings.theme.accentColor || '#58a6ff';
-      const width = Math.max(720, daily.length * 34 + 92);
-      const height = 260;
-      const left = 52;
-      const right = 16;
-      const top = 18;
-      const bottom = 44;
-      const innerWidth = width - left - right;
-      const innerHeight = height - top - bottom;
-      const max = Math.max(...daily.map(item => item.count), 1);
-      const barGap = Math.min(12, Math.max(4, innerWidth * 0.01));
-      const barWidth = Math.max(8, (innerWidth - barGap * (daily.length - 1)) / daily.length);
+      const dayMap = new Map(daily.map(d => [d.date, d]));
+      const maxMs = Math.max(...daily.map(d => d.totalMs), 1);
+      const todayStr = new Date().toISOString().slice(0, 10);
 
-      const yTicks = Array.from(new Set([0, Math.ceil(max / 2), max])).sort((a, b) => a - b);
-      const yFor = value => top + innerHeight - ((value / max) * innerHeight);
+      function hmColor(dateStr) {
+        const d = dayMap.get(dateStr);
+        if (!d) return 'var(--panel-2)';
+        const t = d.totalMs / maxMs;
+        if (t < 0.15) return `color-mix(in srgb, ${accent} 22%, var(--panel-2))`;
+        if (t < 0.35) return `color-mix(in srgb, ${accent} 42%, var(--panel-2))`;
+        if (t < 0.60) return `color-mix(in srgb, ${accent} 62%, var(--panel-2))`;
+        if (t < 0.85) return `color-mix(in srgb, ${accent} 82%, var(--panel-2))`;
+        return accent;
+      }
 
-      const bars = daily.map((item, index) => {
-        const x = left + index * (barWidth + barGap);
-        const y = yFor(item.count);
-        const h = Math.max(2, top + innerHeight - y);
-        const label = new Date(item.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
-        const fullLabel = new Date(item.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-        return `
-          <g>
-            <title>${fullLabel}: ${item.count} solve${item.count === 1 ? '' : 's'}</title>
-            <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="5" fill="color-mix(in srgb, ${accent} 78%, white 6%)" stroke="color-mix(in srgb, ${accent} 92%, white 10%)" stroke-width="1"></rect>
-            ${(daily.length <= 18 || index % Math.ceil(daily.length / 10) === 0 || index === daily.length - 1) ? `<text x="${x + barWidth / 2}" y="${height - 16}" text-anchor="middle" fill="var(--muted)" font-size="11">${label}</text>` : ''}
-          </g>
-        `;
-      }).join('');
+      function hmTitle(dateStr) {
+        const d = dayMap.get(dateStr);
+        return d ? `${dateStr}: ${d.count} solve${d.count===1?'':'s'}, ${formatDuration(d.totalMs)}` : dateStr;
+      }
 
-      const grid = yTicks.map(value => {
-        const y = yFor(value);
-        return `
-          <g>
-            <line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" stroke="rgba(255,255,255,.07)" stroke-width="1"></line>
-            <text x="${left - 8}" y="${y + 4}" text-anchor="end" fill="var(--muted)" font-size="11">${value}</text>
-          </g>
-        `;
-      }).join('');
+      const legend = `
+        <div class="hm-legend">
+          <span class="hm-legend-label">Less</span>
+          <div class="hm-legend-cell" style="background:var(--panel-2)"></div>
+          <div class="hm-legend-cell" style="background:color-mix(in srgb,${accent} 22%,var(--panel-2))"></div>
+          <div class="hm-legend-cell" style="background:color-mix(in srgb,${accent} 42%,var(--panel-2))"></div>
+          <div class="hm-legend-cell" style="background:color-mix(in srgb,${accent} 62%,var(--panel-2))"></div>
+          <div class="hm-legend-cell" style="background:color-mix(in srgb,${accent} 82%,var(--panel-2))"></div>
+          <div class="hm-legend-cell" style="background:${accent}"></div>
+          <span class="hm-legend-label">More</span>
+        </div>`;
+
+      let inner = '';
+
+      if (_hmView === 'monthly') {
+        const year = _hmYear, month = _hmMonth;
+        const monthName = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const firstDow = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const now = new Date();
+        const canNext = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth());
+
+        const dayLabels = ['Su','Mo','Tu','We','Th','Fr','Sa']
+          .map(l => `<div class="hm-day-label">${l}</div>`).join('');
+        let cells = '';
+        for (let i = 0; i < firstDow; i++) cells += `<div class="hm-cell hm-empty"></div>`;
+        for (let d = 1; d <= daysInMonth; d++) {
+          const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const isToday = ds === todayStr;
+          const hasSolves = dayMap.has(ds);
+          cells += `<div class="hm-cell${isToday?' hm-today':''}${hasSolves?'':' hm-zero'}"
+            style="background:${hmColor(ds)}" title="${hmTitle(ds)}"></div>`;
+        }
+
+        inner = `
+          <div class="hm-month-nav">
+            <button class="hm-nav-btn" onclick="window._hmPrev()">&#8592;</button>
+            <span class="hm-nav-title">${monthName}</span>
+            <button class="hm-nav-btn" onclick="window._hmNext()" ${canNext?'':'disabled'}
+              style="${canNext?'':'opacity:.3;cursor:default'}">&#8594;</button>
+          </div>
+          <div class="hm-grid-monthly">${dayLabels}${cells}</div>`;
+      } else {
+        // Yearly: last ~52 weeks ending today, columns = weeks
+        const endDate = new Date(todayStr + 'T00:00:00');
+        const startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - 364);
+        // align to Sunday
+        startDate.setDate(startDate.getDate() - startDate.getDay());
+
+        const weeks = [];
+        const cur = new Date(startDate);
+        while (cur <= endDate) {
+          const wk = [];
+          for (let d = 0; d < 7; d++) {
+            wk.push(cur.toISOString().slice(0, 10));
+            cur.setDate(cur.getDate() + 1);
+          }
+          weeks.push(wk);
+        }
+
+        let monthLabels = '';
+        let lastMonth = -1;
+        weeks.forEach((wk, wi) => {
+          const m = new Date(wk[0] + 'T00:00:00').getMonth();
+          if (m !== lastMonth) {
+            lastMonth = m;
+            const lbl = new Date(wk[0] + 'T00:00:00').toLocaleDateString(undefined, { month: 'short' });
+            monthLabels += `<div class="hm-yr-mlabel" style="grid-column:${wi+2};grid-row:1">${lbl}</div>`;
+          }
+        });
+
+        const DOW = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+        const dowLabels = DOW.map((l, i) => `<div class="hm-yr-dlabel" style="grid-row:${i+2}">${i%2===1?l:''}</div>`).join('');
+
+        let cells = '';
+        weeks.forEach((wk, wi) => {
+          wk.forEach((ds, di) => {
+            const future = ds > todayStr;
+            const bg = future ? 'transparent' : hmColor(ds);
+            const title = future ? '' : hmTitle(ds);
+            cells += `<div class="hm-yr-cell" style="grid-column:${wi+2};grid-row:${di+2};background:${bg};${future?'pointer-events:none':''}" title="${title}"></div>`;
+          });
+        });
+
+        inner = `
+          <div class="hm-yr-wrap">
+            <div class="hm-yr-grid" style="grid-template-columns:22px repeat(${weeks.length},9px)">
+              ${monthLabels}${dowLabels}${cells}
+            </div>
+          </div>`;
+      }
 
       historyActivityChartEl.innerHTML = `
-        <div style="overflow-x:auto; padding-bottom:4px;">
-          <svg class="history-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMid meet" aria-label="Daily activity bar chart">
-            <rect x="0" y="0" width="${width}" height="${height}" rx="22" fill="rgba(255,255,255,.015)"></rect>
-            ${grid}
-            <line x1="${left}" y1="${top + innerHeight}" x2="${width - right}" y2="${top + innerHeight}" stroke="rgba(255,255,255,.12)" stroke-width="1.2"></line>
-            ${bars}
-          </svg>
+        <div class="heatmap-tabs">
+          <button class="heatmap-tab${_hmView==='monthly'?' hm-active':''}" onclick="window._hmSwitch('monthly')">Month</button>
+          <button class="heatmap-tab${_hmView==='yearly'?' hm-active':''}" onclick="window._hmSwitch('yearly')">Year</button>
         </div>
-      `;
+        ${inner}
+        ${legend}`;
+
       return daily;
     }
 
@@ -10017,6 +10193,13 @@
         try {
           const alg = await scrambleWithTimeout(cePuzzle, 8000);
           state.currentScramble = alg;
+          if (state.scrambleHistoryIdx < state.scrambleHistory.length - 1) {
+            state.scrambleHistory = state.scrambleHistory.slice(0, state.scrambleHistoryIdx + 1);
+          }
+          state.scrambleHistory.push(alg);
+          if (state.scrambleHistory.length > 30) state.scrambleHistory.shift();
+          state.scrambleHistoryIdx = state.scrambleHistory.length - 1;
+          updateScrambleNav();
           scrambleEl.textContent = state.currentScramble;
           updateDrawScramblePlayer();
           requestAnimationFrame(() => updateToolDockCompaction());
@@ -10035,6 +10218,14 @@
       try {
         const scrambleStr = await scrambleWithTimeout(currentEvent, 8000);
         state.currentScramble = scrambleStr;
+        // Truncate forward history when a new scramble is generated mid-history
+        if (state.scrambleHistoryIdx < state.scrambleHistory.length - 1) {
+          state.scrambleHistory = state.scrambleHistory.slice(0, state.scrambleHistoryIdx + 1);
+        }
+        state.scrambleHistory.push(scrambleStr);
+        if (state.scrambleHistory.length > 30) state.scrambleHistory.shift();
+        state.scrambleHistoryIdx = state.scrambleHistory.length - 1;
+        updateScrambleNav();
         scrambleEl.textContent = state.currentScramble;
 
         if (settings.scramble.autoSize) {
@@ -10629,8 +10820,10 @@
       csvPickerDesc.textContent  = desc;
       csvPickerSessions.innerHTML = "";
 
-      const eventsOrder = EVENTS.map(e => e.id);
-      const eventMap    = Object.fromEntries(EVENTS.map(e => [e.id, e.label]));
+      const customEvs   = Object.entries(data.customEvents || {}).map(([id, v]) => ({ id, label: v.label }));
+      const allEvents   = [...EVENTS, ...UNOFFICIAL_EVENTS, ...customEvs];
+      const eventsOrder = allEvents.map(e => e.id);
+      const eventMap    = Object.fromEntries(allEvents.map(e => [e.id, e.label]));
 
       let first = true;
       for (const evId of eventsOrder) {
@@ -10747,6 +10940,38 @@
     newSessionBtn.addEventListener("click", makeNewSession);
     renameSessionBtn.addEventListener("click", renameSession);
     deleteSessionBtn.addEventListener("click", deleteSession);
+
+    function updateScrambleNav() {
+      const prevBtn = document.getElementById("scramblePrevBtn");
+      const nextBtn = document.getElementById("scrambleNextBtn");
+      if (!prevBtn || !nextBtn) return;
+      prevBtn.disabled = state.scrambleHistoryIdx <= 0;
+      nextBtn.disabled = state.scrambleHistoryIdx >= state.scrambleHistory.length - 1;
+    }
+
+    document.getElementById("scramblePrevBtn").addEventListener("click", e => {
+      e.stopPropagation();
+      if (state.scrambleHistoryIdx <= 0) return;
+      state.scrambleHistoryIdx--;
+      state.currentScramble = state.scrambleHistory[state.scrambleHistoryIdx];
+      scrambleEl.textContent = state.currentScramble;
+      updateScrambleNav();
+      updateDrawScramblePlayer?.();
+    });
+
+    document.getElementById("scrambleNextBtn").addEventListener("click", e => {
+      e.stopPropagation();
+      if (state.scrambleHistoryIdx >= state.scrambleHistory.length - 1) {
+        // At the end: generate a new scramble
+        generateScramble();
+        return;
+      }
+      state.scrambleHistoryIdx++;
+      state.currentScramble = state.scrambleHistory[state.scrambleHistoryIdx];
+      scrambleEl.textContent = state.currentScramble;
+      updateScrambleNav();
+      updateDrawScramblePlayer?.();
+    });
 
     scrambleWrapEl.addEventListener("click", handleScrambleClick);
     window.addEventListener("resize", () => { applyResponsiveMode(); updateToolDockCompaction(); });
@@ -11193,17 +11418,146 @@
     document.getElementById("copyCardBtn").addEventListener("click", async () => {
       const solve = getSolveById(state.selectedSolveId);
       if (!solve) return;
-      const penalty = solve.penalty && solve.penalty !== "OK" ? ` [${solve.penalty}]` : "";
-      const text = [
-        `${currentEventLabel()} — ${solveDisplay(solve)}${penalty}`,
-        new Date(solve.createdAt).toLocaleString(),
-        solve.scramble ? `Scramble: ${solve.scramble}` : ""
-      ].filter(Boolean).join("\n");
       try {
-        await navigator.clipboard.writeText(text);
+        const blob = await renderSolveCardImage(solve);
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
         flashCopied(document.getElementById("copyCardBtn"));
-      } catch {}
+      } catch (err) {
+        // Fallback to text if image copy not supported
+        const penalty = solve.penalty && solve.penalty !== "OK" ? ` [${solve.penalty}]` : "";
+        const text = [
+          `${currentEventLabel()} — ${solveDisplay(solve)}${penalty}`,
+          new Date(solve.createdAt).toLocaleString(),
+          solve.scramble ? `Scramble: ${solve.scramble}` : ""
+        ].filter(Boolean).join("\n");
+        try { await navigator.clipboard.writeText(text); flashCopied(document.getElementById("copyCardBtn")); } catch {}
+      }
     });
+
+    function renderSolveCardImage(solve) {
+      return new Promise(resolve => {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const W = 480, PAD = 28;
+        // Measure scramble text wrapping
+        const scramble = solve.scramble || "—";
+        const eventLabel = currentEventLabel();
+        const timeStr = solveDisplay(solve);
+        const dateStr = new Date(solve.createdAt).toLocaleString();
+
+        // Colors
+        const BG = "#0b0f14", PANEL = "#121923", PANEL2 = "#192230";
+        const TEXT = "#eef3fb", MUTED = "#9fb0c8", LINE = "#2a3648", ACCENT = "#58a6ff";
+
+        // Build a temporary canvas to measure text
+        const tmp = document.createElement("canvas");
+        const ctx2 = tmp.getContext("2d");
+        const scrambleFont = "13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
+        ctx2.font = scrambleFont;
+        const maxW = W - PAD * 2 - 28;
+        const words = scramble.split(" ");
+        const lines = [];
+        let cur = "";
+        for (const w of words) {
+          const test = cur ? cur + " " + w : w;
+          if (ctx2.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+          else cur = test;
+        }
+        if (cur) lines.push(cur);
+        const scrambleLineH = 20;
+        const scrambleSectionH = 14 + 16 + lines.length * scrambleLineH + 14; // top + label + lines + bottom
+
+        const H = PAD + 24 + 18 + 56 + 10 + 20 + 16 + scrambleSectionH + PAD;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
+
+        // Background
+        ctx.fillStyle = PANEL;
+        roundRect(ctx, 0, 0, W, H, 16);
+        ctx.fill();
+
+        let y = PAD;
+
+        // Event badge
+        ctx.font = "600 12px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = PANEL2;
+        const bW = ctx.measureText(eventLabel).width + 24;
+        roundRect(ctx, PAD, y, bW, 24, 12);
+        ctx.fill();
+        ctx.strokeStyle = LINE;
+        ctx.lineWidth = 1;
+        roundRect(ctx, PAD, y, bW, 24, 12);
+        ctx.stroke();
+        ctx.fillStyle = MUTED;
+        ctx.textBaseline = "middle";
+        ctx.fillText(eventLabel, PAD + 12, y + 12);
+        y += 24 + 18;
+
+        // Time
+        ctx.font = "700 52px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = TEXT;
+        ctx.textBaseline = "top";
+        ctx.fillText(timeStr, PAD, y);
+        y += 56 + 10;
+
+        // Date
+        ctx.font = "13px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = MUTED;
+        ctx.textBaseline = "top";
+        ctx.fillText(dateStr, PAD, y);
+        y += 20 + 16;
+
+        // Scramble section box
+        ctx.fillStyle = PANEL2;
+        roundRect(ctx, PAD, y, W - PAD * 2, scrambleSectionH, 12);
+        ctx.fill();
+        ctx.strokeStyle = LINE;
+        ctx.lineWidth = 1;
+        roundRect(ctx, PAD, y, W - PAD * 2, scrambleSectionH, 12);
+        ctx.stroke();
+
+        // Section label
+        ctx.font = "600 11px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = MUTED;
+        ctx.textBaseline = "top";
+        ctx.fillText("SCRAMBLE", PAD + 14, y + 14);
+
+        // Scramble lines
+        ctx.font = scrambleFont;
+        ctx.fillStyle = TEXT;
+        let sy = y + 14 + 16;
+        for (const line of lines) {
+          ctx.fillText(line, PAD + 14, sy);
+          sy += scrambleLineH;
+        }
+
+        // Cuberhino watermark
+        ctx.font = "600 11px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = ACCENT;
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "right";
+        ctx.fillText("Cuberhino", W - PAD, H - 10);
+
+        canvas.toBlob(blob => resolve(blob), "image/png");
+      });
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
 
     document.getElementById("copyAvgScramblesBtn").addEventListener("click", async () => {
       const { n, endIndex, details } = state.selectedAverage || {};
