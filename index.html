@@ -4215,7 +4215,6 @@
     let timesSelectedIds = new Set();
     let timesRenderLimit = 200;
     let timesAllEntries = [];
-    let timesObserver = null;
     const timesEventFilterEl = document.getElementById("timesEventFilter");
     const timesSessionFilterEl = document.getElementById("timesSessionFilter");
     const timesSearchInputEl = document.getElementById("timesSearchInput");
@@ -9889,7 +9888,6 @@
       renderTimesFilters();
       timesAllEntries = getFilteredTimesEntries();
       timesRenderLimit = 200;
-      timesCountBadgeEl.textContent = `${timesAllEntries.length} ${timesAllEntries.length === 1 ? 'time' : 'times'} shown`;
       timesMetaEl.textContent = timesAllEntries.length ? 'Click a time to view its scramble. Use +2 and DNF here just like the sidebar.' : 'No matching times.';
       updateTimesSelectBar();
       renderTimesPage();
@@ -9898,32 +9896,31 @@
     function renderTimesPage() {
       if (timesObserver) { timesObserver.disconnect(); timesObserver = null; }
       timesListEl.innerHTML = '';
-      if (!timesAllEntries.length) {
+      const total = timesAllEntries.length;
+      const showing = Math.min(timesRenderLimit, total);
+      timesCountBadgeEl.textContent = showing < total
+        ? `Showing ${showing} of ${total}`
+        : `${total} ${total === 1 ? 'time' : 'times'}`;
+      if (!total) {
         timesListEl.innerHTML = '<div class="solve-meta">No matching times.</div>';
         return;
       }
-      const visible = timesAllEntries.slice(0, timesRenderLimit);
       const frag = document.createDocumentFragment();
-      visible.forEach((entry, i) => {
+      timesAllEntries.slice(0, showing).forEach((entry, i) => {
         frag.appendChild(buildTimesRow(entry, i + 1));
       });
-      // Sentinel for infinite scroll
-      if (timesRenderLimit < timesAllEntries.length) {
-        const sentinel = document.createElement('div');
-        sentinel.style.cssText = 'height:1px;';
-        frag.appendChild(sentinel);
-        timesListEl.appendChild(frag);
-        timesObserver = new IntersectionObserver(([e]) => {
-          if (!e.isIntersecting) return;
-          timesObserver.disconnect();
-          timesObserver = null;
+      if (showing < total) {
+        const loadMore = document.createElement('button');
+        loadMore.className = 'small-btn';
+        loadMore.style.cssText = 'width:100%;margin-top:10px;padding:10px;';
+        loadMore.textContent = `Load ${Math.min(200, total - showing)} more (${total - showing} remaining)`;
+        loadMore.addEventListener('click', () => {
           timesRenderLimit += 200;
           renderTimesPage();
         });
-        timesObserver.observe(sentinel);
-      } else {
-        timesListEl.appendChild(frag);
+        frag.appendChild(loadMore);
       }
+      timesListEl.appendChild(frag);
     }
 
     function renderHistoryView() {
