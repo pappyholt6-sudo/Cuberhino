@@ -8843,6 +8843,7 @@
             <div class="scrgen-controls">
               <input class="scrgen-count" type="number" id="scrgenCount" min="1" max="20" value="${count}" title="Number of scrambles">
               <button class="scrgen-btn" id="scrgenNewBtn">New</button>
+              ${scrambles.length > 1 ? `<button class="scrgen-btn" id="scrgenCopyAllBtn">Copy all</button>` : ''}
             </div>
           </div>
           <div class="scrgen-list${state.scrambleGenLoading?' loading':''}" id="scrgenList">${listHtml}</div>
@@ -9411,6 +9412,12 @@
       if (scrgenEventEl) scrgenEventEl.addEventListener('change', () => generateScrambleGen(scrgenEventEl.value));
       if (scrgenCountEl) scrgenCountEl.addEventListener('change', () => { state.scrambleGenCount = Math.max(1, Math.min(20, parseInt(scrgenCountEl.value) || 1)); });
       if (scrgenNewBtn) scrgenNewBtn.addEventListener('click', () => generateScrambleGen(document.getElementById('scrgenEvent')?.value || state.scrambleGenEvent || currentEvent));
+      document.getElementById('scrgenCopyAllBtn')?.addEventListener('click', async () => {
+        const scrs = state.scrambleGenScrambles;
+        if (!scrs?.length) return;
+        const text = scrs.map((s, i) => `${i + 1}. ${s}`).join('\n');
+        try { await navigator.clipboard.writeText(text); } catch {}
+      });
       // Per-row copy buttons
       document.getElementById('scrgenList')?.addEventListener('click', async e => {
         const btn = e.target.closest('.scrgen-row-copy');
