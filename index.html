@@ -1677,6 +1677,31 @@
       margin-top:0;
     }
 
+    /* ── Landscape phone layout ── */
+    @media (orientation: landscape) and (max-height: 500px) {
+      body.mobile-ui .topbar{ min-height:40px; padding:4px 10px; }
+      body.mobile-ui .topbar-center{ gap:6px; }
+      body.mobile-ui .scramble-wrap{ margin-top:2px; font-size:12px; line-height:1.3; max-height:48px; overflow:hidden; }
+      body.mobile-ui .timer-row{ min-height:60px; margin:4px 0; }
+      body.mobile-ui .timer{ font-size:clamp(42px,14vw,72px); }
+      body.mobile-ui .stats{ gap:6px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; }
+      body.mobile-ui .stat{ min-width:80px; padding:6px 8px; font-size:12px; flex-shrink:0; }
+      body.mobile-ui .stat-label{ font-size:10px; }
+      body.mobile-ui .mobile-bottom-bar{
+        left:auto; right:8px; top:8px; bottom:8px;
+        width:54px; height:auto;
+        grid-template-columns:1fr;
+        grid-template-rows:repeat(5,minmax(0,1fr));
+        border-radius:16px;
+        padding:6px 4px;
+        gap:4px;
+      }
+      body.mobile-ui .mobile-bottom-btn{ min-height:0; padding:6px 2px; font-size:10px; }
+      body.mobile-ui .timer-view{ padding-right:68px; }
+      body.mobile-ui .sidebar{ top:8px; bottom:8px; left:0; }
+      body.mobile-ui .mobile-tools-sheet{ bottom:8px; right:68px; max-height:calc(100dvh - 16px); }
+    }
+
     body.mobile-ui .mobile-tools-sheet .tool-slots{
       grid-template-columns:repeat(6, minmax(170px,1fr));
       min-height:140px;
@@ -4125,9 +4150,7 @@
       const coarse = window.matchMedia?.('(pointer: coarse)').matches || false;
       const noHover = window.matchMedia?.('(hover: none)').matches || false;
       const narrow = window.innerWidth <= 768;
-      // In landscape (width > height) with enough room, treat as desktop even on touch devices
-      const isLandscape = window.innerWidth > window.innerHeight;
-      const phoneLikeScreen = !isLandscape && Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight) <= 1024;
+      const phoneLikeScreen = Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight) <= 1024;
       return narrow || (touchPoints > 0 && (coarse || noHover) && phoneLikeScreen);
     }
 
@@ -4189,7 +4212,10 @@
     const subPanelHistory  = document.getElementById("subPanelHistory");
     let timesSubTab = 'times'; // 'times' | 'history'
     let timesSelectMode = false;
-    let timesSelectedIds = new Set(); // solve id → {eventId, sessionId}
+    let timesSelectedIds = new Set();
+    let timesRenderLimit = 200;
+    let timesAllEntries = [];
+    let timesObserver = null;
     const timesEventFilterEl = document.getElementById("timesEventFilter");
     const timesSessionFilterEl = document.getElementById("timesSessionFilter");
     const timesSearchInputEl = document.getElementById("timesSearchInput");
@@ -9777,21 +9803,9 @@
       if (countEl) countEl.textContent = timesSelectedIds.size ? `${timesSelectedIds.size} selected` : '';
     }
 
-    function renderTimesView() {
-      renderTimesFilters();
-      const entries = getFilteredTimesEntries();
-      timesCountBadgeEl.textContent = `${entries.length} ${entries.length === 1 ? 'time' : 'times'} shown`;
-      timesMetaEl.textContent = entries.length ? 'Click a time to view its scramble. Use +2 and DNF here just like the sidebar.' : 'No matching times.';
-      updateTimesSelectBar();
-      timesListEl.innerHTML = '';
-      if (!entries.length) {
-        timesListEl.innerHTML = '<div class="solve-meta">No matching times.</div>';
-        return;
-      }
-
-      entries.forEach((entry) => {
-        const row = document.createElement('div');
-        row.className = 'solve-row';
+    function buildTimesRow(entry, globalIndex) {
+      const row = document.createElement('div');
+      row.className = 'solve-row';
 
         const left = document.createElement('div');
         left.className = 'solve-main';
@@ -9806,7 +9820,7 @@
         time.className = 'solve-time';
         const indexSpan = document.createElement('span');
         indexSpan.className = 'solve-index';
-        indexSpan.textContent = `${entry.originalIndex + 1}.`;
+        indexSpan.textContent = `${globalIndex}.`;
         time.appendChild(indexSpan);
         time.append(document.createTextNode(` ${solveDisplay(entry.solve)}`));
         left.appendChild(time);
@@ -9859,7 +9873,6 @@
             updateTimesSelectBar();
           });
           row.prepend(cb);
-          // Clicking the row toggles the checkbox in select mode
           left.addEventListener('click', (e) => { e.stopPropagation(); cb.click(); }, true);
         }
 
@@ -9869,8 +9882,48 @@
           row.appendChild(plus2);
           row.appendChild(dnf);
         }
-        timesListEl.appendChild(row);
+      return row;
+    }
+
+    function renderTimesView() {
+      renderTimesFilters();
+      timesAllEntries = getFilteredTimesEntries();
+      timesRenderLimit = 200;
+      timesCountBadgeEl.textContent = `${timesAllEntries.length} ${timesAllEntries.length === 1 ? 'time' : 'times'} shown`;
+      timesMetaEl.textContent = timesAllEntries.length ? 'Click a time to view its scramble. Use +2 and DNF here just like the sidebar.' : 'No matching times.';
+      updateTimesSelectBar();
+      renderTimesPage();
+    }
+
+    function renderTimesPage() {
+      if (timesObserver) { timesObserver.disconnect(); timesObserver = null; }
+      timesListEl.innerHTML = '';
+      if (!timesAllEntries.length) {
+        timesListEl.innerHTML = '<div class="solve-meta">No matching times.</div>';
+        return;
+      }
+      const visible = timesAllEntries.slice(0, timesRenderLimit);
+      const frag = document.createDocumentFragment();
+      visible.forEach((entry, i) => {
+        frag.appendChild(buildTimesRow(entry, i + 1));
       });
+      // Sentinel for infinite scroll
+      if (timesRenderLimit < timesAllEntries.length) {
+        const sentinel = document.createElement('div');
+        sentinel.style.cssText = 'height:1px;';
+        frag.appendChild(sentinel);
+        timesListEl.appendChild(frag);
+        timesObserver = new IntersectionObserver(([e]) => {
+          if (!e.isIntersecting) return;
+          timesObserver.disconnect();
+          timesObserver = null;
+          timesRenderLimit += 200;
+          renderTimesPage();
+        });
+        timesObserver.observe(sentinel);
+      } else {
+        timesListEl.appendChild(frag);
+      }
     }
 
     function renderHistoryView() {
@@ -10647,20 +10700,22 @@
     });
 
     document.getElementById('timesSelectAllBtn')?.addEventListener('click', () => {
-      getFilteredTimesEntries().forEach(e => timesSelectedIds.add(e.solve.id));
-      renderTimesView();
+      timesAllEntries.forEach(e => timesSelectedIds.add(e.solve.id));
+      renderTimesPage();
+      updateTimesSelectBar();
     });
 
     document.getElementById('timesDeselectAllBtn')?.addEventListener('click', () => {
       timesSelectedIds.clear();
-      renderTimesView();
+      renderTimesPage();
+      updateTimesSelectBar();
     });
 
     document.getElementById('timesDeleteSelectedBtn')?.addEventListener('click', async () => {
       if (!timesSelectedIds.size) return;
       if (!confirm(`Delete ${timesSelectedIds.size} solve${timesSelectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
       // Group by eventId → sessionId for efficient deletion
-      const entries = getFilteredTimesEntries().filter(e => timesSelectedIds.has(e.solve.id));
+      const entries = timesAllEntries.filter(e => timesSelectedIds.has(e.solve.id));
       const grouped = new Map();
       entries.forEach(e => {
         const key = `${e.eventId}::${e.sessionId}`;
