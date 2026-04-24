@@ -807,12 +807,17 @@
 
     .dist-row{
       display:grid;
-      grid-template-columns:auto 1fr 22px;
+      grid-template-columns:36px 1fr 18px;
       gap:6px;
       align-items:center;
       font-size:11px;
       color:var(--muted);
       white-space:nowrap;
+    }
+
+    .dist-label{
+      text-align:right;
+      transition:color .2s;
     }
 
     .dist-bar-wrap{
@@ -826,6 +831,21 @@
       height:100%;
       background:var(--accent);
       border-radius:999px;
+      transition:width .25s ease;
+    }
+
+    .dist-row.dist-current .dist-bar-wrap{
+      background:rgba(88,166,255,.12);
+    }
+
+    .dist-row.dist-current .dist-bar{
+      background:var(--accent);
+      box-shadow:0 0 8px 2px rgba(88,166,255,.55), 0 0 2px 1px rgba(88,166,255,.9);
+    }
+
+    .dist-row.dist-current .dist-label{
+      color:var(--text);
+      font-weight:700;
     }
 
     .scramble-draw-wrap{
@@ -8371,52 +8391,8 @@
     }
 
     function buildDistributionBins() {
-      const values = currentSolves()
-        .map(finalTimeMsOrInfinity)
-        .filter(v => Number.isFinite(v));
-      if (values.length === 0) return [];
-
-      const seconds = values.map(v => v / 1000);
-      const rawMin = Math.min(...seconds);
-      const rawMax = Math.max(...seconds);
-      const span   = rawMax - rawMin;
-
-      // Pick the smallest clean step that gives ≤ 8 bins
-      const STEPS = [0.5, 1, 2, 3, 5, 10, 15, 20, 30, 60, 90, 120, 180, 300, 600];
-      let step = STEPS[STEPS.length - 1];
-      for (const s of STEPS) {
-        if (span <= 0 || Math.ceil(span / s) <= 8) { step = s; break; }
-      }
-
-      // Snap range outward to multiples of step
-      const binStart = Math.floor(rawMin / step) * step;
-      const binCount = Math.max(1, Math.ceil((rawMax - binStart) / step));
-
-      // Format a seconds value as a compact label
-      const fmt = s => {
-        s = Math.max(0, s);
-        if (s < 60) return `${Math.round(s)}s`;
-        const m = Math.floor(s / 60);
-        const sec = Math.round(s % 60);
-        return `${m}:${String(sec).padStart(2,'0')}`;
-      };
-
-      const bins = Array.from({ length: binCount }, (_, i) => ({
-        start: binStart + i * step,
-        end:   binStart + (i + 1) * step,
-        count: 0,
-        label: fmt(binStart + i * step)
-      }));
-
-      for (const s of seconds) {
-        const idx = Math.min(binCount - 1, Math.max(0, Math.floor((s - binStart) / step)));
-        bins[idx].count += 1;
-      }
-
-      // Drop empty trailing bins (but keep at least one)
-      while (bins.length > 1 && bins[bins.length - 1].count === 0) bins.pop();
-
-      return bins;
+      // Kept for backward compat but no longer used by the distribution tool
+      return [];
     }
 
     const TREND_WINDOWS = [0, 100, 50, 25, 10]; // 0 = all
@@ -8494,18 +8470,44 @@
     }
 
     function renderDistributionHtml() {
-      const bins = buildDistributionBins();
-      if (bins.length === 0) return `<div class="solve-meta">No solves yet.</div>`;
-      const max = Math.max(...bins.map(b => b.count), 1);
+      const values = currentSolves().map(finalTimeMsOrInfinity).filter(Number.isFinite);
+      if (!values.length) return `<div class="solve-meta">No solves yet.</div>`;
+
+      // Center on the most recent solve's 1-second bucket
+      const centerSec = Math.floor(values[values.length - 1] / 1000);
+      const SIDE = 3;
+
+      // Count solves per 1s bucket across all values
+      const bucketMap = {};
+      for (const v of values) {
+        const s = Math.floor(v / 1000);
+        bucketMap[s] = (bucketMap[s] || 0) + 1;
+      }
+
+      const fmt = s => {
+        if (s < 0) return `<1s`;
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        return `${m}:${String(s % 60).padStart(2,'0')}`;
+      };
+
+      const buckets = [];
+      for (let i = -SIDE; i <= SIDE; i++) {
+        const sec = centerSec + i;
+        buckets.push({ sec, count: bucketMap[sec] || 0, isCenter: i === 0 });
+      }
+
+      const max = Math.max(...buckets.map(b => b.count), 1);
+
       return `
         <div class="dist-list">
-          ${bins.map(bin => `
-            <div class="dist-row">
-              <div>${bin.label}</div>
-              <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(bin.count/max)*100}%"></div></div>
-              <div>${bin.count}</div>
+          ${buckets.map(b => `
+            <div class="dist-row${b.isCenter ? ' dist-current' : ''}">
+              <div class="dist-label">${fmt(b.sec)}</div>
+              <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(b.count/max)*100}%"></div></div>
+              <div>${b.count || ''}</div>
             </div>
-          `).join("")}
+          `).join('')}
         </div>
       `;
     }
