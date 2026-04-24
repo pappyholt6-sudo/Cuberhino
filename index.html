@@ -2081,7 +2081,7 @@
       flex:1 1 auto;
       min-height:0;
       overflow:auto;
-      padding:8px 4px 12px;
+      padding:6px 4px 0;
       animation:fadeUp .24s ease;
     }
 
@@ -2091,7 +2091,7 @@
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
-      margin-bottom:14px;
+      margin-bottom:10px;
       align-items:end;
     }
 
@@ -2117,7 +2117,7 @@
       border:1px solid color-mix(in srgb, var(--line) 82%, transparent);
       border-radius:20px;
       box-shadow:0 14px 36px rgba(0,0,0,.18);
-      padding:12px 14px;
+      padding:10px 12px;
     }
 
     .times-list{
@@ -2533,6 +2533,7 @@
     .comp-scramble-item{ background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px; font-family:monospace; line-height:1.5; word-break:break-all; }
     .comp-scramble-num{ font-size:11px; color:var(--muted); margin-bottom:2px; text-transform:uppercase; letter-spacing:.05em; }
     .comp-entry-form{ background:var(--panel-2); border:1px solid var(--accent); border-radius:10px; padding:14px; }
+    .comp-entry-footer{ border-top:1px solid var(--line); padding:12px 16px; flex-shrink:0; max-height:45vh; overflow-y:auto; }
     .comp-entry-title{ font-size:13px; font-weight:600; margin-bottom:10px; }
     .comp-time-inputs{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
     .comp-time-input-wrap{ display:flex; flex-direction:column; gap:4px; }
@@ -3248,6 +3249,15 @@
             <button class="comp-num-btn" data-n="1">1</button>
             <button class="comp-num-btn" data-n="3">3</button>
             <button class="comp-num-btn active" data-n="5">5</button>
+          </div>
+        </div>
+        <div>
+          <div class="profile-field-label">Format</div>
+          <div class="comp-num-solves-row" id="compFormatRow">
+            <button class="comp-num-btn active" data-fmt="ao5">Ao5</button>
+            <button class="comp-num-btn" data-fmt="mo3">Mo3</button>
+            <button class="comp-num-btn" data-fmt="mean">Mean</button>
+            <button class="comp-num-btn" data-fmt="single">Single</button>
           </div>
         </div>
         <div>
@@ -5574,6 +5584,7 @@
     let createCompForClubId = null;
     let createCompScope = 'open';
     let newCompNumSolves = 5;
+    let newCompFormat = 'ao5';
     let h2hNumSolves = 5;
     let h2hTargetUid = null;
     let h2hTargetUsername = null;
@@ -5608,11 +5619,20 @@
     // trimming fastest+slowest, the average is DNF.
     const isBad = t => t != null && t < 0;
 
-    function compScore(times) {
+    function compScore(times, format) {
       if (!times?.length) return null;
       const filled = times.filter(t => t != null);
       if (!filled.length) return null;
       const n = filled.length;
+      if (format === 'single') {
+        const valid = filled.filter(t => !isBad(t));
+        return valid.length ? Math.min(...valid) : null;
+      }
+      if (format === 'mo3' || format === 'mean') {
+        if (filled.some(isBad)) return null;
+        return filled.reduce((a,b) => a+b, 0) / n;
+      }
+      // ao5 (default)
       if (n === 1) return isBad(filled[0]) ? null : filled[0];
       if (n < 5) {
         if (filled.some(isBad)) return null;
@@ -5635,11 +5655,11 @@
       return formatMs(t);
     }
 
-    function compScoreLabel(times) {
+    function compScoreLabel(times, format) {
       if (!times?.length) return '—';
       const filled = times.filter(t => t != null);
       if (!filled.length) return '—';
-      const score = compScore(times);
+      const score = compScore(times, format);
       return score != null ? formatMs(Math.round(score)) : (filled.some(t => t > 0) ? 'DNF' : '—');
     }
 
@@ -5821,7 +5841,7 @@
       const eventIds = compEvents.map(e=>e.id);
       const scored = rankEntries(entries.map(e => {
         const allTimes = isMulti ? Object.values(e.timesByEvent||{}).flat() : (e.times||[]);
-        return {...e, score: isMulti ? multiEventScore(e, eventIds) : compScore(e.times||[]), best: compBestSingle(allTimes)};
+        return {...e, score: isMulti ? multiEventScore(e, eventIds) : compScore(e.times||[], comp.format), best: compBestSingle(allTimes)};
       }));
       const medals = ['🥇','🥈','🥉'];
       // Check if current user earned a placement achievement on this closed comp
@@ -5920,7 +5940,7 @@
           const times = (e.timesByEvent?.[compDetailLbEventId] || []).filter(t => t != null);
           const score = compDetailLbMode === 'single'
             ? compBestSingle(times)
-            : compScore(times);
+            : compScore(times, comp.format);
           return {...e, score, best: compBestSingle(times)};
         }));
         if (compDetailLbMode === 'single') lbEntries = lbEntries.filter(e => e.score != null);
@@ -5935,7 +5955,7 @@
               const times = (e.timesByEvent?.[compDetailLbEventId]||[]).filter(t=>t!=null);
               timesDisplay = times.map(formatCompTime).join(' · ');
             } else {
-              scoreDisplay = compScoreLabel(e.times);
+              scoreDisplay = compScoreLabel(e.times, comp.format);
               timesDisplay = (e.times||[]).filter(t=>t!=null).map(formatCompTime).join(' · ');
             }
             return `<div class="comp-lb-item clickable-user" data-uid="${escapeHtml(e.uid||'')}">
@@ -5949,6 +5969,7 @@
           }).join('')}
         </div>` : `<div style="color:var(--muted);font-size:13px;">No entries yet.</div>`;
 
+      const fmtLabel = {ao5:'Ao5',mo3:'Mo3',mean:'Mean',single:'Single'}[comp.format] || '';
       const _savedScroll = savedScroll;
       container.innerHTML = `
         <div class="comp-detail-content">
@@ -5956,7 +5977,7 @@
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
               <div>
                 <div class="comp-detail-title">${isH2H?'⚔ ':''}${escapeHtml(comp.name||'Unnamed')}</div>
-                <div class="comp-detail-meta">${escapeHtml(evLabels)} · ${comp.numSolves} solve${comp.numSolves!==1?'s':''} · by @${escapeHtml(comp.createdByUsername||'?')}</div>
+                <div class="comp-detail-meta">${escapeHtml(evLabels)} · ${comp.numSolves} solve${comp.numSolves!==1?'s':''}${fmtLabel?' · '+fmtLabel:''} · by @${escapeHtml(comp.createdByUsername||'?')}</div>
                 <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
                   <span class="comp-badge ${isOpen?'comp-badge-open':'comp-badge-closed'}">${isOpen?'● Open':'● Closed'}</span>
                   ${isH2H?`<span class="comp-badge comp-badge-h2h">⚔ vs @${escapeHtml(isCreator?comp.h2hOpponentUsername||'?':comp.createdByUsername||'?')}</span>`:''}
@@ -5973,13 +5994,13 @@
             <div class="comp-section-label">Scrambles</div>
             ${scramblesHtml}
           </div>
-          ${entryFormHtml}
           <div>
             <div class="comp-section-label">Leaderboard (${entries.length} entr${entries.length===1?'y':'ies'})</div>
             ${lbControlsHtml}
             ${lbHtml}
           </div>
-        </div>`;
+        </div>
+        ${canEnter ? `<div class="comp-entry-footer">${entryFormHtml}</div>` : ''}`;
 
       // Restore scroll position if requested
       if (_savedScroll) {
@@ -6574,7 +6595,7 @@
       const firstEv = eventsWithScrambles[0];
       const compData = {
         name:opts.name, events:eventsWithScrambles, event:firstEv?.id||'333',
-        scrambles:firstEv?.scrambles||[], numSolves:opts.numSolves,
+        scrambles:firstEv?.scrambles||[], numSolves:opts.numSolves, format:opts.format||'ao5',
         type:opts.type||'open', clubId:opts.clubId||null, status:'open',
         createdBy:state.currentUser.uid, createdByUsername:username,
         createdAt:serverTimestamp(), endAt:opts.endAt||null,
@@ -6949,6 +6970,7 @@
       createCompForClubId = clubId||null;
       createCompScope = clubId ? 'club' : 'open';
       newCompNumSolves = 5;
+      newCompFormat = 'ao5';
       const dialog = document.getElementById('createCompDialog');
       if (!dialog) return;
       document.getElementById('createCompTitle').textContent = clubId ? 'New Club Competition' : 'New Competition';
@@ -6997,6 +7019,8 @@
       });
       document.querySelectorAll('#compNumSolvesRow .comp-num-btn').forEach(btn =>
         btn.classList.toggle('active', parseInt(btn.dataset.n)===5));
+      document.querySelectorAll('#compFormatRow .comp-num-btn').forEach(btn =>
+        btn.classList.toggle('active', btn.dataset.fmt==='ao5'));
       const scopeRow = document.getElementById('compScopeRow');
       if (scopeRow) scopeRow.style.display = clubId ? '' : 'none';
       document.getElementById('compScopeClubBtn')?.classList.toggle('active', true);
@@ -10594,6 +10618,13 @@
       });
     });
 
+    document.querySelectorAll('#compFormatRow .comp-num-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        newCompFormat = btn.dataset.fmt;
+        document.querySelectorAll('#compFormatRow .comp-num-btn').forEach(b => b.classList.toggle('active', b===btn));
+      });
+    });
+
     document.getElementById('compScopeClubBtn')?.addEventListener('click', () => {
       createCompScope = 'club';
       document.getElementById('compScopeClubBtn').classList.add('active');
@@ -10631,7 +10662,7 @@
         const isClubComp = !!createCompForClubId;
         const type = isClubComp && createCompScope === 'open' ? 'open' : (isClubComp ? 'club' : 'open');
         const comp = await createCompetition({
-          name, events: selectedEvents, numSolves: newCompNumSolves, type,
+          name, events: selectedEvents, numSolves: newCompNumSolves, format: newCompFormat, type,
           clubId: type === 'club' ? createCompForClubId : null,
           endAt: endVal ? new Date(endVal) : null
         });
