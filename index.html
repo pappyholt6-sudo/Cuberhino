@@ -881,9 +881,6 @@
     }
 
     twisty-player{
-      width:100%;
-      height:100%;
-      min-height:136px;
       display:block;
       background:none;
       pointer-events:none;
@@ -8864,18 +8861,6 @@
       return "";
     }
 
-    function getDrawScrambleViewConfig() {
-      const puzzle = eventConfig().puzzle;
-      // clock has no white face — show main face straight-on
-      const isClock = puzzle === "clock";
-      return {
-        puzzle,
-        cameraLatitude: isClock ? 2 : 78,
-        cameraLongitude: 0,
-        scale: isClock ? 1.1 : 2.2
-      };
-    }
-
     function updateDrawScramblePlayer() {
       const mount = document.getElementById("drawScrambleMount");
       if (!mount) return;
@@ -8884,7 +8869,6 @@
 
       if (!player) {
         mount.innerHTML = "";
-
         player = document.createElement("twisty-player");
         player.id = "drawScramblePlayer";
         player.setAttribute("background", "none");
@@ -8895,20 +8879,13 @@
         mount.appendChild(player);
       }
 
-      const view = getDrawScrambleViewConfig();
-      player.setAttribute("puzzle", view.puzzle);
+      const puzzle = eventConfig().puzzle;
+      player.setAttribute("puzzle", puzzle);
       player.setAttribute("alg", state.currentScramble || "");
-      player.setAttribute("camera-latitude", view.cameraLatitude);
-      player.setAttribute("camera-longitude", view.cameraLongitude);
       player.removeAttribute("hint-facelets");
       player.removeAttribute("experimental-setup-alg");
       player.removeAttribute("experimental-setup-anchor");
-      player.style.width = "100%";
-      player.style.height = "100%";
-      player.style.minHeight = "136px";
-      player.style.display = "block";
-      player.style.transform = `scale(${view.scale})`;
-      player.style.transformOrigin = "center center";
+      player.style.cssText = "width:160px;height:160px;display:block;";
     }
 
     function bluetoothDeviceName(puzzle) {
