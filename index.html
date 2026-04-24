@@ -3251,14 +3251,9 @@
             <button class="comp-num-btn active" data-n="5">5</button>
           </div>
         </div>
-        <div>
-          <div class="profile-field-label">Format</div>
-          <div class="comp-num-solves-row" id="compFormatRow">
-            <button class="comp-num-btn active" data-fmt="ao5">Ao5</button>
-            <button class="comp-num-btn" data-fmt="mo3">Mo3</button>
-            <button class="comp-num-btn" data-fmt="mean">Mean</button>
-            <button class="comp-num-btn" data-fmt="single">Single</button>
-          </div>
+        <div id="compFormatSection" style="display:none;">
+          <div class="profile-field-label">Format <span style="color:var(--muted);font-weight:normal;">(per event)</span></div>
+          <div id="compEventFormatsList"></div>
         </div>
         <div>
           <div class="profile-field-label">End date <span style="color:var(--muted);font-weight:normal;">(optional)</span></div>
@@ -4418,6 +4413,11 @@
       return JSON.parse(JSON.stringify(data));
     }
 
+    function countAllSolves(d) {
+      return Object.values(d?.sessionsByEvent || {}).reduce((sum, bundle) =>
+        sum + (bundle.sessions||[]).reduce((s, sess) => s + (sess.solves?.length||0), 0), 0);
+    }
+
     async function saveData() {
       await idbSet(STORAGE_KEY, serializeData());
       await saveRemoteData();
@@ -4449,13 +4449,22 @@
         syncing = true;
         const snap = await getDoc(doc(db, "timerUsers", state.currentUser.uid));
         if (snap.exists()) {
-          data = mergeData(snap.data().data || {});
-          currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
-          settings = data.settings;
-          await idbSet(STORAGE_KEY, serializeData());
-          renderAll();
-          resetToIdle(true);
-          await generateScramble();
+          const remoteData = mergeData(snap.data().data || {});
+          const remoteSolves = countAllSolves(remoteData);
+          const localSolves  = countAllSolves(data);
+          if (remoteSolves > localSolves) {
+            // Remote has more data (e.g. synced from another device) — load it
+            data = remoteData;
+            currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
+            settings = data.settings;
+            await idbSet(STORAGE_KEY, serializeData());
+            renderAll();
+            resetToIdle(true);
+            await generateScramble();
+          } else {
+            // Local is equal or ahead — keep local, try to push to remote
+            await saveRemoteData();
+          }
           authStatusEl.textContent = `${state.currentUser.email} • synced`;
         } else {
           await saveRemoteData();
@@ -5587,7 +5596,7 @@
     let createCompForClubId = null;
     let createCompScope = 'open';
     let newCompNumSolves = 5;
-    let newCompFormat = 'ao5';
+    let newCompEventFormats = {};
     let h2hNumSolves = 5;
     let h2hTargetUid = null;
     let h2hTargetUsername = null;
@@ -5681,12 +5690,15 @@
     }
 
     // Multi-event: compute combined score across all events (sum of per-event scores)
-    function multiEventScore(entry, eventIds) {
-      if (!eventIds?.length) return null;
+    // compEvents can be an array of event objects {id, format} or plain id strings (backward compat)
+    function multiEventScore(entry, compEvents) {
+      if (!compEvents?.length) return null;
       let total = 0;
-      for (const evId of eventIds) {
-        const times = entry.timesByEvent?.[evId] || (eventIds.length === 1 ? entry.times : null);
-        const s = compScore(times);
+      for (const ev of compEvents) {
+        const evId  = typeof ev === 'string' ? ev : ev.id;
+        const fmt   = typeof ev === 'string' ? null : (ev.format || null);
+        const times = entry.timesByEvent?.[evId] || (compEvents.length === 1 ? entry.times : null);
+        const s = compScore(times, fmt);
         if (s == null) return null; // incomplete entry — unranked
         total += s;
       }
@@ -5844,7 +5856,7 @@
       const eventIds = compEvents.map(e=>e.id);
       const scored = rankEntries(entries.map(e => {
         const allTimes = isMulti ? Object.values(e.timesByEvent||{}).flat() : (e.times||[]);
-        return {...e, score: isMulti ? multiEventScore(e, eventIds) : compScore(e.times||[], comp.format), best: compBestSingle(allTimes)};
+        return {...e, score: isMulti ? multiEventScore(e, compEvents) : compScore(e.times||[], compEvents[0]?.format||comp.format), best: compBestSingle(allTimes)};
       }));
       const medals = ['🥇','🥈','🥉'];
       // Check if current user earned a placement achievement on this closed comp
@@ -5941,9 +5953,10 @@
         // Rank by selected event's single or avg
         lbEntries = rankEntries(entries.map(e => {
           const times = (e.timesByEvent?.[compDetailLbEventId] || []).filter(t => t != null);
+          const lbEvFmt = compEvents.find(e => e.id === compDetailLbEventId)?.format || comp.format;
           const score = compDetailLbMode === 'single'
             ? compBestSingle(times)
-            : compScore(times, comp.format);
+            : compScore(times, lbEvFmt);
           return {...e, score, best: compBestSingle(times)};
         }));
         if (compDetailLbMode === 'single') lbEntries = lbEntries.filter(e => e.score != null);
@@ -5958,7 +5971,7 @@
               const times = (e.timesByEvent?.[compDetailLbEventId]||[]).filter(t=>t!=null);
               timesDisplay = times.map(formatCompTime).join(' · ');
             } else {
-              scoreDisplay = compScoreLabel(e.times, comp.format);
+              scoreDisplay = compScoreLabel(e.times, compEvents[0]?.format||comp.format);
               timesDisplay = (e.times||[]).filter(t=>t!=null).map(formatCompTime).join(' · ');
             }
             return `<div class="comp-lb-item clickable-user" data-uid="${escapeHtml(e.uid||'')}">
@@ -5972,7 +5985,10 @@
           }).join('')}
         </div>` : `<div style="color:var(--muted);font-size:13px;">No entries yet.</div>`;
 
-      const fmtLabel = {ao5:'Ao5',mo3:'Mo3',mean:'Mean',single:'Single'}[comp.format] || '';
+      const _fmtMap = {ao5:'Ao5',mo3:'Mo3',mean:'Mean',single:'Single'};
+      const fmtLabel = isMulti
+        ? (compEvents.every(e => e.format === compEvents[0]?.format) ? (_fmtMap[compEvents[0]?.format||comp.format]||'') : 'per event')
+        : (_fmtMap[compEvents[0]?.format||comp.format] || '');
       const _savedScroll = savedScroll;
       container.innerHTML = `
         <div class="comp-detail-content">
@@ -6592,7 +6608,7 @@
       const eventsWithScrambles = [];
       for (const ev of eventList) {
         const scrambles = await generateCompScrambles(ev.id, opts.numSolves);
-        eventsWithScrambles.push({ id: ev.id, label: ev.label, scrambles });
+        eventsWithScrambles.push({ id: ev.id, label: ev.label, scrambles, format: opts.eventFormats?.[ev.id] || opts.format || 'ao5' });
       }
       // backward-compat fields derived from first event
       const firstEv = eventsWithScrambles[0];
@@ -6867,7 +6883,7 @@
                 .map(e => {
                   const times = isMulti ? null : (e.times||[]);
                   const best = times ? Math.min(...times.filter(t=>t>0)) : null;
-                  return {...e, score: isMulti ? multiEventScore(e,eventIds) : compScore(times), best};
+                  return {...e, score: isMulti ? multiEventScore(e,compEvents) : compScore(times, c.format), best};
                 })
                 .filter(e=>e.score!=null).sort((a,b)=>a.score-b.score);
               if (!scored.length) { rankEl.textContent='No entries.'; continue; }
@@ -6883,7 +6899,7 @@
             } else {
               // Average mode — scan all entries for club record banner, show only current user
               for (const entry of entries) {
-                const entryScore = isMulti ? multiEventScore(entry, eventIds) : compScore(entry.times||[]);
+                const entryScore = isMulti ? multiEventScore(entry, compEvents) : compScore(entry.times||[], c.format);
                 if (entryScore != null && (bestAvgMs == null || entryScore < bestAvgMs)) {
                   bestAvgMs = entryScore;
                   bestAvgHolder = { uid: entry.uid, username: entry.username };
@@ -6895,7 +6911,7 @@
               if (!myUid) { rankEl.textContent = 'Sign in to see your averages.'; continue; }
               const myEntry = entries.find(e => e.uid === myUid);
               if (!myEntry) { rankEl.textContent = 'You did not enter this competition.'; continue; }
-              const myScore = isMulti ? multiEventScore(myEntry, eventIds) : compScore(myEntry.times||[]);
+              const myScore = isMulti ? multiEventScore(myEntry, compEvents) : compScore(myEntry.times||[], c.format);
               if (myScore == null) { rankEl.textContent = 'No complete result.'; continue; }
 
               const numSolves = isMulti ? null : (myEntry.times||[]).filter(t=>t>0).length;
@@ -6969,11 +6985,41 @@
       }
     }
 
+    function renderCompFormatSection() {
+      const section = document.getElementById('compFormatSection');
+      const list    = document.getElementById('compEventFormatsList');
+      if (!section || !list) return;
+      const selEvs = [...document.querySelectorAll('#newCompEventsGrid .comp-event-check.selected')]
+        .map(lbl => ({ id: lbl.dataset.ev, label: ALL_COMP_EVENTS.find(e=>e.id===lbl.dataset.ev)?.label || lbl.dataset.ev }));
+      const custEvs = [...document.querySelectorAll('#customEventsList .custom-event-input')]
+        .map(inp => ({ id: inp.dataset.uid, label: inp.value.trim() || '(Custom)' }))
+        .filter(e => e.id);
+      const allEvs = [...selEvs, ...custEvs];
+      if (!allEvs.length) { section.style.display = 'none'; return; }
+      section.style.display = '';
+      const fmts = [{k:'ao5',l:'Ao5'},{k:'mo3',l:'Mo3'},{k:'mean',l:'Mean'},{k:'single',l:'Single'}];
+      list.innerHTML = allEvs.map(ev => {
+        const cur = newCompEventFormats[ev.id] || 'ao5';
+        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+          <span style="font-size:12px;color:var(--text);width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(ev.label)}">${escapeHtml(ev.label)}</span>
+          <div style="display:flex;gap:3px;">
+            ${fmts.map(f=>`<button class="comp-num-btn${cur===f.k?' active':''}" style="font-size:11px;padding:2px 7px;" data-ev-fmt="${escapeHtml(ev.id)}" data-fmt="${f.k}">${f.l}</button>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('[data-ev-fmt]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          newCompEventFormats[btn.dataset.evFmt] = btn.dataset.fmt;
+          renderCompFormatSection();
+        });
+      });
+    }
+
     function openCreateCompDialog(clubId) {
       createCompForClubId = clubId||null;
       createCompScope = clubId ? 'club' : 'open';
       newCompNumSolves = 5;
-      newCompFormat = 'ao5';
+      newCompEventFormats = { '333': 'ao5' };
       const dialog = document.getElementById('createCompDialog');
       if (!dialog) return;
       document.getElementById('createCompTitle').textContent = clubId ? 'New Club Competition' : 'New Competition';
@@ -7000,8 +7046,11 @@
             const cb = lbl.querySelector('input');
             cb.checked = !cb.checked;
             lbl.classList.toggle('selected', cb.checked);
+            if (cb.checked && !newCompEventFormats[lbl.dataset.ev]) newCompEventFormats[lbl.dataset.ev] = 'ao5';
+            renderCompFormatSection();
           });
         });
+        renderCompFormatSection();
       }
       // Custom events
       const customListEl = document.getElementById('customEventsList');
@@ -7022,8 +7071,6 @@
       });
       document.querySelectorAll('#compNumSolvesRow .comp-num-btn').forEach(btn =>
         btn.classList.toggle('active', parseInt(btn.dataset.n)===5));
-      document.querySelectorAll('#compFormatRow .comp-num-btn').forEach(btn =>
-        btn.classList.toggle('active', btn.dataset.fmt==='ao5'));
       const scopeRow = document.getElementById('compScopeRow');
       if (scopeRow) scopeRow.style.display = clubId ? '' : 'none';
       document.getElementById('compScopeClubBtn')?.classList.toggle('active', true);
@@ -10621,13 +10668,6 @@
       });
     });
 
-    document.querySelectorAll('#compFormatRow .comp-num-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        newCompFormat = btn.dataset.fmt;
-        document.querySelectorAll('#compFormatRow .comp-num-btn').forEach(b => b.classList.toggle('active', b===btn));
-      });
-    });
-
     document.getElementById('compScopeClubBtn')?.addEventListener('click', () => {
       createCompScope = 'club';
       document.getElementById('compScopeClubBtn').classList.add('active');
@@ -10665,7 +10705,7 @@
         const isClubComp = !!createCompForClubId;
         const type = isClubComp && createCompScope === 'open' ? 'open' : (isClubComp ? 'club' : 'open');
         const comp = await createCompetition({
-          name, events: selectedEvents, numSolves: newCompNumSolves, format: newCompFormat, type,
+          name, events: selectedEvents, numSolves: newCompNumSolves, eventFormats: newCompEventFormats, type,
           clubId: type === 'club' ? createCompForClubId : null,
           endAt: endVal ? new Date(endVal) : null
         });
