@@ -8865,9 +8865,14 @@
     }
 
     function getDrawScrambleViewConfig() {
+      const puzzle = eventConfig().puzzle;
+      // clock has no white face — show main face straight-on
+      const isClock = puzzle === "clock";
       return {
-        puzzle: eventConfig().puzzle,
-        scale: 1.1
+        puzzle,
+        cameraLatitude: isClock ? 2 : 88,
+        cameraLongitude: 0,
+        scale: isClock ? 1.1 : 1.5
       };
     }
 
@@ -8893,23 +8898,17 @@
       const view = getDrawScrambleViewConfig();
       player.setAttribute("puzzle", view.puzzle);
       player.setAttribute("alg", state.currentScramble || "");
+      player.setAttribute("camera-latitude", view.cameraLatitude);
+      player.setAttribute("camera-longitude", view.cameraLongitude);
       player.removeAttribute("hint-facelets");
-      player.removeAttribute("camera-latitude");
-      player.removeAttribute("camera-longitude");
+      player.removeAttribute("experimental-setup-alg");
+      player.removeAttribute("experimental-setup-anchor");
       player.style.width = "100%";
       player.style.height = "100%";
       player.style.minHeight = "136px";
       player.style.display = "block";
       player.style.transform = `scale(${view.scale})`;
       player.style.transformOrigin = "center center";
-
-      if (view.setupAlg) {
-        player.setAttribute("experimental-setup-alg", view.setupAlg);
-        player.setAttribute("experimental-setup-anchor", "start");
-      } else {
-        player.removeAttribute("experimental-setup-alg");
-        player.removeAttribute("experimental-setup-anchor");
-      }
     }
 
     function bluetoothDeviceName(puzzle) {
