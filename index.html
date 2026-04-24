@@ -9894,7 +9894,6 @@
     }
 
     function renderTimesPage() {
-      if (timesObserver) { timesObserver.disconnect(); timesObserver = null; }
       timesListEl.innerHTML = '';
       const total = timesAllEntries.length;
       const showing = Math.min(timesRenderLimit, total);
