@@ -3774,7 +3774,7 @@
           import("https://cdn.cubing.net/v0/js/cubing/scramble"),
           import("https://cdn.cubing.net/v0/js/cubing/search")
         ]);
-        srch.setSearchDebug({ logPerf: false, scramblePrefetchLevel: "none" });
+        srch.setSearchDebug({ logPerf: false, scramblePrefetchLevel: "auto" });
         _scrambleFn = sm.randomScrambleForEvent;
       }
       return _scrambleFn(id);
@@ -4057,6 +4057,8 @@
       scrambleHistory: [],
       scrambleHistoryIdx: -1,
       scrambleLoading: false,
+      nextScramble: null,
+      nextScrambleEvent: null,
       selectedSolveId: null,
       alert8Played: false,
       alert12Played: false,
@@ -8303,7 +8305,64 @@
       });
     }
 
-    function renderSolves() {
+    const SOLVE_RENDER_LIMIT = 150;
+
+    function buildSolveRow(solve, originalIndex, ao5Values, pbIds, pbAo5Indexes) {
+      const displayIndex = originalIndex + 1;
+      const showAo = settings.list.showAoColumn;
+      const row = document.createElement("div");
+      row.className = "solve-row";
+
+      const left = document.createElement("div");
+      left.className = "solve-main";
+      left.addEventListener("click", () => openSolveDetail(solve.id));
+
+      const time = document.createElement("div");
+      time.className = "solve-time" + (pbIds.has(solve.id) ? " pb-mark" : "");
+      const indexSpan = document.createElement("span");
+      indexSpan.className = "solve-index";
+      indexSpan.textContent = `${displayIndex}.`;
+      time.appendChild(indexSpan);
+      time.append(document.createTextNode(` ${solveDisplay(solve)}`));
+      left.appendChild(time);
+
+      const rollingAo5 = ao5Values[originalIndex];
+      const aoCol = document.createElement("div");
+      aoCol.className = "ao-col" + (pbAo5Indexes.has(originalIndex) ? " pb-ao" : "");
+      aoCol.textContent = showAo ? averageDisplay(rollingAo5) : "";
+      if (showAo && Number.isFinite(rollingAo5)) {
+        aoCol.style.cursor = "pointer";
+        aoCol.title = "Click to view included solves";
+        aoCol.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openAverageDetail(5, originalIndex);
+        });
+      }
+
+      const plus2 = document.createElement("button");
+      plus2.className = "pill-btn" + (solve.penalty === "+2" ? " active" : "");
+      plus2.textContent = "+2";
+      plus2.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await togglePlus2(solve.id);
+      });
+
+      const dnf = document.createElement("button");
+      dnf.className = "pill-btn" + (solve.penalty === "DNF" ? " active" : "");
+      dnf.textContent = "DNF";
+      dnf.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await toggleDNF(solve.id);
+      });
+
+      row.appendChild(left);
+      row.appendChild(aoCol);
+      row.appendChild(plus2);
+      row.appendChild(dnf);
+      return row;
+    }
+
+    function renderSolves(showAll = false) {
       solveListEl.innerHTML = "";
       sessionTitleEl.textContent = `${currentEventLabel()} • ${currentSession().name}`;
 
@@ -8313,10 +8372,8 @@
         return;
       }
 
-      // Build lookup structures once — avoids O(n²) findIndex inside the loop
       const idToIndex = new Map(solves.map((s, i) => [s.id, i]));
 
-      // Pre-compute ao5 values in one pass — avoids repeated currentSolves() calls
       const showAo = settings.list.showAoColumn;
       const ao5Values = new Array(solves.length).fill(null);
       if (showAo) {
@@ -8327,72 +8384,33 @@
 
       const pbIds = getPbSolveIds();
       const pbAo5Indexes = getPbAo5Indexes();
-      const source = settings.list.inverseTimeList ? solves : [...solves].reverse();
+      const inverse = settings.list.inverseTimeList;
+      const source = inverse ? solves : [...solves].reverse();
+
+      const needsTrunc = !showAll && source.length > SOLVE_RENDER_LIMIT;
+      // In inverse mode show newest (tail); in normal mode show newest (head)
+      const visible = needsTrunc
+        ? (inverse ? source.slice(-SOLVE_RENDER_LIMIT) : source.slice(0, SOLVE_RENDER_LIMIT))
+        : source;
 
       const frag = document.createDocumentFragment();
 
-      source.forEach((solve) => {
-        const originalIndex = idToIndex.get(solve.id);
-        const displayIndex = originalIndex + 1;
-        const row = document.createElement("div");
-        row.className = "solve-row";
+      if (needsTrunc) {
+        const banner = document.createElement("div");
+        banner.className = "solve-meta";
+        banner.style.cssText = "text-align:center;padding:6px 0;cursor:pointer;";
+        banner.textContent = `Showing ${SOLVE_RENDER_LIMIT} of ${source.length} solves — click to show all`;
+        banner.addEventListener("click", () => renderSolves(true));
+        frag.appendChild(banner);
+      }
 
-        const left = document.createElement("div");
-        left.className = "solve-main";
-        left.addEventListener("click", () => openSolveDetail(solve.id));
-
-        const time = document.createElement("div");
-        time.className = "solve-time" + (pbIds.has(solve.id) ? " pb-mark" : "");
-        const indexSpan = document.createElement("span");
-        indexSpan.className = "solve-index";
-        indexSpan.textContent = `${displayIndex}.`;
-        time.appendChild(indexSpan);
-        time.append(document.createTextNode(` ${solveDisplay(solve)}`));
-
-        left.appendChild(time);
-
-        const aoCol = document.createElement("div");
-        const rollingAo5 = ao5Values[originalIndex];
-        aoCol.className = "ao-col" + (pbAo5Indexes.has(originalIndex) ? " pb-ao" : "");
-        aoCol.textContent = showAo ? averageDisplay(rollingAo5) : "";
-        if (showAo && Number.isFinite(rollingAo5)) {
-          aoCol.style.cursor = "pointer";
-          aoCol.title = "Click to view included solves";
-          aoCol.addEventListener("click", (e) => {
-            e.stopPropagation();
-            openAverageDetail(5, originalIndex);
-          });
-        }
-
-        const plus2 = document.createElement("button");
-        plus2.className = "pill-btn" + (solve.penalty === "+2" ? " active" : "");
-        plus2.textContent = "+2";
-        plus2.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          await togglePlus2(solve.id);
-        });
-
-        const dnf = document.createElement("button");
-        dnf.className = "pill-btn" + (solve.penalty === "DNF" ? " active" : "");
-        dnf.textContent = "DNF";
-        dnf.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          await toggleDNF(solve.id);
-        });
-
-        row.appendChild(left);
-        row.appendChild(aoCol);
-        row.appendChild(plus2);
-        row.appendChild(dnf);
-        frag.appendChild(row);
+      visible.forEach((solve) => {
+        frag.appendChild(buildSolveRow(solve, idToIndex.get(solve.id), ao5Values, pbIds, pbAo5Indexes));
       });
 
       solveListEl.appendChild(frag);
 
-      // Auto-scroll to bottom when newest-at-bottom mode is active
-      if (settings.list.inverseTimeList) {
-        solveListEl.scrollTop = solveListEl.scrollHeight;
-      }
+      if (inverse) solveListEl.scrollTop = solveListEl.scrollHeight;
     }
 
     function buildDistributionBins() {
@@ -10320,6 +10338,13 @@
       if (settings.hideDuringSolve) mainAreaEl.classList.add("hide-while-timing");
       syncWakeLock();
       tickRunning(now);
+      // Pre-generate next scramble while solving so it's instant when timer stops
+      if (!state.nextScramble && !currentEvent.startsWith("custom_")) {
+        const _ev = currentEvent;
+        scrambleWithTimeout(_ev, 12000)
+          .then(s => { if (currentEvent === _ev) { state.nextScramble = s; state.nextScrambleEvent = _ev; } })
+          .catch(() => {});
+      }
     }
 
     function tickRunning(now) {
@@ -10576,7 +10601,11 @@
       }
 
       try {
-        const scrambleStr = await scrambleWithTimeout(currentEvent, 8000);
+        const scrambleStr = (state.nextScramble && state.nextScrambleEvent === currentEvent)
+          ? state.nextScramble
+          : await scrambleWithTimeout(currentEvent, 8000);
+        state.nextScramble = null;
+        state.nextScrambleEvent = null;
         state.currentScramble = scrambleStr;
         // Truncate forward history when a new scramble is generated mid-history
         if (state.scrambleHistoryIdx < state.scrambleHistory.length - 1) {
