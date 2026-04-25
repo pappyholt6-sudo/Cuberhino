@@ -10471,19 +10471,21 @@
       };
 
       solves.push(newSolve);
-      await saveData();
-      renderAll();
-      syncPbsToProfile(); // fire-and-forget; keeps global leaderboard fresh
-      syncAchievements(); // check for newly earned achievements/league upgrades
 
+      // Render immediately — data is already in memory, no need to wait for save
       const currentSingle = finalTimeMsOrInfinity(newSolve);
       const currentBestAo5 = bestAverageOfN(5);
       const recordFlags = {
         singlePB: Number.isFinite(currentSingle) && (!Number.isFinite(previousBestSingle) || currentSingle < previousBestSingle),
         ao5PB: Number.isFinite(currentBestAo5) && (!Number.isFinite(previousBestAo5) || currentBestAo5 < previousBestAo5)
       };
-
+      renderAll();
       showDeltaAnimation(previousSolve, newSolve, recordFlags);
+
+      // Save and sync in background
+      saveData();
+      syncPbsToProfile();
+      syncAchievements();
     }
 
     function getSolveById(id) {
@@ -10494,24 +10496,24 @@
       const solve = getSolveById(id);
       if (!solve) return;
       solve.penalty = penalty;
-      await saveData();
       renderAll();
+      saveData();
     }
 
     async function togglePlus2(id) {
       const solve = getSolveById(id);
       if (!solve) return;
       solve.penalty = solve.penalty === "+2" ? "OK" : "+2";
-      await saveData();
       renderAll();
+      saveData();
     }
 
     async function toggleDNF(id) {
       const solve = getSolveById(id);
       if (!solve) return;
       solve.penalty = solve.penalty === "DNF" ? "OK" : "DNF";
-      await saveData();
       renderAll();
+      saveData();
     }
 
 
@@ -11366,8 +11368,8 @@
 
     sessionSelectEl.addEventListener("change", async () => {
       currentEventBundle().activeSessionId = sessionSelectEl.value;
-      await saveData();
       renderAll();
+      saveData();
     });
 
     newSessionBtn.addEventListener("click", makeNewSession);
