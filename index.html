@@ -2905,7 +2905,6 @@
     }
 
   </style>
-  <script type="module" src="https://cdn.cubing.net/v0/js/cubing/twisty"></script>
 </head>
 <body>
   <div class="topbar">
@@ -3759,41 +3758,36 @@
   </dialog>
 
   <script type="module">
-    import { randomScrambleForEvent } from "https://cdn.cubing.net/v0/js/cubing/scramble";
-    import { setSearchDebug } from "https://cdn.cubing.net/v0/js/cubing/search";
-    setSearchDebug({ logPerf: false, scramblePrefetchLevel: "none" });
-    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
-    import {
-      getAuth,
-      setPersistence,
-      browserLocalPersistence,
-      createUserWithEmailAndPassword,
-      signInWithEmailAndPassword,
-      onAuthStateChanged,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import {
-      getFirestore,
-      doc,
-      getDoc,
-      setDoc,
-      runTransaction,
-      serverTimestamp,
-      collection,
-      collectionGroup,
-      query,
-      where,
-      orderBy,
-      getDocs,
-      addDoc,
-      deleteDoc,
-      updateDoc,
-      onSnapshot,
-      limit,
-      increment,
-      deleteField
-    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    // Firebase functions — populated by initFirebase() before any user action needs them
+    let initializeApp, getApps, getAnalytics,
+        getAuth, setPersistence, browserLocalPersistence,
+        createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+        getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp,
+        collection, collectionGroup, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc,
+        onSnapshot, limit, increment, deleteField;
+
+    // Lazy cubing.js scramble — imports on first call, cached after
+    let _scrambleFn = null;
+    async function randomScrambleForEvent(id) {
+      if (!_scrambleFn) {
+        const [sm, srch] = await Promise.all([
+          import("https://cdn.cubing.net/v0/js/cubing/scramble"),
+          import("https://cdn.cubing.net/v0/js/cubing/search")
+        ]);
+        srch.setSearchDebug({ logPerf: false, scramblePrefetchLevel: "none" });
+        _scrambleFn = sm.randomScrambleForEvent;
+      }
+      return _scrambleFn(id);
+    }
+
+    // Lazy twisty-player — imports and defines the custom element on first use
+    let _twistyLoaded = false;
+    async function ensureTwisty() {
+      if (!_twistyLoaded) {
+        await import("https://cdn.cubing.net/v0/js/cubing/twisty");
+        _twistyLoaded = true;
+      }
+    }
 
     const STORAGE_KEY = "cube_timer_full_data_v12";
 
@@ -7539,8 +7533,22 @@
 
     // ── End Profile Setup ─────────────────────────────────────────────
 
-    function initFirebase() {
+    async function initFirebase() {
       try {
+        const [appMod, analyticsMod, authMod, dbMod] = await Promise.all([
+          import("https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js"),
+          import("https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js"),
+          import("https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js"),
+          import("https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js")
+        ]);
+        ({ initializeApp, getApps } = appMod);
+        ({ getAnalytics } = analyticsMod);
+        ({ getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword,
+           signInWithEmailAndPassword, onAuthStateChanged, signOut } = authMod);
+        ({ getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp,
+           collection, collectionGroup, query, where, orderBy, getDocs, addDoc, deleteDoc,
+           updateDoc, onSnapshot, limit, increment, deleteField } = dbMod);
+
         firebaseApp = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
         try {
           analytics = getAnalytics(firebaseApp);
@@ -8861,9 +8869,11 @@
       return "";
     }
 
-    function updateDrawScramblePlayer() {
+    async function updateDrawScramblePlayer() {
       const mount = document.getElementById("drawScrambleMount");
       if (!mount) return;
+
+      await ensureTwisty();
 
       let player = document.getElementById("drawScramblePlayer");
 
