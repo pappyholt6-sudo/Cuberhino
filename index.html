@@ -8435,7 +8435,11 @@
     function renderTrendSvg() {
       const allValues = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
       const w = state.trendWindow;
-      const values = w > 0 ? allValues.slice(-w) : allValues;
+      const windowed = w > 0 ? allValues.slice(-w) : allValues;
+      // Subsample to 300 points max to keep SVG path generation fast
+      const values = windowed.length > 300
+        ? windowed.filter((_, i) => i % Math.ceil(windowed.length / 300) === 0)
+        : windowed;
       const windowLabel = w > 0 ? `Last ${w}` : 'All';
       const canIn  = TREND_WINDOWS.indexOf(w) < TREND_WINDOWS.length - 1;
       const canOut = TREND_WINDOWS.indexOf(w) > 0;
@@ -10197,6 +10201,15 @@
       if (solveDetailDialog.open) refreshSolveDetail();
     }
 
+    // Lightweight re-render after recording a solve — skips history/times/mobile views
+    function renderAfterSolve() {
+      renderSessionStats();
+      renderSolves();
+      renderStats();
+      renderTools();
+      if (solveDetailDialog.open) refreshSolveDetail();
+    }
+
     function playBeep(freq = 880, duration = 120) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -10444,7 +10457,7 @@
             return;
           }
           manualTimeInputEl.value = "";
-          await recordSolve({ baseTimeMs: ms, penalty: "", inspectionUsed: false, inspectionMs: 0 });
+          recordSolve({ baseTimeMs: ms, penalty: "", inspectionUsed: false, inspectionMs: 0 });
           await generateScramble();
           manualTimeInputEl.focus();
         } else if (e.key === "Escape") {
@@ -10453,7 +10466,7 @@
       });
     }
 
-    async function recordSolve({ baseTimeMs, penalty, inspectionUsed, inspectionMs }) {
+    function recordSolve({ baseTimeMs, penalty, inspectionUsed, inspectionMs }) {
       const solves = currentSolves();
       const previousSolve = solves.length > 0 ? solves[solves.length - 1] : null;
       const previousBestSingle = bestSingle();
@@ -10472,15 +10485,19 @@
 
       solves.push(newSolve);
 
-      // Render immediately — data is already in memory, no need to wait for save
+      // Compute flags synchronously before the frame
       const currentSingle = finalTimeMsOrInfinity(newSolve);
       const currentBestAo5 = bestAverageOfN(5);
       const recordFlags = {
         singlePB: Number.isFinite(currentSingle) && (!Number.isFinite(previousBestSingle) || currentSingle < previousBestSingle),
         ao5PB: Number.isFinite(currentBestAo5) && (!Number.isFinite(previousBestAo5) || currentBestAo5 < previousBestAo5)
       };
-      renderAll();
-      showDeltaAnimation(previousSolve, newSolve, recordFlags);
+
+      // Defer render to next frame so the stopped timer displays first
+      requestAnimationFrame(() => {
+        renderAfterSolve();
+        showDeltaAnimation(previousSolve, newSolve, recordFlags);
+      });
 
       // Save and sync in background
       saveData();
