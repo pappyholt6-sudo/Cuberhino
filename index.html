@@ -11422,11 +11422,13 @@
 
     sessionSelectEl.addEventListener("change", () => {
       currentEventBundle().activeSessionId = sessionSelectEl.value;
-      renderSessionStats();
-      renderSolves();
-      renderStats();
-      refreshToolBodies();
-      renderMobileTimesSheet();
+      console.time('[session-switch]');
+      console.time('  renderSessionStats');  renderSessionStats();  console.timeEnd('  renderSessionStats');
+      console.time('  renderSolves');        renderSolves();        console.timeEnd('  renderSolves');
+      console.time('  renderStats');         renderStats();         console.timeEnd('  renderStats');
+      console.time('  refreshToolBodies');   refreshToolBodies();   console.timeEnd('  refreshToolBodies');
+      console.time('  renderMobileSheet');   renderMobileTimesSheet(); console.timeEnd('  renderMobileSheet');
+      console.timeEnd('[session-switch]');
       historyViewDirty = true;
       timesViewDirty   = true;
       setTimeout(() => saveData(), 0);
