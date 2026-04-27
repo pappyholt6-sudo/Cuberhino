@@ -8271,37 +8271,42 @@
     }
 
     function renderSessionStats() {
-      const stats = [
-        ["Best Single", bestSingle()],
-        ["Session Mean", meanOfSession()],
-        ["Best Mo3",  bestMeanOf3()],
-        ["Best Ao5", bestAverageOfN(5)],
-        ["Best Ao12", bestAverageOfN(12)]
-      ];
-      sessionStatsEl.innerHTML = stats.map(([label, value]) => `
-        <div class="session-stat" data-label="${label}">
-          <div class="session-stat-label">${label}</div>
-          <div class="session-stat-value">${averageDisplay(value)}</div>
-        </div>
-      `).join("");
-
-      sessionStatsEl.querySelectorAll('.session-stat').forEach((card, idx) => {
-        const [label, value] = stats[idx];
-        const match = label.match(/Ao(\d+)/);
-        if (!match || !Number.isFinite(value)) return;
-        const n = Number(match[1]);
+      // Single pass: compute best value AND best index together to avoid double scan
+      function bestAoNWithIdx(n) {
         const solves = currentSolves();
-        let bestIdx = -1;
-        let best = Infinity;
+        if (solves.length < n) return { val: null, idx: -1 };
+        let bestIdx = -1, best = Infinity;
         for (let i = n - 1; i < solves.length; i++) {
           const avg = averageOfNAtIndex(n, i);
           if (Number.isFinite(avg) && avg < best) { best = avg; bestIdx = i; }
         }
-        if (bestIdx >= 0) {
-          card.style.cursor = 'pointer';
-          card.title = 'Click to view included solves';
-          card.addEventListener('click', () => openAverageDetail(n, bestIdx, 'Best'));
-        }
+        return { val: bestIdx >= 0 ? best : null, idx: bestIdx };
+      }
+
+      const ao5 = bestAoNWithIdx(5);
+      const ao12 = bestAoNWithIdx(12);
+
+      const stats = [
+        { label: "Best Single",  value: bestSingle(),    n: null, idx: -1 },
+        { label: "Session Mean", value: meanOfSession(), n: null, idx: -1 },
+        { label: "Best Mo3",     value: bestMeanOf3(),   n: null, idx: -1 },
+        { label: "Best Ao5",     value: ao5.val,         n: 5,    idx: ao5.idx },
+        { label: "Best Ao12",    value: ao12.val,        n: 12,   idx: ao12.idx }
+      ];
+
+      sessionStatsEl.innerHTML = stats.map(s => `
+        <div class="session-stat" data-label="${s.label}">
+          <div class="session-stat-label">${s.label}</div>
+          <div class="session-stat-value">${averageDisplay(s.value)}</div>
+        </div>
+      `).join("");
+
+      sessionStatsEl.querySelectorAll('.session-stat').forEach((card, idx) => {
+        const { n, value, bestIdx: bi } = { ...stats[idx], bestIdx: stats[idx].idx };
+        if (!n || !Number.isFinite(value) || bi < 0) return;
+        card.style.cursor = 'pointer';
+        card.title = 'Click to view included solves';
+        card.addEventListener('click', () => openAverageDetail(n, bi, 'Best'));
       });
     }
 
@@ -8375,13 +8380,6 @@
       const idToIndex = new Map(solves.map((s, i) => [s.id, i]));
 
       const showAo = settings.list.showAoColumn;
-      const ao5Values = new Array(solves.length).fill(null);
-      if (showAo) {
-        for (let i = 4; i < solves.length; i++) {
-          ao5Values[i] = averageFromWindow(solves.slice(i - 4, i + 1));
-        }
-      }
-
       const pbIds = getPbSolveIds();
       const pbAo5Indexes = getPbAo5Indexes();
       const inverse = settings.list.inverseTimeList;
@@ -8392,6 +8390,15 @@
       const visible = needsTrunc
         ? (inverse ? source.slice(-SOLVE_RENDER_LIMIT) : source.slice(0, SOLVE_RENDER_LIMIT))
         : source;
+
+      // Only compute ao5 for visible rows, not the full session
+      const ao5Values = new Array(solves.length).fill(null);
+      if (showAo) {
+        visible.forEach(solve => {
+          const i = idToIndex.get(solve.id);
+          if (i >= 4) ao5Values[i] = averageFromWindow(solves.slice(i - 4, i + 1));
+        });
+      }
 
       const frag = document.createDocumentFragment();
 
@@ -10202,11 +10209,23 @@
     }
 
     // Lightweight re-render after recording a solve — skips history/times/mobile views
+    // Lightweight tool refresh: update body content only, skip full DOM rebuild
+    function refreshToolBodies() {
+      [toolSlotsEl, mobileToolDockMountEl].forEach(container => {
+        if (!container) return;
+        container.querySelectorAll('.tool-card[data-tool-id]').forEach(card => {
+          const body = card.querySelector('.tool-body');
+          if (body) body.innerHTML = toolBodyHtml(card.dataset.toolId);
+        });
+      });
+      hydrateToolBodies();
+    }
+
     function renderAfterSolve() {
       renderSessionStats();
       renderSolves();
       renderStats();
-      renderTools();
+      refreshToolBodies();
       if (solveDetailDialog.open) refreshSolveDetail();
     }
 
@@ -10493,16 +10512,16 @@
         ao5PB: Number.isFinite(currentBestAo5) && (!Number.isFinite(previousBestAo5) || currentBestAo5 < previousBestAo5)
       };
 
-      // Defer render to next frame so the stopped timer displays first
-      requestAnimationFrame(() => {
-        renderAfterSolve();
-        showDeltaAnimation(previousSolve, newSolve, recordFlags);
-      });
+      // Render immediately so stats appear as fast as possible
+      renderAfterSolve();
+      showDeltaAnimation(previousSolve, newSolve, recordFlags);
 
-      // Save and sync in background
-      saveData();
-      syncPbsToProfile();
-      syncAchievements();
+      // Defer save so serializeData() JSON clone doesn't block the paint
+      setTimeout(() => {
+        saveData();
+        syncPbsToProfile();
+        syncAchievements();
+      }, 0);
     }
 
     function getSolveById(id) {
