@@ -8452,8 +8452,21 @@
     };
 
     function renderTrendSvg() {
-      const allValues = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
       const w = state.trendWindow;
+      // "All" mode: aggregate every session for the current event, oldest→newest
+      // Windowed mode: use just the current session (last N solves)
+      let allValues;
+      if (w === 0) {
+        const bundle = data.sessionsByEvent[currentEvent];
+        const sessions = bundle?.sessions || [];
+        allValues = sessions
+          .flatMap(s => s.solves)
+          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+          .map(finalTimeMsOrInfinity)
+          .filter(v => Number.isFinite(v));
+      } else {
+        allValues = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
+      }
       const windowed = w > 0 ? allValues.slice(-w) : allValues;
       // Subsample to 300 points max to keep SVG path generation fast
       const values = windowed.length > 300
