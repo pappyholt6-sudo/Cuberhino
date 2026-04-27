@@ -10583,17 +10583,15 @@
       renderAll();
     }
 
-    async function deleteSolve(id) {
+    function deleteSolve(id) {
       const session = currentSession();
       session.solves = session.solves.filter(s => s.id !== id);
-      await saveData();
       if (state.selectedSolveId === id) {
         state.selectedSolveId = null;
         if (solveDetailDialog.open) solveDetailDialog.close();
       }
-      renderAfterEdit();
-      syncPbsToProfile(); // refresh PBs/ao5s on leaderboard after deletion
-      syncAchievements();
+      renderAfterEdit(); // render first — don't block on save
+      setTimeout(() => { saveData(); syncPbsToProfile(); syncAchievements(); }, 0);
     }
 
     function openSolveDetail(id) {
@@ -11422,9 +11420,15 @@
       updateDeleteCustomBtn();
     });
 
-    sessionSelectEl.addEventListener("change", async () => {
+    sessionSelectEl.addEventListener("change", () => {
       currentEventBundle().activeSessionId = sessionSelectEl.value;
-      renderAll();
+      renderSessionStats();
+      renderSolves();
+      renderStats();
+      refreshToolBodies();
+      renderMobileTimesSheet();
+      historyViewDirty = true;
+      timesViewDirty   = true;
       saveData();
     });
 
