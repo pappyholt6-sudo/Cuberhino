@@ -11429,7 +11429,7 @@
       renderMobileTimesSheet();
       historyViewDirty = true;
       timesViewDirty   = true;
-      saveData();
+      setTimeout(() => saveData(), 0);
     });
 
     newSessionBtn.addEventListener("click", makeNewSession);
