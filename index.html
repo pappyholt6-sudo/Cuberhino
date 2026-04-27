@@ -3807,27 +3807,29 @@
     async function idbGet(key) {
       try {
         const db = await openIdb();
-        return await new Promise((resolve, reject) => {
+        const raw = await new Promise((resolve, reject) => {
           const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
           req.onsuccess = () => resolve(req.result ?? null);
           req.onerror = () => reject(req.error);
         });
+        // Stored as JSON string (fast) or legacy plain object
+        if (typeof raw === 'string') return JSON.parse(raw);
+        return raw;
       } catch {
-        // Fallback: read from localStorage
         try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch { return null; }
       }
     }
-    async function idbSet(key, value) {
+    async function idbSet(key, jsonString) {
+      // Accepts a pre-serialized JSON string — avoids slow structured-clone of large objects
       try {
         const db = await openIdb();
         await new Promise((resolve, reject) => {
-          const req = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(value, key);
+          const req = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(jsonString, key);
           req.onsuccess = () => resolve();
           req.onerror = () => reject(req.error);
         });
       } catch {
-        // Fallback: write to localStorage (may hit quota on large datasets)
-        try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) { console.warn('Storage full:', e); }
+        try { localStorage.setItem(key, jsonString); } catch(e) { console.warn('Storage full:', e); }
       }
     }
 
@@ -4431,21 +4433,31 @@
         sum + (bundle.sessions||[]).reduce((s, sess) => s + (sess.solves?.length||0), 0), 0);
     }
 
+    const FIRESTORE_MAX_BYTES = 900_000; // 900KB — stay under Firestore's 1MB doc limit
+
     async function saveData() {
-      await idbSet(STORAGE_KEY, serializeData());
-      await saveRemoteData();
+      data.currentEvent = currentEvent;
+      data.settings = settings;
+      const json = JSON.stringify(data); // serialize once
+      await idbSet(STORAGE_KEY, json);
+      await saveRemoteData(json);
     }
 
-    async function saveRemoteData() {
+    async function saveRemoteData(json) {
       if (!firebaseReady || !db || !state.currentUser || syncing) return;
+      if (json && json.length > FIRESTORE_MAX_BYTES) {
+        authStatusEl.textContent = `${state.currentUser.email} • too large to sync`;
+        return;
+      }
       try {
+        const payload = json ? JSON.parse(json) : serializeData();
         await setDoc(
           doc(db, "timerUsers", state.currentUser.uid),
           {
             uid: state.currentUser.uid,
             email: state.currentUser.email || "",
             updatedAt: serverTimestamp(),
-            data: serializeData()
+            data: payload
           },
           { merge: true }
         );
@@ -4470,13 +4482,13 @@
             data = remoteData;
             currentEvent = (data.currentEvent && data.sessionsByEvent[data.currentEvent]) ? data.currentEvent : "333";
             settings = data.settings;
-            await idbSet(STORAGE_KEY, serializeData());
+            await saveData();
             renderAll();
             resetToIdle(true);
             await generateScramble();
           } else {
             // Local is equal or ahead — keep local, try to push to remote
-            await saveRemoteData();
+            await saveRemoteData(null);
           }
           authStatusEl.textContent = `${state.currentUser.email} • synced`;
         } else {
@@ -11422,13 +11434,11 @@
 
     sessionSelectEl.addEventListener("change", () => {
       currentEventBundle().activeSessionId = sessionSelectEl.value;
-      console.time('[session-switch]');
-      console.time('  renderSessionStats');  renderSessionStats();  console.timeEnd('  renderSessionStats');
-      console.time('  renderSolves');        renderSolves();        console.timeEnd('  renderSolves');
-      console.time('  renderStats');         renderStats();         console.timeEnd('  renderStats');
-      console.time('  refreshToolBodies');   refreshToolBodies();   console.timeEnd('  refreshToolBodies');
-      console.time('  renderMobileSheet');   renderMobileTimesSheet(); console.timeEnd('  renderMobileSheet');
-      console.timeEnd('[session-switch]');
+      renderSessionStats();
+      renderSolves();
+      renderStats();
+      refreshToolBodies();
+      renderMobileTimesSheet();
       historyViewDirty = true;
       timesViewDirty   = true;
       setTimeout(() => saveData(), 0);
