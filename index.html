@@ -10144,8 +10144,8 @@
 
       if (isTimes) {
         setTimesSubTab(timesSubTab);
-        renderTimesView();
-        renderHistoryView();
+        if (timesViewDirty)   { renderTimesView();   timesViewDirty   = false; }
+        if (historyViewDirty) { renderHistoryView(); historyViewDirty = false; }
       }
       if (isAch) renderAchView();
       if (isClubs) {
@@ -10193,6 +10193,10 @@
       document.body.classList.remove('sidebar-open');
     }
 
+    // Dirty flags — history/times views are expensive; only render when the tab is open
+    let historyViewDirty = true;
+    let timesViewDirty   = true;
+
     function renderAll() {
       applyTheme();
       buildSessionDropdown();
@@ -10200,11 +10204,27 @@
       renderSolves();
       renderStats();
       renderTools();
-      renderHistoryView();
-      renderTimesView();
       renderMobileTimesSheet();
+      historyViewDirty = true;
+      timesViewDirty   = true;
       setView(state.view || 'timer');
       if (state.view === 'achievements') renderAchView();
+      if (solveDetailDialog.open) refreshSolveDetail();
+    }
+
+    // Lightweight re-render for delete/penalty changes — skips full tool rebuild and defers history/times
+    function renderAfterEdit() {
+      renderSessionStats();
+      renderSolves();
+      renderStats();
+      refreshToolBodies();
+      renderMobileTimesSheet();
+      historyViewDirty = true;
+      timesViewDirty   = true;
+      if (state.view === 'times') {
+        renderTimesView();  timesViewDirty   = false;
+        renderHistoryView(); historyViewDirty = false;
+      }
       if (solveDetailDialog.open) refreshSolveDetail();
     }
 
@@ -10540,7 +10560,7 @@
       const solve = getSolveById(id);
       if (!solve) return;
       solve.penalty = solve.penalty === "+2" ? "OK" : "+2";
-      renderAll();
+      renderAfterEdit();
       saveData();
     }
 
@@ -10548,7 +10568,7 @@
       const solve = getSolveById(id);
       if (!solve) return;
       solve.penalty = solve.penalty === "DNF" ? "OK" : "DNF";
-      renderAll();
+      renderAfterEdit();
       saveData();
     }
 
@@ -10571,7 +10591,7 @@
         state.selectedSolveId = null;
         if (solveDetailDialog.open) solveDetailDialog.close();
       }
-      renderAll();
+      renderAfterEdit();
       syncPbsToProfile(); // refresh PBs/ao5s on leaderboard after deletion
       syncAchievements();
     }
