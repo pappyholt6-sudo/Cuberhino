@@ -789,6 +789,8 @@
     }
 
     .trend-scroll{
+      flex:1;
+      min-height:0;
       overflow-x:auto;
       overflow-y:hidden;
       width:100%;
@@ -798,19 +800,27 @@
     .trend-scroll::-webkit-scrollbar{ height:4px; }
     .trend-scroll::-webkit-scrollbar-thumb{ background:var(--accent);border-radius:2px; }
     .trend{
-      height:104px;
+      height:100%;
+      min-height:80px;
       display:block;
       background:color-mix(in srgb, var(--panel-2) 75%, var(--bg));
       border-radius:8px;
     }
 
     .dist-list{
+      flex:1;
+      min-height:0;
       display:flex;
       flex-direction:column;
       gap:5px;
-      overflow:auto;
+      overflow-y:auto;
+      overflow-x:hidden;
       padding-right:4px;
+      scrollbar-width:thin;
+      scrollbar-color:var(--accent) transparent;
     }
+    .dist-list::-webkit-scrollbar{ width:3px; }
+    .dist-list::-webkit-scrollbar-thumb{ background:var(--accent);border-radius:2px; }
 
     .dist-row{
       display:grid;
@@ -1251,8 +1261,8 @@
 
     .tool-slots.compact .trend,
     .tool-slots.compact .sparkline{
-      min-height:84px;
-      height:84px;
+      min-height:80px;
+      height:100%;
     }
 
     .tool-slots.compact .scramble-draw-wrap{
@@ -8503,7 +8513,7 @@
       </div>`;
 
       if (values.length < 2) {
-        return controls + `<div class="trend-scroll"><svg class="trend" width="100%" viewBox="0 0 300 104">
+        return controls + `<div class="trend-scroll"><svg class="trend" width="100%" height="100%" viewBox="0 0 300 104">
           <text x="150" y="57" text-anchor="middle" fill="var(--muted)" font-size="11">Not enough solves</text>
         </svg></div>`;
       }
@@ -8549,7 +8559,7 @@
       }).join('');
 
       return controls + `<div class="trend-scroll" data-trend-scroll>
-        <svg class="trend" width="${svgW}" height="${H}" viewBox="0 0 ${svgW} ${H}">
+        <svg class="trend" width="${svgW}" height="100%" viewBox="0 0 ${svgW} ${H}" preserveAspectRatio="none">
           <line x1="${PAD}" y1="${H-14}" x2="${svgW-PAD}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
           <line x1="${PAD}" y1="10" x2="${PAD}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
           <path fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${smoothD}"/>
