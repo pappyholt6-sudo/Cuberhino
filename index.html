@@ -8467,50 +8467,46 @@
       return [];
     }
 
-    const TREND_WINDOWS = [0, 100, 50, 25, 10]; // 0 = all
-    if (!state.trendWindow) state.trendWindow = 0;
+    const TREND_PX_LEVELS = [2, 4, 8, 16]; // px per solve point
+    if (!state.trendPx) state.trendPx = 4;
 
     window._trendZoomIn = () => {
-      const idx = TREND_WINDOWS.indexOf(state.trendWindow);
-      const next = TREND_WINDOWS[idx + 1];
-      if (next != null) { state.trendWindow = next; renderTools(); }
+      const idx = TREND_PX_LEVELS.indexOf(state.trendPx);
+      const next = TREND_PX_LEVELS[idx + 1];
+      if (next != null) { state.trendPx = next; renderTools(); }
     };
     window._trendZoomOut = () => {
-      const idx = TREND_WINDOWS.indexOf(state.trendWindow);
-      const prev = TREND_WINDOWS[idx - 1];
-      if (prev != null) { state.trendWindow = prev; renderTools(); }
+      const idx = TREND_PX_LEVELS.indexOf(state.trendPx);
+      const prev = TREND_PX_LEVELS[idx - 1];
+      if (prev != null) { state.trendPx = prev; renderTools(); }
     };
 
     function renderTrendSvg() {
-      const w = state.trendWindow;
-      // "All" mode: aggregate every session for the current event, oldest→newest
-      // Windowed mode: use just the current session (last N solves)
-      let allValues;
-      if (w === 0) {
-        const bundle = data.sessionsByEvent[currentEvent];
-        const sessions = bundle?.sessions || [];
-        allValues = sessions
-          .flatMap(s => s.solves)
-          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
-          .map(finalTimeMsOrInfinity)
-          .filter(v => Number.isFinite(v));
-      } else {
-        allValues = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
-      }
-      const windowed = w > 0 ? allValues.slice(-w) : allValues;
-      // Subsample to 1000 points max to keep SVG path generation fast
-      const values = windowed.length > 1000
-        ? windowed.filter((_, i) => i % Math.ceil(windowed.length / 1000) === 0)
-        : windowed;
-      const windowLabel = w > 0 ? `Last ${w}` : 'All';
-      const canIn  = TREND_WINDOWS.indexOf(w) < TREND_WINDOWS.length - 1;
-      const canOut = TREND_WINDOWS.indexOf(w) > 0;
+      // Always show all solves for the current event across all sessions
+      const bundle = data.sessionsByEvent[currentEvent];
+      const sessions = bundle?.sessions || [];
+      const allValues = sessions
+        .flatMap(s => s.solves)
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+        .map(finalTimeMsOrInfinity)
+        .filter(v => Number.isFinite(v));
+
+      const PX = state.trendPx;
+      const zoomIdx = TREND_PX_LEVELS.indexOf(PX);
+      const canIn  = zoomIdx < TREND_PX_LEVELS.length - 1;
+      const canOut = zoomIdx > 0;
+      const zoomLabel = ['Overview', 'Normal', 'Detail', 'Fine'][zoomIdx] || 'Normal';
 
       const controls = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-        <span style="font-size:11px;color:var(--muted);flex:1;">${windowLabel}</span>
+        <span style="font-size:11px;color:var(--muted);flex:1;">${zoomLabel}</span>
         <button onclick="window._trendZoomOut()" style="background:none;border:1px solid var(--line);border-radius:5px;color:var(--muted);width:20px;height:20px;font-size:13px;cursor:${canOut?'pointer':'default'};opacity:${canOut?1:.35};line-height:1;padding:0;">−</button>
         <button onclick="window._trendZoomIn()" style="background:none;border:1px solid var(--line);border-radius:5px;color:var(--muted);width:20px;height:20px;font-size:13px;cursor:${canIn?'pointer':'default'};opacity:${canIn?1:.35};line-height:1;padding:0;">+</button>
       </div>`;
+
+      // Subsample to 1000 points max to keep SVG path generation fast
+      const values = allValues.length > 1000
+        ? allValues.filter((_, i) => i % Math.ceil(allValues.length / 1000) === 0)
+        : allValues;
 
       if (values.length < 2) {
         return controls + `<div class="trend-scroll"><svg class="trend" width="100%" height="100%" viewBox="0 0 300 104">
@@ -8522,8 +8518,6 @@
       const max = Math.max(...values);
       const range = Math.max(1, max - min);
 
-      // 4px per point, min 280px — makes the chart scrollable for large sessions
-      const PX = Math.max(4, 280 / values.length);
       const PAD = 10;
       const svgW = Math.max(280, Math.round(values.length * PX) + PAD);
       const H = 104;
@@ -8572,9 +8566,7 @@
       const values = currentSolves().map(finalTimeMsOrInfinity).filter(Number.isFinite);
       if (!values.length) return `<div class="solve-meta">No solves yet.</div>`;
 
-      // Center on the most recent solve's 1-second bucket
-      const centerSec = Math.floor(values[values.length - 1] / 1000);
-      const SIDE = 3;
+      const currentSec = Math.floor(values[values.length - 1] / 1000);
 
       // Count solves per 1s bucket across all values
       const bucketMap = {};
@@ -8583,27 +8575,27 @@
         bucketMap[s] = (bucketMap[s] || 0) + 1;
       }
 
+      const minSec = Math.min(...Object.keys(bucketMap).map(Number));
+      const maxSec = Math.max(...Object.keys(bucketMap).map(Number));
+      const maxCount = Math.max(...Object.values(bucketMap), 1);
+
       const fmt = s => {
-        if (s < 0) return `<1s`;
         if (s < 60) return `${s}s`;
         const m = Math.floor(s / 60);
         return `${m}:${String(s % 60).padStart(2,'0')}`;
       };
 
       const buckets = [];
-      for (let i = -SIDE; i <= SIDE; i++) {
-        const sec = centerSec + i;
-        buckets.push({ sec, count: bucketMap[sec] || 0, isCenter: i === 0 });
+      for (let s = minSec; s <= maxSec; s++) {
+        buckets.push({ sec: s, count: bucketMap[s] || 0, isCurrent: s === currentSec });
       }
 
-      const max = Math.max(...buckets.map(b => b.count), 1);
-
       return `
-        <div class="dist-list">
+        <div class="dist-list" data-dist-scroll>
           ${buckets.map(b => `
-            <div class="dist-row${b.isCenter ? ' dist-current' : ''}">
+            <div class="dist-row${b.isCurrent ? ' dist-current' : ''}"${b.isCurrent ? ' data-dist-current' : ''}>
               <div class="dist-label">${fmt(b.sec)}</div>
-              <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(b.count/max)*100}%"></div></div>
+              <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(b.count/maxCount)*100}%"></div></div>
               <div>${b.count || ''}</div>
             </div>
           `).join('')}
@@ -9576,6 +9568,11 @@
       // Auto-scroll trend chart to latest (rightmost) solve
       document.querySelectorAll('[data-trend-scroll]').forEach(el => {
         el.scrollLeft = el.scrollWidth;
+      });
+      // Auto-scroll distribution to current bucket
+      document.querySelectorAll('[data-dist-scroll]').forEach(el => {
+        const cur = el.querySelector('[data-dist-current]');
+        if (cur) cur.scrollIntoView({ block: 'center', behavior: 'instant' });
       });
     }
 
