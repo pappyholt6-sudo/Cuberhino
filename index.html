@@ -24,6 +24,7 @@
       --sidebar-width: 320px;
       --sidebar-min-width: 240px;
       --sidebar-max-width: 520px;
+      --tool-dock-height: 220px;
     }
 
     *{box-sizing:border-box}
@@ -372,6 +373,32 @@
       box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
     }
 
+    .tool-dock-resizer{
+      height:10px;
+      flex-shrink:0;
+      cursor:row-resize;
+      position:relative;
+      touch-action:none;
+      user-select:none;
+    }
+    .tool-dock-resizer::before{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      top:50%;
+      height:2px;
+      transform:translateY(-50%);
+      background:rgba(255,255,255,.08);
+      border-radius:999px;
+      transition:background .18s ease, box-shadow .18s ease;
+    }
+    .tool-dock-resizer:hover::before,
+    .tool-dock-resizer.dragging::before{
+      background:color-mix(in srgb, var(--accent) 65%, white 8%);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+
     .main{
       grid-column:3;
       display:flex;
@@ -680,10 +707,11 @@
     }
 
     .tool-dock{
-      flex:0 0 auto;
+      flex:0 0 var(--tool-dock-height);
+      height:var(--tool-dock-height);
       border-top:1px solid var(--line);
       padding-top:8px;
-      margin-top:8px;
+      overflow:hidden;
     }
 
     .tool-slots{
@@ -691,13 +719,13 @@
       grid-template-columns:repeat(6, minmax(220px,1fr));
       gap:10px;
       align-items:stretch;
-      min-height:155px;
+      height:100%;
+      min-height:0;
       overflow-x:auto;
       overflow-y:hidden;
       padding-bottom:6px;
       scrollbar-width:thin;
       scrollbar-color: var(--accent) transparent;
-      transition:min-height .18s ease;
     }
 
     .tool-slots::-webkit-scrollbar{ height:10px; }
@@ -711,19 +739,19 @@
     .tool-slot{
       border:1px dashed color-mix(in srgb, var(--line) 60%, transparent);
       border-radius:16px;
-      min-height:155px;
+      height:100%;
+      min-height:0;
       padding:3px;
       background:rgba(255,255,255,.008);
       position:relative;
-      transition:min-height .18s ease;
     }
 
     .tool-slot-label{ display:none; }
 
     .tool-card{
       height:100%;
-      min-height:148px;
-      max-height:220px;
+      min-height:0;
+      max-height:none;
       border:1px solid var(--line);
       border-radius:14px;
       background:linear-gradient(160deg, color-mix(in srgb, var(--panel-2) 70%, var(--panel)) 0%, var(--panel) 100%);
@@ -1258,13 +1286,7 @@
       font-size:12px;
     }
 
-    .tool-slots.compact .trend,
-    .tool-slots.compact .sparkline{
-      min-height:60px;
-    }
-
     .tool-slots.compact .scramble-draw-wrap{
-      min-height:112px;
       max-width:140px;
       border-radius:16px;
     }
@@ -1642,7 +1664,8 @@
       grid-template-columns:1fr;
     }
 
-    body.mobile-ui .tool-dock{
+    body.mobile-ui .tool-dock,
+    body.mobile-ui .tool-dock-resizer{
       display:none;
     }
 
@@ -2928,10 +2951,6 @@
       <button class="sidebar-toggle" id="mobileSidebarToggle">☰</button>
       <div class="brand">Cuberhino</div>
       <button class="settings-btn" id="openSettings" style="white-space:nowrap;">⚙ Settings</button>
-      <label class="layout-toggle" for="mobileModeToggle">
-        <span>Mobile</span>
-        <input type="checkbox" id="mobileModeToggle" />
-      </label>
     </div>
     <div class="topbar-center" style="display:flex;align-items:center;gap:6px;">
       <select id="eventSelect" class="select"></select>
@@ -3028,6 +3047,7 @@
           <div class="stats top-hide" id="stats"></div>
         </div>
 
+        <div class="tool-dock-resizer" id="toolDockResizer" aria-hidden="true"></div>
         <div class="tool-dock" id="toolDock">
           <div class="tool-slots" id="toolSlots">
             <div class="tool-slot" data-slot="slot1"><div class="tool-slot-label">Slot 1</div></div>
@@ -3453,8 +3473,12 @@
           </div>
 
           <div class="row">
-            <label for="manualEntry">Manual time entry mode (type times instead of using spacebar — for Stackmat or physical timer)</label>
-            <input type="checkbox" id="manualEntry" />
+            <label for="inputMode">Enter times with</label>
+            <select id="inputMode">
+              <option value="spacebar">Timer (Spacebar)</option>
+              <option value="typing">Typing</option>
+              <option value="gan">GAN Timer</option>
+            </select>
           </div>
 
         </fieldset>
@@ -3605,17 +3629,6 @@
             </div>
           </div>
 
-          <div class="row">
-            <label for="mobileModeToggleSettings">Force mobile layout</label>
-            <input type="checkbox" id="mobileModeToggleSettings" />
-          </div>
-
-          <div class="detail-grid">
-            <div class="detail-item">
-              <div class="detail-label">Mobile timer touch zone</div>
-              <div class="detail-value">On mobile, holding anywhere on the timer screen that is not a button will arm the timer.</div>
-            </div>
-          </div>
         </fieldset>
       </div>
 
@@ -3991,6 +4004,7 @@
       hideDuringSolve: false,
       keepScreenAwake: true,
       manualEntry: false,
+      inputMode: 'spacebar',
       averages: {
         ao50: false, ao100: false, ao500: false, ao1000: false, ao5000: false
       },
@@ -4113,6 +4127,73 @@
 
     const LAYOUT_MODE_KEY = "cubeyLayoutModeManual";
     const SIDEBAR_WIDTH_KEY = "cubeySidebarWidth";
+    const TOOL_DOCK_HEIGHT_KEY = "cubeyToolDockHeight";
+
+    function getToolDockHeight() {
+      try {
+        const raw = Number(localStorage.getItem(TOOL_DOCK_HEIGHT_KEY));
+        if (Number.isFinite(raw)) return Math.max(140, Math.min(600, raw));
+      } catch {}
+      return 220;
+    }
+
+    function applyToolDockHeight(h, persist = true) {
+      const safe = Math.max(140, Math.min(600, Number(h) || 220));
+      document.documentElement.style.setProperty('--tool-dock-height', `${safe}px`);
+      if (persist) {
+        try { localStorage.setItem(TOOL_DOCK_HEIGHT_KEY, String(safe)); } catch {}
+      }
+      return safe;
+    }
+
+    function setupToolDockResize() {
+      const resizerEl = document.getElementById('toolDockResizer');
+      if (!resizerEl) return;
+      let dragging = false;
+      let rafPending = false;
+      let lastClientY = 0;
+
+      const onMove = (clientY) => {
+        lastClientY = clientY;
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          const mainEl = document.querySelector('.main');
+          if (!mainEl) return;
+          const mainRect = mainEl.getBoundingClientRect();
+          applyToolDockHeight(mainRect.bottom - lastClientY, false);
+        });
+      };
+
+      resizerEl.addEventListener('pointerdown', (e) => {
+        if (document.body.classList.contains('mobile-ui')) return;
+        dragging = true;
+        resizerEl.classList.add('dragging');
+        resizerEl.setPointerCapture?.(e.pointerId);
+        onMove(e.clientY);
+        e.preventDefault();
+      });
+
+      resizerEl.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        onMove(e.clientY);
+        e.preventDefault();
+      });
+
+      const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        rafPending = false;
+        resizerEl.classList.remove('dragging');
+        resizerEl.releasePointerCapture?.(e.pointerId);
+        const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tool-dock-height')) || 220;
+        try { localStorage.setItem(TOOL_DOCK_HEIGHT_KEY, String(h)); } catch {}
+      };
+
+      resizerEl.addEventListener('pointerup', endDrag);
+      resizerEl.addEventListener('pointercancel', endDrag);
+    }
 
 
     function getSidebarWidth() {
@@ -4197,7 +4278,6 @@
     function applyResponsiveMode() {
       const useMobile = shouldUseMobileLayout();
       document.body.classList.toggle('mobile-ui', useMobile);
-      if (mobileModeToggleEl) mobileModeToggleEl.checked = useMobile;
       requestAnimationFrame(() => updateToolDockCompaction?.());
     }
 
@@ -4215,7 +4295,7 @@
     const scrambleEl = document.getElementById("scramble");
     const scrambleWrapEl = document.getElementById("scrambleWrap");
     const eventSelectEl = document.getElementById("eventSelect");
-    const mobileModeToggleEl = document.getElementById("mobileModeToggle");
+    const mobileModeToggleEl = null;
     const mobileSidebarToggleEl = document.getElementById("mobileSidebarToggle");
     const mobileBottomBarEl = document.getElementById("mobileBottomBar");
     const mobilePlus2Btn = document.getElementById("mobilePlus2Btn");
@@ -4281,7 +4361,7 @@
     const closeSettingsBtn = document.getElementById("closeSettings");
     const settingsSidebarWidthEl = document.getElementById("settingsSidebarWidth");
     const resetSidebarWidthBtn = document.getElementById("resetSidebarWidthBtn");
-    const mobileModeToggleSettingsEl = document.getElementById("mobileModeToggleSettings");
+    const mobileModeToggleSettingsEl = null;
 
     const openAccountBtn = document.getElementById("openAccountBtn");
     const signOutBtn = document.getElementById("signOutBtn");
@@ -4311,6 +4391,7 @@
     const stopWithAnyKeyEl = document.getElementById("stopWithAnyKey");
     const hideDuringSolveEl = document.getElementById("hideDuringSolve");
     const keepScreenAwakeEl = document.getElementById("keepScreenAwake");
+    const inputModeEl       = document.getElementById("inputMode");
     const manualEntryEl     = document.getElementById("manualEntry");
     const manualTimeInputEl = document.getElementById("manualTimeInput");
 
@@ -7816,7 +7897,7 @@
       stopWithAnyKeyEl.checked = settings.stopWithAnyKey;
       hideDuringSolveEl.checked = settings.hideDuringSolve;
       keepScreenAwakeEl.checked = !!settings.keepScreenAwake;
-      if (manualEntryEl) manualEntryEl.checked = !!settings.manualEntry;
+      if (inputModeEl) inputModeEl.value = settings.manualEntry ? 'typing' : (settings.inputMode || 'spacebar');
       applyManualEntryMode();
 
       showAo50El.checked = settings.averages.ao50;
@@ -7859,31 +7940,12 @@
       timerScaleValueEl.textContent = Number(settings.font.timerScale).toFixed(2) + "x";
       textScaleValueEl.textContent = Number(settings.font.textScale).toFixed(2) + "x";
       if (settingsSidebarWidthEl) settingsSidebarWidthEl.value = String(getSidebarWidth());
-      if (mobileModeToggleSettingsEl) mobileModeToggleSettingsEl.checked = !!mobileModeToggleEl?.checked;
     }
 
     function updateToolDockCompaction() {
-      if (!toolDockEl || !toolSlotsEl || !scrambleWrapEl) return;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      const mainRect = document.querySelector('.main')?.getBoundingClientRect();
-      const toolDockRect = toolDockEl.getBoundingClientRect();
-      const availableHeight = mainRect ? Math.max(0, mainRect.bottom - toolDockRect.top - 10) : 0;
-      const defaultSlotHeight = 155;
-      const minSlotHeight = 104;
-      const needsCompaction = availableHeight > 0 && availableHeight < defaultSlotHeight + 22;
-      const viewportPenalty = viewportHeight > 0 && viewportHeight < 760 ? Math.round((760 - viewportHeight) * 0.06) : 0;
-      const compactBy = Math.min((needsCompaction ? Math.max(0, defaultSlotHeight - availableHeight + 12) : 0) + viewportPenalty, defaultSlotHeight - minSlotHeight);
-      const slotHeight = Math.max(minSlotHeight, defaultSlotHeight - compactBy);
-      const cardHeight = Math.max(96, slotHeight - 7);
-
-      toolSlotsEl.classList.toggle('compact', compactBy >= 26);
-      toolSlotsEl.style.minHeight = `${slotHeight}px`;
-      toolSlotsEl.querySelectorAll('.tool-slot').forEach((el) => {
-        el.style.minHeight = `${slotHeight}px`;
-      });
-      toolSlotsEl.querySelectorAll('.tool-card').forEach((el) => {
-        el.style.minHeight = `${cardHeight}px`;
-      });
+      if (!toolDockEl || !toolSlotsEl) return;
+      const dockH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tool-dock-height')) || 220;
+      toolSlotsEl.classList.toggle('compact', dockH < 180);
     }
 
     async function pullSettingsFromUI() {
@@ -7897,7 +7959,9 @@
       settings.stopWithAnyKey = stopWithAnyKeyEl.checked;
       settings.hideDuringSolve = hideDuringSolveEl.checked;
       settings.keepScreenAwake = keepScreenAwakeEl.checked;
-      settings.manualEntry = manualEntryEl?.checked ?? false;
+      const im = inputModeEl?.value || 'spacebar';
+      settings.inputMode = im;
+      settings.manualEntry = im === 'typing';
       applyManualEntryMode();
 
       settings.averages.ao50 = showAo50El.checked;
@@ -7940,11 +8004,6 @@
       settings.font.textScale = Number(textScaleEl.value);
 
       if (settingsSidebarWidthEl) applySidebarWidth(Number(settingsSidebarWidthEl.value) || 320);
-      if (mobileModeToggleSettingsEl && mobileModeToggleEl) {
-        mobileModeToggleEl.checked = mobileModeToggleSettingsEl.checked;
-        try { localStorage.setItem(LAYOUT_MODE_KEY, mobileModeToggleSettingsEl.checked ? "mobile" : "desktop"); } catch {}
-        applyResponsiveMode();
-      }
 
       await saveData();
       renderAll();
@@ -11542,11 +11601,6 @@
     scrambleWrapEl.addEventListener("click", handleScrambleClick);
     window.addEventListener("resize", () => { applyResponsiveMode(); updateToolDockCompaction(); });
     try { localStorage.removeItem(LAYOUT_MODE_KEY); } catch {}
-    mobileModeToggleEl?.addEventListener("change", () => {
-      document.body.classList.toggle("mobile-ui", mobileModeToggleEl.checked);
-      if (mobileModeToggleSettingsEl) mobileModeToggleSettingsEl.checked = mobileModeToggleEl.checked;
-      requestAnimationFrame(() => updateToolDockCompaction?.());
-    });
     mobileSidebarToggleEl?.addEventListener("click", () => {
       document.body.classList.toggle("sidebar-open");
     });
@@ -11789,10 +11843,6 @@
     closeSettingsBtn.addEventListener("click", () => settingsDialog.close());
     resetSidebarWidthBtn?.addEventListener("click", () => {
       applySidebarWidth(320);
-      scheduleSettingsApply();
-    });
-    mobileModeToggleSettingsEl?.addEventListener("change", () => {
-      if (mobileModeToggleEl) mobileModeToggleEl.checked = mobileModeToggleSettingsEl.checked;
       scheduleSettingsApply();
     });
 
@@ -12159,7 +12209,9 @@
 
     applyResponsiveMode();
     applySidebarWidth(getSidebarWidth(), false);
+    applyToolDockHeight(getToolDockHeight(), false);
     setupSidebarResize();
+    setupToolDockResize();
     document.addEventListener("visibilitychange", () => { if (!document.hidden) applyResponsiveMode(); });
 
     // Async init — loads from IndexedDB before rendering
