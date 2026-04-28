@@ -788,10 +788,17 @@
       flex-direction:column;
     }
 
-    .trend{
+    .trend-scroll{
+      overflow-x:auto;
+      overflow-y:hidden;
       width:100%;
-      height:100%;
-      min-height:104px;
+      scrollbar-width:thin;
+      scrollbar-color:var(--accent) transparent;
+    }
+    .trend-scroll::-webkit-scrollbar{ height:4px; }
+    .trend-scroll::-webkit-scrollbar-thumb{ background:var(--accent);border-radius:2px; }
+    .trend{
+      height:104px;
       display:block;
       background:color-mix(in srgb, var(--panel-2) 75%, var(--bg));
       border-radius:8px;
@@ -8322,7 +8329,9 @@
       });
     }
 
-    const SOLVE_RENDER_LIMIT = 150;
+    let _solveDisplayCount = 150;
+    const SOLVE_LOAD_STEP  = 100;
+    let   _solveObserver   = null;
 
     function buildSolveRow(solve, originalIndex, ao5Values, pbIds, pbAo5Indexes) {
       const displayIndex = originalIndex + 1;
@@ -8379,7 +8388,8 @@
       return row;
     }
 
-    function renderSolves(showAll = false) {
+    function renderSolves() {
+      if (_solveObserver) { _solveObserver.disconnect(); _solveObserver = null; }
       solveListEl.innerHTML = "";
       sessionTitleEl.textContent = `${currentEventLabel()} • ${currentSession().name}`;
 
@@ -8390,20 +8400,19 @@
       }
 
       const idToIndex = new Map(solves.map((s, i) => [s.id, i]));
-
       const showAo = settings.list.showAoColumn;
       const pbIds = getPbSolveIds();
       const pbAo5Indexes = getPbAo5Indexes();
       const inverse = settings.list.inverseTimeList;
       const source = inverse ? solves : [...solves].reverse();
+      const hasMore = source.length > _solveDisplayCount;
 
-      const needsTrunc = !showAll && source.length > SOLVE_RENDER_LIMIT;
-      // In inverse mode show newest (tail); in normal mode show newest (head)
-      const visible = needsTrunc
-        ? (inverse ? source.slice(-SOLVE_RENDER_LIMIT) : source.slice(0, SOLVE_RENDER_LIMIT))
+      // Inverse: show newest N (tail); normal: show newest N (head)
+      const visible = hasMore
+        ? (inverse ? source.slice(-_solveDisplayCount) : source.slice(0, _solveDisplayCount))
         : source;
 
-      // Only compute ao5 for visible rows, not the full session
+      // Compute ao5 only for visible rows
       const ao5Values = new Array(solves.length).fill(null);
       if (showAo) {
         visible.forEach(solve => {
@@ -8414,22 +8423,33 @@
 
       const frag = document.createDocumentFragment();
 
-      if (needsTrunc) {
-        const banner = document.createElement("div");
-        banner.className = "solve-meta";
-        banner.style.cssText = "text-align:center;padding:6px 0;cursor:pointer;";
-        banner.textContent = `Showing ${SOLVE_RENDER_LIMIT} of ${source.length} solves — click to show all`;
-        banner.addEventListener("click", () => renderSolves(true));
-        frag.appendChild(banner);
+      // Inverse: sentinel at top so scrolling up loads older solves
+      if (hasMore && inverse) {
+        const s = document.createElement('div'); s.className = 'solve-sentinel'; frag.appendChild(s);
       }
 
       visible.forEach((solve) => {
         frag.appendChild(buildSolveRow(solve, idToIndex.get(solve.id), ao5Values, pbIds, pbAo5Indexes));
       });
 
-      solveListEl.appendChild(frag);
+      // Normal: sentinel at bottom so scrolling down loads older solves
+      if (hasMore && !inverse) {
+        const s = document.createElement('div'); s.className = 'solve-sentinel'; frag.appendChild(s);
+      }
 
+      solveListEl.appendChild(frag);
       if (inverse) solveListEl.scrollTop = solveListEl.scrollHeight;
+
+      if (hasMore) {
+        const sentinel = solveListEl.querySelector('.solve-sentinel');
+        _solveObserver = new IntersectionObserver(entries => {
+          if (!entries[0].isIntersecting) return;
+          _solveObserver.disconnect(); _solveObserver = null;
+          _solveDisplayCount += SOLVE_LOAD_STEP;
+          renderSolves();
+        }, { root: solveListEl, rootMargin: '80px' });
+        if (sentinel) _solveObserver.observe(sentinel);
+      }
     }
 
     function buildDistributionBins() {
@@ -8468,9 +8488,9 @@
         allValues = currentSolves().map(finalTimeMsOrInfinity).filter(v => Number.isFinite(v));
       }
       const windowed = w > 0 ? allValues.slice(-w) : allValues;
-      // Subsample to 300 points max to keep SVG path generation fast
-      const values = windowed.length > 300
-        ? windowed.filter((_, i) => i % Math.ceil(windowed.length / 300) === 0)
+      // Subsample to 1000 points max to keep SVG path generation fast
+      const values = windowed.length > 1000
+        ? windowed.filter((_, i) => i % Math.ceil(windowed.length / 1000) === 0)
         : windowed;
       const windowLabel = w > 0 ? `Last ${w}` : 'All';
       const canIn  = TREND_WINDOWS.indexOf(w) < TREND_WINDOWS.length - 1;
@@ -8483,27 +8503,30 @@
       </div>`;
 
       if (values.length < 2) {
-        return controls + `
-          <svg class="trend" viewBox="0 0 300 100" preserveAspectRatio="none">
-            <rect x="0" y="0" width="300" height="100" fill="transparent"></rect>
-            <text x="150" y="55" text-anchor="middle" fill="var(--muted)" font-size="11">Not enough solves</text>
-          </svg>
-        `;
+        return controls + `<div class="trend-scroll"><svg class="trend" width="100%" viewBox="0 0 300 104">
+          <text x="150" y="57" text-anchor="middle" fill="var(--muted)" font-size="11">Not enough solves</text>
+        </svg></div>`;
       }
 
       const min = Math.min(...values);
       const max = Math.max(...values);
       const range = Math.max(1, max - min);
 
+      // 4px per point, min 280px — makes the chart scrollable for large sessions
+      const PX = Math.max(4, 280 / values.length);
+      const PAD = 10;
+      const svgW = Math.max(280, Math.round(values.length * PX) + PAD);
+      const H = 104;
+
       const points = values.map((v, i) => {
-        const x = values.length === 1 ? 150 : (i / (values.length - 1)) * 280 + 10;
-        const y = 90 - ((v - min) / range) * 80;
+        const x = values.length === 1 ? svgW / 2 : PAD + (i / (values.length - 1)) * (svgW - PAD * 2);
+        const y = H - 14 - ((v - min) / range) * (H - 24);
         return [x, y];
       });
 
       const tension = 0.18;
       const smoothD = (() => {
-        let d = `M${points[0][0]},${points[0][1]}`;
+        let d = `M${points[0][0].toFixed(1)},${points[0][1].toFixed(1)}`;
         for (let i = 0; i < points.length - 1; i++) {
           const [x0, y0] = i > 0 ? points[i - 1] : points[i];
           const [x1, y1] = points[i];
@@ -8513,19 +8536,26 @@
           const cp1y = y1 + (y2 - y0) * tension;
           const cp2x = x2 - (x3 - x1) * tension;
           const cp2y = y2 - (y3 - y1) * tension;
-          d += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${x2},${y2}`;
+          d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`;
         }
         return d;
       })();
 
-      return controls + `
-        <svg class="trend" viewBox="0 0 300 100" preserveAspectRatio="none">
-          <rect x="0" y="0" width="300" height="100" fill="transparent"></rect>
-          <line x1="10" y1="90" x2="290" y2="90" stroke="var(--line)" stroke-width="1"></line>
-          <line x1="10" y1="10" x2="10" y2="90" stroke="var(--line)" stroke-width="1"></line>
-          <path fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${smoothD}"></path>
+      // Y-axis time labels
+      const labelMs = [min, min + range * 0.5, max];
+      const yLabels = labelMs.map(ms => {
+        const y = H - 14 - ((ms - min) / range) * (H - 24);
+        return `<text x="${PAD + 2}" y="${y.toFixed(1)}" fill="var(--muted)" font-size="9" dominant-baseline="middle">${formatMs(Math.round(ms))}</text>`;
+      }).join('');
+
+      return controls + `<div class="trend-scroll" data-trend-scroll>
+        <svg class="trend" width="${svgW}" height="${H}" viewBox="0 0 ${svgW} ${H}">
+          <line x1="${PAD}" y1="${H-14}" x2="${svgW-PAD}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
+          <line x1="${PAD}" y1="10" x2="${PAD}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
+          <path fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${smoothD}"/>
+          ${yLabels}
         </svg>
-      `;
+      </div>`;
     }
 
     function renderDistributionHtml() {
@@ -9533,6 +9563,10 @@
           renderTools();
         };
       }
+      // Auto-scroll trend chart to latest (rightmost) solve
+      document.querySelectorAll('[data-trend-scroll]').forEach(el => {
+        el.scrollLeft = el.scrollWidth;
+      });
     }
 
     function swapToolIntoSlot(toolId, slot) {
@@ -11447,6 +11481,7 @@
 
     sessionSelectEl.addEventListener("change", () => {
       currentEventBundle().activeSessionId = sessionSelectEl.value;
+      _solveDisplayCount = 150;
       renderSessionStats();
       renderSolves();
       renderStats();
