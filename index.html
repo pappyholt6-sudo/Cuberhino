@@ -8466,22 +8466,22 @@
       return [];
     }
 
-    const TREND_PX_LEVELS = [2, 4, 8, 16]; // px per solve point
-    if (!state.trendPx) state.trendPx = 4;
+    // 0 = all; others = last N. Ordered most-zoomed-in first.
+    const TREND_WINDOWS = [5, 10, 25, 50, 100, 0];
+    if (state.trendWindow == null) state.trendWindow = 0;
 
     window._trendZoomIn = () => {
-      const idx = TREND_PX_LEVELS.indexOf(state.trendPx);
-      const next = TREND_PX_LEVELS[idx + 1];
-      if (next != null) { state.trendPx = next; renderTools(); }
+      const idx = TREND_WINDOWS.indexOf(state.trendWindow);
+      const next = TREND_WINDOWS[idx - 1];
+      if (next != null) { state.trendWindow = next; renderTools(); }
     };
     window._trendZoomOut = () => {
-      const idx = TREND_PX_LEVELS.indexOf(state.trendPx);
-      const prev = TREND_PX_LEVELS[idx - 1];
-      if (prev != null) { state.trendPx = prev; renderTools(); }
+      const idx = TREND_WINDOWS.indexOf(state.trendWindow);
+      const next = TREND_WINDOWS[idx + 1];
+      if (next != null) { state.trendWindow = next; renderTools(); }
     };
 
     function renderTrendSvg() {
-      // Always show all solves for the current event across all sessions
       const bundle = data.sessionsByEvent[currentEvent];
       const sessions = bundle?.sessions || [];
       const allValues = sessions
@@ -8490,22 +8490,22 @@
         .map(finalTimeMsOrInfinity)
         .filter(v => Number.isFinite(v));
 
-      const PX = state.trendPx;
-      const zoomIdx = TREND_PX_LEVELS.indexOf(PX);
-      const canIn  = zoomIdx < TREND_PX_LEVELS.length - 1;
-      const canOut = zoomIdx > 0;
-      const zoomLabel = ['Overview', 'Normal', 'Detail', 'Fine'][zoomIdx] || 'Normal';
+      const w = state.trendWindow;
+      const windowed = w > 0 ? allValues.slice(-w) : allValues;
+      const values = windowed.length > 1000
+        ? windowed.filter((_, i) => i % Math.ceil(windowed.length / 1000) === 0)
+        : windowed;
+
+      const wIdx = TREND_WINDOWS.indexOf(w);
+      const canIn  = wIdx > 0;
+      const canOut = wIdx < TREND_WINDOWS.length - 1;
+      const label  = w === 0 ? 'All' : `Last ${w}`;
 
       const controls = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-        <span style="font-size:11px;color:var(--muted);flex:1;">${zoomLabel}</span>
+        <span style="font-size:11px;color:var(--muted);flex:1;">${label}</span>
         <button onclick="window._trendZoomOut()" style="background:none;border:1px solid var(--line);border-radius:5px;color:var(--muted);width:20px;height:20px;font-size:13px;cursor:${canOut?'pointer':'default'};opacity:${canOut?1:.35};line-height:1;padding:0;">−</button>
         <button onclick="window._trendZoomIn()" style="background:none;border:1px solid var(--line);border-radius:5px;color:var(--muted);width:20px;height:20px;font-size:13px;cursor:${canIn?'pointer':'default'};opacity:${canIn?1:.35};line-height:1;padding:0;">+</button>
       </div>`;
-
-      // Subsample to 1000 points max to keep SVG path generation fast
-      const values = allValues.length > 1000
-        ? allValues.filter((_, i) => i % Math.ceil(allValues.length / 1000) === 0)
-        : allValues;
 
       if (values.length < 2) {
         return controls + `<div class="trend-scroll"><svg class="trend" width="100%" viewBox="0 0 300 104">
@@ -8516,13 +8516,19 @@
       const min = Math.min(...values);
       const max = Math.max(...values);
       const range = Math.max(1, max - min);
-
-      const PAD = 10;
-      const svgW = Math.max(280, Math.round(values.length * PX) + PAD);
       const H = 104;
 
+      // Each point gets 4px minimum; if that fits within ~280px, use width="100%" so
+      // the chart stretches edge-to-edge. Otherwise use the pixel width so it scrolls.
+      const PX = 4;
+      const naturalW = values.length * PX;
+      const fitsCard = naturalW <= 280;
+      // Coordinate space always 280 wide when fitting, or naturalW when scrolling
+      const coordW = fitsCard ? 280 : naturalW;
+      const svgWidthAttr = fitsCard ? '100%' : `${coordW}`;
+
       const points = values.map((v, i) => {
-        const x = values.length === 1 ? svgW / 2 : PAD + (i / (values.length - 1)) * (svgW - PAD * 2);
+        const x = values.length === 1 ? coordW / 2 : (i / (values.length - 1)) * coordW;
         const y = H - 14 - ((v - min) / range) * (H - 24);
         return [x, y];
       });
@@ -8544,17 +8550,15 @@
         return d;
       })();
 
-      // Y-axis time labels
       const labelMs = [min, min + range * 0.5, max];
       const yLabels = labelMs.map(ms => {
         const y = H - 14 - ((ms - min) / range) * (H - 24);
-        return `<text x="${PAD + 2}" y="${y.toFixed(1)}" fill="var(--muted)" font-size="9" dominant-baseline="middle">${formatMs(Math.round(ms))}</text>`;
+        return `<text x="3" y="${y.toFixed(1)}" fill="var(--muted)" font-size="9" dominant-baseline="middle">${formatMs(Math.round(ms))}</text>`;
       }).join('');
 
       return controls + `<div class="trend-scroll" data-trend-scroll>
-        <svg class="trend" width="${svgW}" height="100%" viewBox="0 0 ${svgW} ${H}" preserveAspectRatio="none">
-          <line x1="${PAD}" y1="${H-14}" x2="${svgW-PAD}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
-          <line x1="${PAD}" y1="10" x2="${PAD}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
+        <svg class="trend" width="${svgWidthAttr}" height="100%" viewBox="0 0 ${coordW} ${H}" preserveAspectRatio="none">
+          <line x1="0" y1="${H-14}" x2="${coordW}" y2="${H-14}" stroke="var(--line)" stroke-width="1"/>
           <path fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${smoothD}"/>
           ${yLabels}
         </svg>
