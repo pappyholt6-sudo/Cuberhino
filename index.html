@@ -3938,13 +3938,13 @@
       { id: "solves_50000",    label: "Fifty Thousand",      desc: "Complete 50,000 solves",                   pts: 250, icon: "🌟", check: d => d.totalSolves >= 50000 },
       { id: "solves_100000",   label: "Six Figures",         desc: "Complete 100,000 solves",                  pts: 500, icon: "🚀", check: d => d.totalSolves >= 100000 },
       // ── Streak ───────────────────────────────────────────────────────────────
-      { id: "streak_3",        label: "Hat Trick",           desc: "3-day solve streak",                       pts:  5,  icon: "📅", check: d => d.streak >= 3 },
-      { id: "streak_7",        label: "Week Warrior",        desc: "7-day solve streak",                       pts: 15,  icon: "🗓️", check: d => d.streak >= 7 },
-      { id: "streak_14",       label: "Two Weeks Strong",    desc: "14-day solve streak",                      pts: 20,  icon: "🔗", check: d => d.streak >= 14 },
-      { id: "streak_30",       label: "Monthly Grind",       desc: "30-day solve streak",                      pts: 40,  icon: "📆", check: d => d.streak >= 30 },
-      { id: "streak_60",       label: "Two Months In",       desc: "60-day solve streak",                      pts: 65,  icon: "💎", check: d => d.streak >= 60 },
-      { id: "streak_100",      label: "Centurion Streak",    desc: "100-day solve streak",                     pts: 100, icon: "⚡", check: d => d.streak >= 100 },
-      { id: "streak_365",      label: "Year-Round Cuber",    desc: "365-day solve streak",                     pts: 200, icon: "🌞", check: d => d.streak >= 365 },
+      { id: "streak_3",        label: "Hat Trick",           desc: "3-day solve streak",                       pts:  5,  icon: "📅", check: d => d.longestStreak >= 3 },
+      { id: "streak_7",        label: "Week Warrior",        desc: "7-day solve streak",                       pts: 15,  icon: "🗓️", check: d => d.longestStreak >= 7 },
+      { id: "streak_14",       label: "Two Weeks Strong",    desc: "14-day solve streak",                      pts: 20,  icon: "🔗", check: d => d.longestStreak >= 14 },
+      { id: "streak_30",       label: "Monthly Grind",       desc: "30-day solve streak",                      pts: 40,  icon: "📆", check: d => d.longestStreak >= 30 },
+      { id: "streak_60",       label: "Two Months In",       desc: "60-day solve streak",                      pts: 65,  icon: "💎", check: d => d.longestStreak >= 60 },
+      { id: "streak_100",      label: "Centurion Streak",    desc: "100-day solve streak",                     pts: 100, icon: "⚡", check: d => d.longestStreak >= 100 },
+      { id: "streak_365",      label: "Year-Round Cuber",    desc: "365-day solve streak",                     pts: 200, icon: "🌞", check: d => d.longestStreak >= 365 },
       // ── Days active (distinct, not necessarily consecutive) ──────────────────
       { id: "days_7",          label: "Weekly Regular",      desc: "Solve on 7 different days",                pts:  5,  icon: "📊", check: d => d.totalDays >= 7 },
       { id: "days_30",         label: "Month Marker",        desc: "Solve on 30 different days",               pts: 15,  icon: "📋", check: d => d.totalDays >= 30 },
@@ -4897,6 +4897,20 @@
         else break;
       }
 
+      // Compute longest streak ever across all history
+      const sortedDays = Object.keys(dayCountMap).sort();
+      let longestStreak = streak, tempStreak = 0;
+      for (let i = 0; i < sortedDays.length; i++) {
+        if (i === 0) { tempStreak = 1; }
+        else {
+          const prev = new Date(sortedDays[i-1] + 'T00:00:00');
+          const curr = new Date(sortedDays[i]   + 'T00:00:00');
+          const diff = Math.round((curr - prev) / 86400000);
+          tempStreak = diff === 1 ? tempStreak + 1 : 1;
+        }
+        if (tempStreak > longestStreak) longestStreak = tempStreak;
+      }
+
       // Events with at least one non-DNF solve
       const eventsWithPb = Object.keys(pbByEvent).length;
 
@@ -4909,7 +4923,7 @@
       const { madeClub, compWin, compSecond, compThird } = state.socialFlags || {};
       return { totalSolves, totalSolveMs, pb333: pb333 === Infinity ? null : pb333,
                pbByEvent, maxSolvesInDay, maxEventsInDay, totalDays,
-               streak, eventsWithPb, multiEventDay, clubsJoined,
+               streak, longestStreak, eventsWithPb, multiEventDay, clubsJoined,
                madeClub: !!madeClub, compWin: !!compWin, compSecond: !!compSecond, compThird: !!compThird };
     }
 
@@ -9661,12 +9675,13 @@
 
     function getAllSolvesWithEvent() {
       const all = [];
-      for (const ev of EVENTS) {
-        const bundle = data.sessionsByEvent[ev.id];
+      for (const [evId, bundle] of Object.entries(data.sessionsByEvent || {})) {
         if (!bundle?.sessions) continue;
+        const stdEv = EVENTS.find(e => e.id === evId);
+        const evLabel = stdEv ? stdEv.label : (customEventData(evId)?.label || evId);
         for (const session of bundle.sessions) {
           for (const solve of (session.solves || [])) {
-            all.push({ ...solve, eventId: ev.id, eventLabel: ev.label, sessionName: session.name });
+            all.push({ ...solve, eventId: evId, eventLabel: evLabel, sessionName: session.name });
           }
         }
       }
@@ -12190,21 +12205,119 @@
     document.getElementById("copyAvgCardBtn").addEventListener("click", async () => {
       const { n, endIndex, titlePrefix, details } = state.selectedAverage || {};
       if (!details) return;
-      const header = `${titlePrefix} Ao${n} — ${averageDisplay(details.avg)}`;
-      const meta = `${details.windowSolves.length} solves · ending at #${endIndex + 1}`;
-      const lines = details.windowSolves.map((solve, idx) => {
-        const isTrimmed = details.excluded.has(idx);
-        const num = endIndex - n + idx + 2;
-        const time = isTrimmed ? `(${solveDisplay(solve)})` : solveDisplay(solve);
-        const scramble = solve.scramble ? ` — ${solve.scramble}` : "";
-        return `${num}. ${time}${scramble}`;
-      }).join("\n");
-      const text = `${header}\n${meta}\n\n${lines}`;
+      const buildText = () => {
+        const header = `${titlePrefix} Ao${n} — ${averageDisplay(details.avg)}`;
+        const meta = `${details.windowSolves.length} solves · ending at #${endIndex + 1}`;
+        const lines = details.windowSolves.map((solve, idx) => {
+          const isTrimmed = details.excluded.has(idx);
+          const num = endIndex - n + idx + 2;
+          const time = isTrimmed ? `(${solveDisplay(solve)})` : solveDisplay(solve);
+          const scramble = solve.scramble ? ` — ${solve.scramble}` : "";
+          return `${num}. ${time}${scramble}`;
+        }).join("\n");
+        return `${header}\n${meta}\n\n${lines}`;
+      };
       try {
-        await navigator.clipboard.writeText(text);
+        const blob = await renderAvgCardImage({ n, endIndex, titlePrefix, details });
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
         flashCopied(document.getElementById("copyAvgCardBtn"));
-      } catch {}
+      } catch {
+        try { await navigator.clipboard.writeText(buildText()); flashCopied(document.getElementById("copyAvgCardBtn")); } catch {}
+      }
     });
+
+    function renderAvgCardImage({ n, endIndex, titlePrefix, details }) {
+      return new Promise(resolve => {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const W = 520, PAD = 24;
+        const BG = "#0b0f14", PANEL = "#121923", PANEL2 = "#192230";
+        const TEXT = "#eef3fb", MUTED = "#9fb0c8", LINE = "#2a3648", ACCENT = "#58a6ff";
+        const GOOD = "#3fb950", BAD = "#f85149";
+        const ROW_H = 28, HEADER_H = PAD + 24 + 16 + 56 + 12 + 20 + 16;
+
+        const rowCount = details.windowSolves.length;
+        const H = HEADER_H + rowCount * ROW_H + PAD;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
+
+        // Background
+        ctx.fillStyle = PANEL;
+        roundRect(ctx, 0, 0, W, H, 16);
+        ctx.fill();
+
+        let y = PAD;
+
+        // Event + Ao badge
+        const badge = `${currentEventLabel()} · ${titlePrefix} Ao${n}`;
+        ctx.font = "600 12px Arial,Helvetica,sans-serif";
+        const bW = ctx.measureText(badge).width + 24;
+        ctx.fillStyle = PANEL2;
+        roundRect(ctx, PAD, y, bW, 24, 12);
+        ctx.fill();
+        ctx.strokeStyle = LINE;
+        ctx.lineWidth = 1;
+        roundRect(ctx, PAD, y, bW, 24, 12);
+        ctx.stroke();
+        ctx.fillStyle = MUTED;
+        ctx.textBaseline = "middle";
+        ctx.fillText(badge, PAD + 12, y + 12);
+        y += 24 + 16;
+
+        // Average time
+        ctx.font = "700 52px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = TEXT;
+        ctx.textBaseline = "top";
+        ctx.fillText(averageDisplay(details.avg), PAD, y);
+        y += 56 + 12;
+
+        // Solve count subtitle
+        ctx.font = "13px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = MUTED;
+        ctx.textBaseline = "top";
+        ctx.fillText(`${rowCount} solves · ending at #${endIndex + 1}`, PAD, y);
+        y += 20 + 16;
+
+        // Solve rows
+        details.windowSolves.forEach((solve, idx) => {
+          const isTrimmed = details.excluded.has(idx);
+          const num = endIndex - n + idx + 2;
+          const timeStr = isTrimmed ? `(${solveDisplay(solve)})` : solveDisplay(solve);
+          const rowY = y + idx * ROW_H;
+
+          // Alternating row bg
+          if (idx % 2 === 0) {
+            ctx.fillStyle = "rgba(255,255,255,0.025)";
+            roundRect(ctx, PAD - 8, rowY, W - PAD * 2 + 16, ROW_H, 4);
+            ctx.fill();
+          }
+
+          // Index
+          ctx.font = "12px Arial,Helvetica,sans-serif";
+          ctx.fillStyle = MUTED;
+          ctx.textBaseline = "middle";
+          ctx.textAlign = "left";
+          ctx.fillText(`${num}.`, PAD, rowY + ROW_H / 2);
+
+          // Time
+          ctx.font = isTrimmed ? "italic 13px Arial,Helvetica,sans-serif" : "600 13px Arial,Helvetica,sans-serif";
+          ctx.fillStyle = isTrimmed ? MUTED : TEXT;
+          ctx.fillText(timeStr, PAD + 32, rowY + ROW_H / 2);
+        });
+
+        // Watermark
+        ctx.font = "600 11px Arial,Helvetica,sans-serif";
+        ctx.fillStyle = ACCENT;
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "right";
+        ctx.fillText("Cuberhino", W - PAD, H - 10);
+
+        canvas.toBlob(blob => resolve(blob), "image/png");
+      });
+    }
 
     applyResponsiveMode();
     applySidebarWidth(getSidebarWidth(), false);
