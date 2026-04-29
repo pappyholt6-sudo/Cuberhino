@@ -2556,11 +2556,16 @@
     @media(max-width:700px){ .comps-layout{ grid-template-columns:1fr; } .comps-layout.detail-open .comps-list-panel{ display:none; } }
     .comps-list-panel{ border-right:1px solid var(--line); display:flex; flex-direction:column; overflow:hidden; }
     .comps-list-scroll{ flex:1; overflow-y:auto; }
-    .comp-list-item{ padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--line); transition:background .1s; }
+    .comp-list-item{ padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--line); transition:background .1s; display:flex; align-items:center; gap:8px; }
     .comp-list-item:hover{ background:var(--panel-2); }
     .comp-list-item.active{ background:color-mix(in srgb,var(--accent) 12%,var(--panel)); }
+    .comp-list-item-body{ flex:1; min-width:0; }
     .comp-list-item-name{ font-weight:600; font-size:14px; }
     .comp-list-item-meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+    .comp-pin-btn{ flex-shrink:0; background:none; border:none; cursor:pointer; font-size:14px; opacity:.35; padding:2px 4px; line-height:1; transition:opacity .15s; }
+    .comp-pin-btn:hover,.comp-pin-btn.pinned{ opacity:1; }
+    .comp-list-item.pinned-item{ border-left:2px solid var(--accent); }
+    .comp-pinned-divider{ padding:6px 14px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:var(--panel-2); }
     .comp-detail-panel{ display:flex; flex-direction:column; flex:1; overflow:hidden; }
     .comp-detail-empty{ display:flex; align-items:center; justify-content:center; flex:1; color:var(--muted); font-size:14px; }
     .comp-detail-content{ flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
@@ -3946,17 +3951,23 @@
       { id: "streak_100",      label: "Centurion Streak",    desc: "100-day solve streak",                     pts: 100, icon: "⚡", check: d => d.longestStreak >= 100 },
       { id: "streak_365",      label: "Year-Round Cuber",    desc: "365-day solve streak",                     pts: 200, icon: "🌞", check: d => d.longestStreak >= 365 },
       // ── Days active (distinct, not necessarily consecutive) ──────────────────
+      { id: "days_2",          label: "Back Again",          desc: "Solve on 2 different days",                pts:  2,  icon: "🔁", check: d => d.totalDays >= 2 },
       { id: "days_7",          label: "Weekly Regular",      desc: "Solve on 7 different days",                pts:  5,  icon: "📊", check: d => d.totalDays >= 7 },
       { id: "days_30",         label: "Month Marker",        desc: "Solve on 30 different days",               pts: 15,  icon: "📋", check: d => d.totalDays >= 30 },
       { id: "days_100",        label: "Century Days",        desc: "Solve on 100 different days",              pts: 40,  icon: "🗒️", check: d => d.totalDays >= 100 },
+      { id: "days_200",        label: "Dedicated Solver",    desc: "Solve on 200 different days",              pts: 70,  icon: "📅", check: d => d.totalDays >= 200 },
       { id: "days_365",        label: "Full Year",           desc: "Solve on 365 different days",              pts: 100, icon: "🌍", check: d => d.totalDays >= 365 },
+      { id: "days_500",        label: "Five Hundred Days",   desc: "Solve on 500 different days",              pts: 150, icon: "🏛️", check: d => d.totalDays >= 500 },
+      { id: "days_1000",       label: "Thousand Days",       desc: "Solve on 1,000 different days",            pts: 300, icon: "💠", check: d => d.totalDays >= 1000 },
       // ── Solves in one day ────────────────────────────────────────────────────
+      { id: "day_5",           label: "Quick Warm-Up",       desc: "5 solves in a single day",                 pts:  2,  icon: "🌅", check: d => d.maxSolvesInDay >= 5 },
       { id: "day_10",          label: "Quick Session",       desc: "10 solves in a single day",                pts:  5,  icon: "☀️", check: d => d.maxSolvesInDay >= 10 },
       { id: "day_25",          label: "Busy Day",            desc: "25 solves in a single day",                pts: 10,  icon: "⏱️", check: d => d.maxSolvesInDay >= 25 },
       { id: "day_50",          label: "Fifty in a Day",      desc: "50 solves in a single day",                pts: 15,  icon: "💪", check: d => d.maxSolvesInDay >= 50 },
       { id: "day_100",         label: "Marathon Session",    desc: "100 solves in a single day",               pts: 25,  icon: "🏋️", check: d => d.maxSolvesInDay >= 100 },
       { id: "day_200",         label: "Cube Machine",        desc: "200 solves in a single day",               pts: 50,  icon: "⚙️", check: d => d.maxSolvesInDay >= 200 },
       { id: "day_500",         label: "Relentless",          desc: "500 solves in a single day",               pts: 100, icon: "🤖", check: d => d.maxSolvesInDay >= 500 },
+      { id: "day_1000",        label: "Cube Maniac",         desc: "1,000 solves in a single day",             pts: 200, icon: "🌀", check: d => d.maxSolvesInDay >= 1000 },
       // ── Events in one day ────────────────────────────────────────────────────
       { id: "multi_event_day", label: "Cube Sampler",        desc: "Solve 3 different events in one day",      pts: 20,  icon: "🎲", check: d => d.maxEventsInDay >= 3 },
       { id: "events_day_5",    label: "Event Hopper",        desc: "Solve 5 different events in one day",      pts: 30,  icon: "🎪", check: d => d.maxEventsInDay >= 5 },
@@ -3974,10 +3985,16 @@
       { id: "sub4_333",        label: "Sub-4",               desc: "Solve 3x3 in under 4 seconds",             pts: 350, icon: "⚡", check: d => (d.pb333 ?? Infinity) < 4000 },
       { id: "sub3_333",        label: "Sub-3",               desc: "Solve 3x3 in under 3 seconds",             pts: 600, icon: "🌌", check: d => (d.pb333 ?? Infinity) < 3000 },
       // ── Total time invested ──────────────────────────────────────────────────
+      { id: "time_30m",        label: "Getting Started",     desc: "30 minutes of total solve time",           pts:  3,  icon: "⏱️", check: d => d.totalSolveMs >= 1800000 },
       { id: "time_1h",         label: "Hour Glass",          desc: "1 hour of total solve time",               pts: 10,  icon: "⏳", check: d => d.totalSolveMs >= 3600000 },
+      { id: "time_5h",         label: "Five Hours In",       desc: "5 hours of total solve time",              pts: 20,  icon: "🕔", check: d => d.totalSolveMs >= 18000000 },
       { id: "time_10h",        label: "Ten Hours Deep",      desc: "10 hours of total solve time",             pts: 30,  icon: "🕐", check: d => d.totalSolveMs >= 36000000 },
       { id: "time_24h",        label: "Full Day",            desc: "24 hours of total solve time",             pts: 75,  icon: "🌙", check: d => d.totalSolveMs >= 86400000 },
+      { id: "time_50h",        label: "Fifty Hours",         desc: "50 hours of total solve time",             pts: 100, icon: "🌒", check: d => d.totalSolveMs >= 180000000 },
       { id: "time_100h",       label: "Centurion Hours",     desc: "100 hours of total solve time",            pts: 150, icon: "🏔️", check: d => d.totalSolveMs >= 360000000 },
+      { id: "time_200h",       label: "Two Hundred Hours",   desc: "200 hours of total solve time",            pts: 250, icon: "🌑", check: d => d.totalSolveMs >= 720000000 },
+      { id: "time_500h",       label: "Five Hundred Hours",  desc: "500 hours of total solve time",            pts: 400, icon: "⭐", check: d => d.totalSolveMs >= 1800000000 },
+      { id: "time_1000h",      label: "Thousand Hours",      desc: "1,000 hours of total solve time",          pts: 600, icon: "🌟", check: d => d.totalSolveMs >= 3600000000 },
       // ── Multi-event PBs ──────────────────────────────────────────────────────
       { id: "events_3",        label: "Versatile",           desc: "Get a PB on 3 different events",           pts: 15,  icon: "🎭", check: d => d.eventsWithPb >= 3 },
       { id: "events_6",        label: "All-Rounder",         desc: "Get a PB on 6 different events",           pts: 35,  icon: "🌐", check: d => d.eventsWithPb >= 6 },
@@ -3987,8 +4004,17 @@
       { id: "joined_club",     label: "Social Butterfly",    desc: "Join a club",                              pts:  5,  icon: "🤝", check: d => d.clubsJoined >= 1 },
       { id: "made_club",       label: "Founder",             desc: "Create a club",                            pts: 15,  icon: "🏗️", check: d => d.madeClub },
       { id: "comp_third",      label: "Podium Finish",       desc: "Finish 3rd in a competition",             pts: 20,  icon: "🥉", check: d => d.compThird },
+      { id: "comp_third_3",    label: "Bronze Collector",    desc: "Earn 3 bronze medals",                    pts: 50,  icon: "🥉", check: d => d.compThirds >= 3 },
+      { id: "comp_third_5",    label: "Podium Regular",      desc: "Earn 5 bronze medals",                    pts: 90,  icon: "🥉", check: d => d.compThirds >= 5 },
+      { id: "comp_third_10",   label: "Bronze Legend",       desc: "Earn 10 bronze medals",                   pts: 175, icon: "🥉", check: d => d.compThirds >= 10 },
       { id: "comp_second",     label: "Silver Medalist",     desc: "Finish 2nd in a competition",             pts: 35,  icon: "🥈", check: d => d.compSecond },
+      { id: "comp_second_3",   label: "Silver Collection",   desc: "Earn 3 silver medals",                    pts: 80,  icon: "🥈", check: d => d.compSeconds >= 3 },
+      { id: "comp_second_5",   label: "Silver Streak",       desc: "Earn 5 silver medals",                    pts: 140, icon: "🥈", check: d => d.compSeconds >= 5 },
+      { id: "comp_second_10",  label: "Always Second",       desc: "Earn 10 silver medals",                   pts: 250, icon: "🥈", check: d => d.compSeconds >= 10 },
       { id: "comp_win",        label: "Champion",            desc: "Win a competition",                        pts: 60,  icon: "🥇", check: d => d.compWin },
+      { id: "comp_win_3",      label: "Triple Crown",        desc: "Win 3 competitions",                      pts: 150, icon: "🥇", check: d => d.compWins >= 3 },
+      { id: "comp_win_5",      label: "Dynasty",             desc: "Win 5 competitions",                      pts: 250, icon: "🥇", check: d => d.compWins >= 5 },
+      { id: "comp_win_10",     label: "Undisputed",          desc: "Win 10 competitions",                     pts: 400, icon: "👑", check: d => d.compWins >= 10 },
     ];
 
     const defaultSettings = {
@@ -4918,13 +4944,15 @@
       const multiEventDay = maxEventsInDay >= 3;
 
       // Clubs joined count (from Firebase membership, approximate via allClubs)
-      const clubsJoined = clubMembershipIds ? clubMembershipIds.size : 0;
+      const clubsJoined = clubMembershipIds.size || (state.socialFlags?.clubsJoined ?? 0);
 
-      const { madeClub, compWin, compSecond, compThird } = state.socialFlags || {};
+      const { madeClub, compWin, compSecond, compThird, compWins = 0, compSeconds = 0, compThirds = 0 } = state.socialFlags || {};
       return { totalSolves, totalSolveMs, pb333: pb333 === Infinity ? null : pb333,
                pbByEvent, maxSolvesInDay, maxEventsInDay, totalDays,
                streak, longestStreak, eventsWithPb, multiEventDay, clubsJoined,
-               madeClub: !!madeClub, compWin: !!compWin, compSecond: !!compSecond, compThird: !!compThird };
+               madeClub: !!madeClub, compWin: !!compWin || compWins > 0,
+               compSecond: !!compSecond || compSeconds > 0, compThird: !!compThird || compThirds > 0,
+               compWins, compSeconds, compThirds };
     }
 
     function getLeagueTier(pts) {
@@ -4962,23 +4990,20 @@
         if (newlyEarned.length > 0 && achViewBtn) achViewBtn.classList.add('has-notif');
         // If not signed in, stop here — local state is updated, no Firebase needed
         if (!firebaseReady || !db || !state.currentUser) return;
-        // ── Retroactive comp placement scan (runs once per session until all flags set) ──
+        // ── Retroactive comp placement scan (runs once, counts all medals) ──
         const flags = state.socialFlags;
-        if (!flags.compWin || !flags.compSecond || !flags.compThird) {
+        if (flags.compWins == null) {
           try {
-            // Check global competitions the user entered
             const globalEntrySnap = await getDocs(query(
               collectionGroup(db, 'entries'), where('uid','==',state.currentUser.uid)
             ));
             const compPaths = new Set();
             globalEntrySnap.forEach(d => {
-              // parent = entries subcollection, parent.parent = competition doc
               const compRef = d.ref.parent?.parent;
               if (compRef) compPaths.add(compRef.path);
             });
-            const newFlags = {};
+            let wins = 0, seconds = 0, thirds = 0;
             for (const compPath of compPaths) {
-              if (flags.compWin && flags.compSecond && flags.compThird) break;
               try {
                 const compSnap = await getDoc(doc(db, compPath));
                 if (!compSnap.exists() || compSnap.data().status !== 'closed') continue;
@@ -4988,21 +5013,20 @@
                   .filter(e => e.score != null)
                   .sort((a,b) => a.score - b.score);
                 const rank = scored.findIndex(e => e.uid === state.currentUser.uid);
-                if (rank === 0 && !flags.compWin)    newFlags.compWin    = true;
-                if (rank === 1 && !flags.compSecond) newFlags.compSecond = true;
-                if (rank === 2 && !flags.compThird)  newFlags.compThird  = true;
+                if (rank === 0) wins++;
+                if (rank === 1) seconds++;
+                if (rank === 2) thirds++;
               } catch {}
             }
-            if (Object.keys(newFlags).length) {
-              Object.assign(state.socialFlags, newFlags);
-              // Use dot-notation keys so only the changed flags are updated (shallow merge with
-              // setDoc/merge would replace the entire socialFlags object and lose other flags).
-              const dotFlags = {};
-              for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
-              await updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags);
-              // Re-run to pick up newly set flags
-              return syncAchievements();
-            }
+            const newFlags = {
+              compWins: wins, compSeconds: seconds, compThirds: thirds,
+              compWin: wins > 0, compSecond: seconds > 0, compThird: thirds > 0
+            };
+            Object.assign(state.socialFlags, newFlags);
+            const dotFlags = {};
+            for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
+            await updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags).catch(() => {});
+            return syncAchievements();
           } catch(e) { console.warn('retroactive comp scan error', e); }
         }
         const snap = await getDoc(doc(db,"profiles",state.currentUser.uid));
@@ -5074,7 +5098,12 @@
     let clubMembershipIds = new Set();
     function persistClubMemberships() {
       if (!db || !state.currentUser) return;
-      try { updateDoc(doc(db,'profiles',state.currentUser.uid), { clubMembershipIds: Array.from(clubMembershipIds) }); } catch {}
+      const count = clubMembershipIds.size;
+      state.socialFlags.clubsJoined = count;
+      try { updateDoc(doc(db,'profiles',state.currentUser.uid), {
+        clubMembershipIds: Array.from(clubMembershipIds),
+        'socialFlags.clubsJoined': count
+      }); } catch {}
     }
     let clubsFilterMode = 'all';
     let selectedClubId = null;
@@ -5731,6 +5760,8 @@
 
     // ── Competitions ──────────────────────────────────────────────────────────
     let allOpenComps = [];
+    let pinnedCompIds = new Set(JSON.parse(localStorage.getItem('cubeyPinnedComps') || '[]'));
+    function savePinnedComps() { localStorage.setItem('cubeyPinnedComps', JSON.stringify([...pinnedCompIds])); }
     let compsLoaded = false;
     let selectedCompId = null;
     // Leaderboard view state for multi-event comp detail
@@ -5939,19 +5970,42 @@
         listEl.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${query ? 'No competitions match your search.' : 'No open competitions. Create one!'}</div>`;
         return;
       }
-      listEl.innerHTML = filtered.map(c => {
+      const pinned = filtered.filter(c => pinnedCompIds.has(c.id));
+      const unpinned = filtered.filter(c => !pinnedCompIds.has(c.id));
+      const ordered = [...pinned, ...unpinned];
+      const makeItem = c => {
         const isH2H = c.type === 'h2h';
         const isChallenge = isH2H && c.h2hOpponentUid === state.currentUser?.uid;
         const evLabel = c.events?.length > 1
           ? c.events.map(e=>e.label).join(', ')
           : (EVENTS.find(e=>e.id===c.event)?.label || c.event);
-        return `<div class="comp-list-item${c.id===selectedCompId?' active':''}" data-comp-id="${escapeHtml(c.id)}">
-          <div class="comp-list-item-name">${isH2H?'⚔ ':''}${escapeHtml(c.name||'Unnamed')}</div>
-          <div class="comp-list-item-meta">${escapeHtml(evLabel)} · ${c.numSolves} solve${c.numSolves!==1?'s':''} · @${escapeHtml(c.createdByUsername||'?')}${isChallenge?' · <b style="color:orange;">Challenge for you!</b>':''}</div>
+        const isPinned = pinnedCompIds.has(c.id);
+        return `<div class="comp-list-item${c.id===selectedCompId?' active':''}${isPinned?' pinned-item':''}" data-comp-id="${escapeHtml(c.id)}">
+          <div class="comp-list-item-body">
+            <div class="comp-list-item-name">${isH2H?'⚔ ':''}${escapeHtml(c.name||'Unnamed')}</div>
+            <div class="comp-list-item-meta">${escapeHtml(evLabel)} · ${c.numSolves} solve${c.numSolves!==1?'s':''} · @${escapeHtml(c.createdByUsername||'?')}${isChallenge?' · <b style="color:orange;">Challenge for you!</b>':''}</div>
+          </div>
+          <button class="comp-pin-btn${isPinned?' pinned':''}" data-pin-id="${escapeHtml(c.id)}" title="${isPinned?'Unpin':'Pin'}">📌</button>
         </div>`;
-      }).join('');
+      };
+      let html = '';
+      if (pinned.length) html += `<div class="comp-pinned-divider">Pinned</div>` + pinned.map(makeItem).join('');
+      if (pinned.length && unpinned.length) html += `<div class="comp-pinned-divider">All</div>`;
+      html += unpinned.map(makeItem).join('');
+      listEl.innerHTML = html;
       listEl.querySelectorAll('[data-comp-id]').forEach(el =>
-        el.addEventListener('click', () => openCompDetail(el.dataset.compId)));
+        el.addEventListener('click', e => {
+          if (e.target.closest('.comp-pin-btn')) return;
+          openCompDetail(el.dataset.compId);
+        }));
+      listEl.querySelectorAll('.comp-pin-btn').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = btn.dataset.pinId;
+          if (pinnedCompIds.has(id)) pinnedCompIds.delete(id); else pinnedCompIds.add(id);
+          savePinnedComps();
+          renderCompsList();
+        }));
     }
 
     // compPath: e.g. 'competitions' or 'clubs/CLUBID/competitions'
@@ -6009,12 +6063,11 @@
         if (myRank >= 0) {
           const flags = state.socialFlags;
           const newFlags = {};
-          if (myRank === 0 && !flags.compWin)    { newFlags.compWin = true; }
-          if (myRank === 1 && !flags.compSecond)  { newFlags.compSecond = true; }
-          if (myRank === 2 && !flags.compThird)   { newFlags.compThird = true; }
+          if (myRank === 0) { newFlags.compWin = true; newFlags.compWins = (flags.compWins || 0) + 1; }
+          if (myRank === 1) { newFlags.compSecond = true; newFlags.compSeconds = (flags.compSeconds || 0) + 1; }
+          if (myRank === 2) { newFlags.compThird = true; newFlags.compThirds = (flags.compThirds || 0) + 1; }
           if (Object.keys(newFlags).length) {
             Object.assign(state.socialFlags, newFlags);
-            // Fire-and-forget; use dot-notation to avoid overwriting sibling flags
             const dotFlags = {};
             for (const [k, v] of Object.entries(newFlags)) dotFlags[`socialFlags.${k}`] = v;
             updateDoc(doc(db,'profiles',state.currentUser.uid), dotFlags).catch(() => {});
@@ -8607,8 +8660,8 @@
       // the chart stretches edge-to-edge. Otherwise use the pixel width so it scrolls.
       const PX = 4;
       const naturalW = values.length * PX;
-      const fitsCard = naturalW <= 280;
-      // Coordinate space always 280 wide when fitting, or naturalW when scrolling
+      // "All" view always fits edge-to-edge; zoomed views scroll if data exceeds card
+      const fitsCard = w === 0 || naturalW <= 280;
       const coordW = fitsCard ? 280 : naturalW;
       const svgWidthAttr = fitsCard ? '100%' : `${coordW}`;
 
@@ -10233,13 +10286,13 @@
         { label: "Solve Milestones 🎯", ids: ["first_solve","solves_10","solves_50","solves_100","solves_500","solves_1000","solves_2500","solves_5000","solves_10000","solves_20000","solves_50000","solves_100000"] },
         { label: "Speed — 3x3 ⚡",      ids: ["sub_wca_333","sub60_333","sub45_333","sub30_333","sub20_333","sub15_333","sub10_333","sub5_333","sub4_333","sub3_333"] },
         { label: "Streaks 🔥",           ids: ["streak_3","streak_7","streak_14","streak_30","streak_60","streak_100","streak_365"] },
-        { label: "Days Active 📅",       ids: ["days_7","days_30","days_100","days_365"] },
-        { label: "Solves in a Day 💪",   ids: ["day_10","day_25","day_50","day_100","day_200","day_500"] },
-        { label: "Time Invested ⏳",     ids: ["time_1h","time_10h","time_24h","time_100h"] },
+        { label: "Days Active 📅",       ids: ["days_2","days_7","days_30","days_100","days_200","days_365","days_500","days_1000"] },
+        { label: "Solves in a Day 💪",   ids: ["day_5","day_10","day_25","day_50","day_100","day_200","day_500","day_1000"] },
+        { label: "Time Invested ⏳",     ids: ["time_30m","time_1h","time_5h","time_10h","time_24h","time_50h","time_100h","time_200h","time_500h","time_1000h"] },
         { label: "Multi-Event Days 🎲",  ids: ["multi_event_day","events_day_5","events_day_8","events_day_all"] },
         { label: "Event PBs 🏅",         ids: ["events_3","events_6","events_10","events_all"] },
         { label: "Social 🤝",            ids: ["joined_club","made_club"] },
-        { label: "Competitions 🏁",      ids: ["comp_third","comp_second","comp_win"] },
+        { label: "Competitions 🏁",      ids: ["comp_third","comp_third_3","comp_third_5","comp_third_10","comp_second","comp_second_3","comp_second_5","comp_second_10","comp_win","comp_win_3","comp_win_5","comp_win_10"] },
       ];
 
       let html = '';
