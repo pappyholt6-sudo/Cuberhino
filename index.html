@@ -3098,6 +3098,15 @@
               <label for="timesSearchInput">Search</label>
               <input id="timesSearchInput" class="select times-search" type="text" placeholder="Search time, notes, or scramble" />
             </div>
+            <div class="times-field">
+              <label for="timesSortSelect">Sort</label>
+              <select id="timesSortSelect" class="select">
+                <option value="date-desc">Date (newest)</option>
+                <option value="date-asc">Date (oldest)</option>
+                <option value="time-asc">Time (fastest)</option>
+                <option value="time-desc">Time (slowest)</option>
+              </select>
+            </div>
           </div>
 
           <div class="times-list-card">
@@ -4359,6 +4368,7 @@
     const timesEventFilterEl = document.getElementById("timesEventFilter");
     const timesSessionFilterEl = document.getElementById("timesSessionFilter");
     const timesSearchInputEl = document.getElementById("timesSearchInput");
+    const timesSortSelectEl = document.getElementById("timesSortSelect");
     const timesCountBadgeEl = document.getElementById("timesCountBadge");
     const timesMetaEl = document.getElementById("timesMeta");
     const timesListEl = document.getElementById("timesList");
@@ -10077,7 +10087,13 @@
           });
         }
       }
-      return entries.sort((a,b) => new Date(b.solve.createdAt) - new Date(a.solve.createdAt));
+      const sort = state.timesSort || 'date-desc';
+      return entries.sort((a, b) => {
+        if (sort === 'date-asc')  return new Date(a.solve.createdAt) - new Date(b.solve.createdAt);
+        if (sort === 'time-asc')  return (a.solve.baseTimeMs ?? a.solve.time ?? 0) - (b.solve.baseTimeMs ?? b.solve.time ?? 0);
+        if (sort === 'time-desc') return (b.solve.baseTimeMs ?? b.solve.time ?? 0) - (a.solve.baseTimeMs ?? a.solve.time ?? 0);
+        return new Date(b.solve.createdAt) - new Date(a.solve.createdAt); // date-desc
+      });
     }
 
     function renderTimesSessionFilterOptions() {
@@ -10094,6 +10110,7 @@
       timesEventFilterEl.value = EVENTS.some(e => e.id === currentEventFilter) ? currentEventFilter : 'all';
       renderTimesSessionFilterOptions();
       timesSearchInputEl.value = state.timesSearch || '';
+      if (timesSortSelectEl) timesSortSelectEl.value = state.timesSort || 'date-desc';
     }
 
     function updateTimesSelectBar() {
@@ -10247,10 +10264,11 @@
       const gridEl     = document.getElementById("achGrid");
       if (!gridEl) return;
 
-      // Compute purely from current solve data — achievements reflect what you have NOW,
-      // not what you had in the past. Deleting solves can un-earn achievements.
       const achData = computeAchievementData();
-      const earned = ACHIEVEMENTS.filter(a => a.check(achData)).map(a => a.id);
+      const liveEarned = ACHIEVEMENTS.filter(a => a.check(achData)).map(a => a.id);
+      // Union with profile-seeded earned list so social/club achievements that depend
+      // on Firebase data (clubs, comps) still show on reload before that data loads.
+      const earned = [...new Set([...liveEarned, ...(state.earnedAchievements || [])])];
       const pts     = totalAchievementPoints(earned);
       const tier    = getLeagueTier(pts);
       const nextTier = LEAGUES[LEAGUES.indexOf(tier) + 1];
@@ -11051,6 +11069,7 @@
     timesEventFilterEl?.addEventListener("change", () => { state.timesEventFilter = timesEventFilterEl.value; state.timesSessionFilter = "all"; renderTimesView(); });
     timesSessionFilterEl?.addEventListener("change", () => { state.timesSessionFilter = timesSessionFilterEl.value; renderTimesView(); });
     timesSearchInputEl?.addEventListener("input", () => { state.timesSearch = timesSearchInputEl.value; renderTimesView(); });
+    timesSortSelectEl?.addEventListener("change", () => { state.timesSort = timesSortSelectEl.value; renderTimesView(); });
 
     document.getElementById('timesSelectModeBtn')?.addEventListener('click', () => {
       timesSelectMode = !timesSelectMode;
