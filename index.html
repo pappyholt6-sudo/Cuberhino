@@ -5072,6 +5072,10 @@
 
     let allClubs = [];
     let clubMembershipIds = new Set();
+    function persistClubMemberships() {
+      if (!db || !state.currentUser) return;
+      try { updateDoc(doc(db,'profiles',state.currentUser.uid), { clubMembershipIds: Array.from(clubMembershipIds) }); } catch {}
+    }
     let clubsFilterMode = 'all';
     let selectedClubId = null;
     let selectedClubTab = 'discussion';
@@ -5196,6 +5200,8 @@
         renderClubsList();
         updateClubsNavDot();
         setupClubMemberListeners();
+        // Persist memberships so they load correctly on next page load (before clubs tab is visited)
+        persistClubMemberships();
         // Sync achievements now that clubMembershipIds is populated (awards joined_club etc.)
         if (state.currentUser) syncAchievements();
         // Retroactively award "Founder" achievement if user created any club
@@ -5656,6 +5662,7 @@
       });
       await setDoc(doc(db,'clubs',clubId), { memberCount: increment(1) }, { merge:true });
       clubMembershipIds.add(clubId);
+      persistClubMemberships();
       const idx = allClubs.findIndex(c => c.id === clubId);
       if (idx !== -1) allClubs[idx].memberCount = (allClubs[idx].memberCount||0)+1;
     }
@@ -5664,6 +5671,7 @@
       if (!state.currentUser) return;
       await deleteDoc(doc(db,'clubs',clubId,'members',state.currentUser.uid));
       clubMembershipIds.delete(clubId);
+      persistClubMemberships();
       try {
         await setDoc(doc(db,'clubs',clubId), { memberCount: increment(-1) }, { merge:true });
         const idx = allClubs.findIndex(c => c.id === clubId);
@@ -5684,6 +5692,7 @@
       });
       await deleteDoc(doc(db,'clubs',clubId,'invites',state.currentUser.uid));
       clubMembershipIds.add(clubId);
+      persistClubMemberships();
       try {
         await setDoc(doc(db,'clubs',clubId), { memberCount: increment(1) }, { merge:true });
         const idx = allClubs.findIndex(c => c.id === clubId);
@@ -7246,6 +7255,7 @@
       });
       allClubs.unshift({ id: clubRef.id, name, description: description||'', memberCount: 1, createdBy: state.currentUser.uid });
       clubMembershipIds.add(clubRef.id);
+      persistClubMemberships();
       // Award "Founder" achievement flag
       if (!state.socialFlags.madeClub) {
         state.socialFlags.madeClub = true;
@@ -7716,6 +7726,9 @@
                 updateTopbarAvatar(avatarUrl || defaultAvatarUrl(username));
                 // Load social achievement flags from profile
                 if (socialFlags) state.socialFlags = { ...state.socialFlags, ...socialFlags };
+                // Load club memberships so achievements compute correctly before clubs tab is opened
+                const savedClubs = profileSnap.data().clubMembershipIds;
+                if (Array.isArray(savedClubs) && savedClubs.length) clubMembershipIds = new Set(savedClubs);
                 // Seed earnedAchievements from profile BEFORE syncAchievements so toasts
                 // only fire for achievements earned in THIS session, not every reload.
                 const profileAchs = profileSnap.data().achievements || [];
@@ -9711,9 +9724,10 @@
 
     function historyEventData() {
       const times = new Map();
-      for (const ev of EVENTS) times.set(ev.label, 0);
       for (const solve of getAllSolvesWithEvent()) {
-        times.set(solve.eventLabel, (times.get(solve.eventLabel) || 0) + (Number(solve.baseTimeMs) || 0));
+        if (solve.penalty === 'DNF') continue;
+        const ms = (solve.baseTimeMs ?? solve.time ?? 0) + (solve.penalty === '+2' ? 2000 : 0);
+        times.set(solve.eventLabel, (times.get(solve.eventLabel) || 0) + ms);
       }
       return Array.from(times.entries())
         .map(([label, totalMs]) => ({ label, totalMs }))
