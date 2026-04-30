@@ -212,13 +212,23 @@
 
     .tool-toggle-card{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;padding:0;cursor:pointer;background:var(--panel-2);transition:border-color .15s,background .15s;overflow:hidden;}
     .tool-manage-list{display:flex;flex-direction:column;gap:2px;}
-    .tool-manage-header{display:grid;grid-template-columns:1fr 40px 72px;gap:8px;padding:4px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
-    .tool-manage-row{display:grid;grid-template-columns:1fr 40px 72px;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);}
+    .tool-manage-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);padding:10px 8px 4px;margin-top:4px;}
+    .tool-manage-header{display:grid;grid-template-columns:1fr 36px 80px 62px;gap:6px;padding:4px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
+    .tool-manage-row{display:grid;grid-template-columns:1fr 36px 80px 62px;gap:6px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);}
     .tool-manage-label{display:flex;align-items:center;gap:7px;font-size:13px;}
     .tool-manage-icon{font-size:16px;line-height:1;}
     .tool-manage-check{display:flex;justify-content:center;align-items:center;}
     .tool-manage-check input{width:16px;height:16px;cursor:pointer;accent-color:var(--accent);}
-    .tool-manage-slot{font-size:12px;padding:3px 4px;}
+    .tool-manage-area,.tool-manage-slot{font-size:12px;padding:3px 4px;}
+    .side-tool-zone{flex:0 0 auto;padding:0 12px 8px;border-bottom:1px solid var(--line);}
+    .side-tool-zone.hidden{display:none;}
+    .side-tool-zone .tool-slots{display:flex;flex-direction:column;gap:6px;}
+    .side-tool-zone .tool-slot{min-width:0;}
+    .side-tool-zone .tool-card{min-width:0;}
+    .middle-tool-zone{flex:0 0 auto;overflow-x:auto;border-bottom:1px solid var(--line);}
+    .middle-tool-zone.hidden{display:none;}
+    .middle-tool-zone .tool-slots{display:flex;flex-direction:row;gap:8px;padding:8px;min-height:160px;}
+    .middle-tool-zone .tool-slot{min-width:220px;flex:1;}
     .tool-toggle-card input{display:none;}
     .tool-toggle-card:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel-2));}
     .tool-toggle-body{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;width:100%;text-align:center;}
@@ -3058,6 +3068,7 @@
 
         <div class="session-stats" id="sessionStats"></div>
       </div>
+      <div class="side-tool-zone hidden" id="sideToolZone"><div class="tool-slots" id="sideToolSlots"></div></div>
       <div class="solves" id="solveList"></div>
     </aside>
     <div class="sidebar-resizer" id="sidebarResizer" aria-hidden="true"></div>
@@ -3087,6 +3098,7 @@
           <div class="stats top-hide" id="stats"></div>
         </div>
 
+        <div class="middle-tool-zone hidden" id="middleToolZone"><div class="tool-slots" id="middleToolSlots"></div></div>
         <div class="tool-dock-resizer" id="toolDockResizer" aria-hidden="true"></div>
         <div class="tool-dock" id="toolDock">
           <div class="tool-slots" id="toolSlots">
@@ -3676,35 +3688,41 @@
         <fieldset>
           <legend>Tools</legend>
           <div class="tool-manage-list">
-            <div class="tool-manage-header"><span>Tool</span><span>Show</span><span>Position</span></div>
+            <div class="tool-manage-header"><span>Tool</span><span>Show</span><span>Area</span><span>Pos</span></div>
             <div class="tool-manage-row">
               <span class="tool-manage-label"><span class="tool-manage-icon">📈</span>Time Trend</span>
               <label class="tool-manage-check"><input type="checkbox" id="showTrendTool" /></label>
+              <select class="select tool-manage-area" id="trendToolArea"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="side">Side</option></select>
               <select class="select tool-manage-slot" id="trendToolSlot"><option value="slot1">1st</option><option value="slot2">2nd</option><option value="slot3">3rd</option><option value="slot4">4th</option><option value="slot5">5th</option><option value="slot6">6th</option></select>
             </div>
             <div class="tool-manage-row">
               <span class="tool-manage-label"><span class="tool-manage-icon">📊</span>Distribution</span>
               <label class="tool-manage-check"><input type="checkbox" id="showDistributionTool" /></label>
+              <select class="select tool-manage-area" id="distributionToolArea"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="side">Side</option></select>
               <select class="select tool-manage-slot" id="distributionToolSlot"><option value="slot1">1st</option><option value="slot2">2nd</option><option value="slot3">3rd</option><option value="slot4">4th</option><option value="slot5">5th</option><option value="slot6">6th</option></select>
             </div>
             <div class="tool-manage-row">
               <span class="tool-manage-label"><span class="tool-manage-icon">🎲</span>Draw Scramble</span>
               <label class="tool-manage-check"><input type="checkbox" id="showDrawScrambleTool" /></label>
+              <select class="select tool-manage-area" id="drawScrambleToolArea"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="side">Side</option></select>
               <select class="select tool-manage-slot" id="drawScrambleToolSlot"><option value="slot1">1st</option><option value="slot2">2nd</option><option value="slot3">3rd</option><option value="slot4">4th</option><option value="slot5">5th</option><option value="slot6">6th</option></select>
             </div>
             <div class="tool-manage-row">
               <span class="tool-manage-label"><span class="tool-manage-icon">🔀</span>Scramble Gen</span>
               <label class="tool-manage-check"><input type="checkbox" id="showScrambleGenTool" /></label>
+              <select class="select tool-manage-area" id="scrambleGenToolArea"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="side">Side</option></select>
               <select class="select tool-manage-slot" id="scrambleGenToolSlot"><option value="slot1">1st</option><option value="slot2">2nd</option><option value="slot3">3rd</option><option value="slot4">4th</option><option value="slot5">5th</option><option value="slot6">6th</option></select>
             </div>
             <div class="tool-manage-row">
               <span class="tool-manage-label"><span class="tool-manage-icon">📡</span>Bluetooth Timer</span>
               <label class="tool-manage-check"><input type="checkbox" id="showBluetoothToolTools" /></label>
+              <select class="select tool-manage-area" id="bluetoothToolArea"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="side">Side</option></select>
               <select class="select tool-manage-slot" id="bluetoothToolSlotTools"><option value="slot1">1st</option><option value="slot2">2nd</option><option value="slot3">3rd</option><option value="slot4">4th</option><option value="slot5">5th</option><option value="slot6">6th</option></select>
             </div>
             <div class="tool-manage-row">
               <span class="tool-manage-label"><span class="tool-manage-icon">🕐</span>Recent Solves</span>
               <label class="tool-manage-check"><input type="checkbox" id="showRecentTool" /></label>
+              <select class="select tool-manage-area" id="recentToolArea"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="side">Side</option></select>
               <select class="select tool-manage-slot" id="recentToolSlot"><option value="slot1">1st</option><option value="slot2">2nd</option><option value="slot3">3rd</option><option value="slot4">4th</option><option value="slot5">5th</option><option value="slot6">6th</option></select>
             </div>
           </div>
@@ -4131,12 +4149,12 @@
         clickAction: "next"
       },
       tools: {
-        trend: { enabled: true, slot: "slot1" },
-        distribution: { enabled: false, slot: "slot2" },
-        drawScramble: { enabled: false, slot: "slot3" },
-        scrambleGen: { enabled: false, slot: "slot4" },
-        bluetooth: { enabled: false, slot: "slot5" },
-        recent: { enabled: false, slot: "slot6" }
+        trend: { enabled: true, slot: "slot1", area: "bottom" },
+        distribution: { enabled: false, slot: "slot2", area: "bottom" },
+        drawScramble: { enabled: false, slot: "slot3", area: "bottom" },
+        scrambleGen: { enabled: false, slot: "slot4", area: "bottom" },
+        bluetooth: { enabled: false, slot: "slot5", area: "bottom" },
+        recent: { enabled: false, slot: "slot6", area: "bottom" }
       },
       theme: {
         lightMode: false,
@@ -4532,6 +4550,16 @@
     const scrambleGenToolSlotEl = document.getElementById("scrambleGenToolSlot");
     const bluetoothToolSlotToolsEl = document.getElementById("bluetoothToolSlotTools");
     const recentToolSlotEl = document.getElementById("recentToolSlot");
+    const trendToolAreaEl = document.getElementById("trendToolArea");
+    const distributionToolAreaEl = document.getElementById("distributionToolArea");
+    const drawScrambleToolAreaEl = document.getElementById("drawScrambleToolArea");
+    const scrambleGenToolAreaEl = document.getElementById("scrambleGenToolArea");
+    const bluetoothToolAreaEl = document.getElementById("bluetoothToolArea");
+    const recentToolAreaEl = document.getElementById("recentToolArea");
+    const sideToolZoneEl = document.getElementById("sideToolZone");
+    const sideToolSlotsEl = document.getElementById("sideToolSlots");
+    const middleToolZoneEl = document.getElementById("middleToolZone");
+    const middleToolSlotsEl = document.getElementById("middleToolSlots");
 
     const lightModeEl    = document.getElementById("lightMode");
     const accentColorEl  = document.getElementById("accentColor");
@@ -8088,6 +8116,12 @@
       if (scrambleGenToolSlotEl) scrambleGenToolSlotEl.value = settings.tools.scrambleGen.slot;
       if (bluetoothToolSlotToolsEl) bluetoothToolSlotToolsEl.value = settings.tools.bluetooth.slot;
       if (recentToolSlotEl) recentToolSlotEl.value = settings.tools.recent.slot;
+      if (trendToolAreaEl) trendToolAreaEl.value = settings.tools.trend.area || "bottom";
+      if (distributionToolAreaEl) distributionToolAreaEl.value = settings.tools.distribution.area || "bottom";
+      if (drawScrambleToolAreaEl) drawScrambleToolAreaEl.value = settings.tools.drawScramble.area || "bottom";
+      if (scrambleGenToolAreaEl) scrambleGenToolAreaEl.value = settings.tools.scrambleGen.area || "bottom";
+      if (bluetoothToolAreaEl) bluetoothToolAreaEl.value = settings.tools.bluetooth.area || "bottom";
+      if (recentToolAreaEl) recentToolAreaEl.value = settings.tools.recent.area || "bottom";
 
       lightModeEl.checked = settings.theme.lightMode;
       accentColorEl.value = settings.theme.accentColor;
@@ -8153,6 +8187,12 @@
       if (scrambleGenToolSlotEl) settings.tools.scrambleGen.slot = scrambleGenToolSlotEl.value;
       if (bluetoothToolSlotToolsEl) settings.tools.bluetooth.slot = bluetoothToolSlotToolsEl.value;
       if (recentToolSlotEl) settings.tools.recent.slot = recentToolSlotEl.value;
+      if (trendToolAreaEl) settings.tools.trend.area = trendToolAreaEl.value;
+      if (distributionToolAreaEl) settings.tools.distribution.area = distributionToolAreaEl.value;
+      if (drawScrambleToolAreaEl) settings.tools.drawScramble.area = drawScrambleToolAreaEl.value;
+      if (scrambleGenToolAreaEl) settings.tools.scrambleGen.area = scrambleGenToolAreaEl.value;
+      if (bluetoothToolAreaEl) settings.tools.bluetooth.area = bluetoothToolAreaEl.value;
+      if (recentToolAreaEl) settings.tools.recent.area = recentToolAreaEl.value;
 
       settings.theme.lightMode = lightModeEl.checked;
       settings.theme.accentColor = accentColorEl.value;
@@ -8693,12 +8733,12 @@
     window._trendZoomIn = () => {
       const idx = TREND_WINDOWS.indexOf(state.trendWindow);
       const next = TREND_WINDOWS[idx - 1];
-      if (next != null) { state.trendWindow = next; renderTools(); }
+      if (next != null) { state.trendWindow = next; renderAllTools(); }
     };
     window._trendZoomOut = () => {
       const idx = TREND_WINDOWS.indexOf(state.trendWindow);
       const next = TREND_WINDOWS[idx + 1];
-      if (next != null) { state.trendWindow = next; renderTools(); }
+      if (next != null) { state.trendWindow = next; renderAllTools(); }
     };
 
     function renderTrendSvg() {
@@ -8879,13 +8919,18 @@
     }
 
     function normalizeVisibleToolSlots() {
-      const enabledIds = Object.keys(settings.tools || {}).filter(id => settings.tools[id]?.enabled);
-      enabledIds.sort((a, b) => {
-        const diff = slotNumber(settings.tools[a]?.slot) - slotNumber(settings.tools[b]?.slot);
-        return diff || a.localeCompare(b);
-      });
-      enabledIds.slice(0, 6).forEach((id, index) => {
-        settings.tools[id].slot = `slot${index + 1}`;
+      ["bottom", "middle", "side"].forEach(area => {
+        const ids = Object.keys(settings.tools || {}).filter(id => {
+          const t = settings.tools[id];
+          return t?.enabled && (t.area || "bottom") === area;
+        });
+        ids.sort((a, b) => {
+          const diff = slotNumber(settings.tools[a]?.slot) - slotNumber(settings.tools[b]?.slot);
+          return diff || a.localeCompare(b);
+        });
+        ids.slice(0, 6).forEach((id, index) => {
+          settings.tools[id].slot = `slot${index + 1}`;
+        });
       });
     }
 
@@ -9060,10 +9105,17 @@
       });
     }
 
-    function renderTools() {
-      normalizeVisibleToolSlots();
+    const TOOL_TITLES = {
+      trend: "Time Trend",
+      distribution: "Time Distribution",
+      drawScramble: "Draw Scramble",
+      scrambleGen: "Scramble Generator",
+      bluetooth: "Bluetooth Timer",
+      recent: "Recent Solves"
+    };
 
-      const visibleTools = [
+    function toolsForArea(area) {
+      return [
         ["trend", settings.tools.trend],
         ["distribution", settings.tools.distribution],
         ["drawScramble", settings.tools.drawScramble],
@@ -9071,46 +9123,42 @@
         ["bluetooth", settings.tools.bluetooth],
         ["recent", settings.tools.recent]
       ]
-        .filter(([, cfg]) => cfg && cfg.enabled)
+        .filter(([, cfg]) => cfg && cfg.enabled && (cfg.area || "bottom") === area)
         .sort((a, b) => slotNumber(a[1].slot) - slotNumber(b[1].slot))
         .slice(0, 6);
+    }
 
-      const slotCount = Math.max(visibleTools.length, 1);
-      toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, minmax(220px, 1fr))`;
-      toolSlotsEl.innerHTML = "";
-
-      const titles = {
-        trend: "Time Trend",
-        distribution: "Time Distribution",
-        drawScramble: "Draw Scramble",
-        scrambleGen: "Scramble Generator",
-        bluetooth: "Bluetooth Timer",
-        recent: "Recent Solves"
-      };
-
-      visibleTools.forEach(([toolId], index) => {
+    function buildToolSlots(slotsEl, tools, { minColWidth = 220 } = {}) {
+      slotsEl.innerHTML = "";
+      tools.forEach(([toolId], index) => {
         const col = index + 1;
         const slotEl = document.createElement("div");
         slotEl.className = "tool-slot";
         slotEl.dataset.slot = `slot${col}`;
-        slotEl.style.gridColumn = String(col);
         slotEl.innerHTML = `<div class="tool-slot-label">Slot ${col}</div>`;
-
         const card = document.createElement("div");
         card.className = "tool-card";
         card.dataset.toolId = toolId;
         card.innerHTML = `
           <div class="tool-header">
-            <div class="tool-title">${titles[toolId] || toolId}</div>
+            <div class="tool-title">${TOOL_TITLES[toolId] || toolId}</div>
             <div style="color:var(--muted);font-size:11px;">Drag</div>
           </div>
           <div class="tool-body">${toolBodyHtml(toolId)}</div>
         `;
         slotEl.appendChild(card);
-        toolSlotsEl.appendChild(slotEl);
+        slotsEl.appendChild(slotEl);
       });
+    }
 
-      const noTools = visibleTools.length === 0;
+    function renderTools() {
+      normalizeVisibleToolSlots();
+      const tools = toolsForArea("bottom");
+      const slotCount = Math.max(tools.length, 1);
+      toolSlotsEl.style.gridTemplateColumns = `repeat(${slotCount}, minmax(220px, 1fr))`;
+      buildToolSlots(toolSlotsEl, tools);
+
+      const noTools = tools.length === 0;
       if (toolDockEl) toolDockEl.classList.toggle('hidden', noTools);
       const resizerEl = document.getElementById('toolDockResizer');
       if (resizerEl) resizerEl.style.display = noTools ? 'none' : '';
@@ -9127,6 +9175,32 @@
         }
       }
       requestAnimationFrame(() => updateToolDockCompaction());
+    }
+
+    function renderMiddleTools() {
+      if (!middleToolZoneEl || !middleToolSlotsEl) return;
+      const tools = toolsForArea("middle");
+      middleToolZoneEl.classList.toggle("hidden", tools.length === 0);
+      if (tools.length === 0) return;
+      buildToolSlots(middleToolSlotsEl, tools);
+      setupToolReorderInteractions(middleToolSlotsEl, { enableHtml5Drag: true, enableTouchDrag: false });
+      hydrateToolBodies();
+    }
+
+    function renderSideTools() {
+      if (!sideToolZoneEl || !sideToolSlotsEl) return;
+      const tools = toolsForArea("side");
+      sideToolZoneEl.classList.toggle("hidden", tools.length === 0);
+      if (tools.length === 0) return;
+      buildToolSlots(sideToolSlotsEl, tools);
+      setupToolReorderInteractions(sideToolSlotsEl, { enableHtml5Drag: true, enableTouchDrag: false });
+      hydrateToolBodies();
+    }
+
+    function renderAllTools() {
+      renderTools();
+      renderMiddleTools();
+      renderSideTools();
     }
 
     function toolBodyHtml(toolId) {
@@ -9227,7 +9301,7 @@
     function setBluetoothDisconnectedStatus(message = "Disconnected") {
       state.smartPuzzle = null;
       state.bluetoothStatus = message;
-      renderTools();
+      renderAllTools();
     }
 
     function attachSmartPuzzleDisconnectHandlers(puzzle) {
@@ -9554,7 +9628,7 @@
       try { puzzle?.experimentalBluetoothDevice?.gatt?.disconnect?.(); } catch {}
 
       state.bluetoothStatus = "Disconnected";
-      renderTools();
+      renderAllTools();
     }
 
     // 2x2 random-state UFR scramble generator (no network, U/F/R only)
@@ -9682,13 +9756,13 @@
       state.scrambleGenEvent = eventId;
       state.scrambleGenCount = n;
       state.scrambleGenLoading = true;
-      renderTools();
+      renderAllTools();
       try {
         const results = await Promise.all(Array.from({ length: n }, () => oneScramble(eventId)));
         state.scrambleGenScrambles = results;
       } finally {
         state.scrambleGenLoading = false;
-        renderTools();
+        renderAllTools();
         if (n === 1) {
           const viz = document.getElementById('scrgenViz');
           if (viz) {
@@ -9781,14 +9855,14 @@
           } catch (error) {
             state.smartPuzzle = null;
             state.bluetoothStatus = bluetoothErrorMessage(error);
-            renderTools();
+            renderAllTools();
             return;
           }
 
           if (!puzzle) {
             state.smartPuzzle = null;
             state.bluetoothStatus = "Connection failed: no device returned";
-            renderTools();
+            renderAllTools();
             return;
           }
 
@@ -9796,7 +9870,7 @@
           attachSmartPuzzleDisconnectHandlers(puzzle);
           attachBluetoothTimerSolveHandlers(puzzle);
           state.bluetoothStatus = `Connected to ${bluetoothDeviceName(puzzle)}`;
-          renderTools();
+          renderAllTools();
         };
       }
       // Auto-scroll trend chart to latest (rightmost) solve
@@ -9815,10 +9889,13 @@
       const moving = toolEntries[toolId];
       if (!moving || !moving.enabled) return;
 
+      const movingArea = moving.area || "bottom";
       const slotIndex = Math.max(1, Math.min(6, slotNumber(slot)));
       const targetSlot = `slot${slotIndex}`;
       const occupantId = Object.keys(toolEntries).find(id =>
-        id !== toolId && toolEntries[id].enabled && toolEntries[id].slot === targetSlot
+        id !== toolId && toolEntries[id].enabled &&
+        (toolEntries[id].area || "bottom") === movingArea &&
+        toolEntries[id].slot === targetSlot
       );
 
       const oldSlot = moving.slot;
@@ -9827,7 +9904,7 @@
 
       normalizeVisibleToolSlots();
       saveData();
-      renderTools();
+      renderAllTools();
       syncSettingsUI();
     }
 
@@ -10651,7 +10728,7 @@
       renderSessionStats();
       renderSolves();
       renderStats();
-      renderTools();
+      renderAllTools();
       renderMobileTimesSheet();
       historyViewDirty = true;
       timesViewDirty   = true;
@@ -11076,7 +11153,7 @@
           scrambleEl.textContent = "No scramble — custom event";
           state.scrambleLoading = false;
           updateDrawScramblePlayer();
-          renderTools();
+          renderAllTools();
           return;
         }
         // Has a puzzle assigned — map puzzle string to event ID for scrambleWithTimeout
@@ -11100,7 +11177,7 @@
           updateDrawScramblePlayer();
         } finally {
           state.scrambleLoading = false;
-          renderTools();
+          renderAllTools();
           requestAnimationFrame(() => updateToolDockCompaction());
         }
         return;
@@ -11142,7 +11219,7 @@
         updateDrawScramblePlayer();
       } finally {
         state.scrambleLoading = false;
-        renderTools();
+        renderAllTools();
         requestAnimationFrame(() => updateToolDockCompaction());
       }
     }
