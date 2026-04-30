@@ -10582,7 +10582,7 @@
       for (const [eventId, bundle] of Object.entries(data.sessionsByEvent || {})) {
         for (const session of (bundle.sessions || [])) {
           for (const solve of (session.solves || [])) {
-            if (!events.has(eventId)) events.set(eventId, bundle.label || eventId);
+            if (!events.has(eventId)) events.set(eventId, ALL_COMP_EVENTS.find(e => e.id === eventId)?.label || eventId);
             if (solve.createdAt) months.add(solve.createdAt.slice(0,7));
           }
         }
