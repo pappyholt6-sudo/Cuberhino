@@ -9619,12 +9619,22 @@
     })();
     _222gen.init(); // start building tables in background immediately
 
+    function generateClockScramble() {
+      const d = () => (Math.floor(Math.random() * 6) + 1) + (Math.random() < 0.5 ? '+' : '-');
+      const front = ['UR','DR','DL','UL','U','R','D','L','ALL'].map(k => k + d());
+      const back  = ['U','R','D','L','ALL'].map(k => k + d());
+      return [...front, 'y2', ...back].join(' ');
+    }
+
     function scrambleWithTimeout(id, ms = 6000) {
       if (id === '222') {
         return Promise.race([
           _222gen.scramble(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
         ]);
+      }
+      if (id === 'clock') {
+        return Promise.resolve(generateClockScramble());
       }
       return Promise.race([
         randomScrambleForEvent(id).then(a => a.toString()),
