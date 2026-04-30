@@ -10882,9 +10882,10 @@
       if (m3) {
         const n = parseInt(m3[1], 10);
         const cs = n % 100;
-        const secTotal = Math.floor(n / 100);
-        const sec = secTotal % 60;
-        const min = Math.floor(secTotal / 60);
+        const rest = Math.floor(n / 100);
+        const sec = rest % 100;
+        const min = Math.floor(rest / 100);
+        if (sec >= 60) return null;
         return (min * 60 + sec) * 1000 + cs * 10;
       }
       return null;
