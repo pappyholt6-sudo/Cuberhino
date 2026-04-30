@@ -11043,9 +11043,10 @@
           renderTools();
           return;
         }
-        // Has a puzzle assigned — fall through to normal scramble generation using that puzzle
+        // Has a puzzle assigned — map puzzle string to event ID for scrambleWithTimeout
+        const ceEventId = (ALL_COMP_EVENTS.find(e => e.puzzle === cePuzzle || e.id === cePuzzle))?.id || cePuzzle;
         try {
-          const alg = await scrambleWithTimeout(cePuzzle, 8000);
+          const alg = await scrambleWithTimeout(ceEventId, 8000);
           state.currentScramble = alg;
           if (state.scrambleHistoryIdx < state.scrambleHistory.length - 1) {
             state.scrambleHistory = state.scrambleHistory.slice(0, state.scrambleHistoryIdx + 1);
